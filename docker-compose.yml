@@ -1,0 +1,84 @@
+networks:
+  fsd-network:
+    driver: bridge
+    name: fsd-network
+
+volumes:
+  pgadmin_data:
+
+services:
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: fsd-pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - ./pgadmin/servers.json:/pgadmin4/servers.json
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "5434:80"
+    depends_on:
+      - crud_db
+    networks:
+      - fsd-network
+
+  frontend:
+    build: ./frontend
+    image: fsd/frontend:1.0
+    container_name: fsd-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    networks:
+      - fsd-network
+  
+  crud_service:
+    build: ./backend/crud_service
+    image: fsd/crud_service:1.0
+    container_name: fsd-crud-service
+    restart: always
+    ports:
+      - "6010:6010"
+    networks:
+      - fsd-network
+    env_file:
+      - .env
+    environment:
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_REGION: ${S3_REGION}
+      CRUD_DATABASE_URL: ${CRUD_DATABASE_URL}
+    depends_on:
+      - crud_db
+
+  crud_db:
+    image: postgres:15
+    container_name: fsd-crud-db
+    restart: always
+    networks: 
+      - fsd-network
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: crud_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./backend/crud_service/db:/docker-entrypoint-initdb.d
+    
+  crew_service:
+    build: ./backend/crew_service
+    image: fsd/crew_service:1.0
+    container_name: fsd-crew-service
+    restart: always
+    ports:
+      - "6011:6011"
+    networks:
+      - fsd-network
+    env_file:
+      - .env
