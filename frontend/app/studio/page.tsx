@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 
 interface Card {
@@ -11,12 +12,16 @@ interface Card {
 }
 
 export default function StudioPage() {
+  const { isAuthenticated, token } = useAuth();
   const router = useRouter();
   const [cards, setCards] = useState<Card[]>([]);
 
   useEffect(() => {
-    const token = localStorage.getItem("fsd_token");
+    // const token = localStorage.getItem("fsd_token");
+    // if (!token) router.push("/auth/login");
     if (!token) router.push("/auth/login");
+    console.log(token);
+    console.log(isAuthenticated);
 
     // Load cards from localStorage
     const savedCards = localStorage.getItem("studio_cards");

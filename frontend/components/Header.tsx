@@ -1,14 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import LogoutButton from "./LogoutButton";
 
 export default function Header() {
   const router = useRouter();
 
-  const handleLogout = () => {
-    localStorage.removeItem("fsd_token");
-    router.push("/");
-  };
+  // const handleLogout = () => {
+  //   localStorage.removeItem("fsd_token");
+  //   router.push("/");
+  // };
 
   return (
     <header className="w-full flex items-center justify-between py-4 px-6 border-b border-border bg-card">
@@ -22,12 +23,7 @@ export default function Header() {
         >
           Dashboard
         </button>
-        <button
-          onClick={handleLogout}
-          className="text-sm px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:opacity-90 transition-opacity"
-        >
-          Logout
-        </button>
+        <LogoutButton />
       </nav>
     </header>
   );
