@@ -25,12 +25,12 @@ def create_app():
     )
 
     # --- S3 Client Initialization ---
-    _app.state.s3_client = boto3.client(
-        "s3",
-        region_name=settings.s3_region, # Match Pydantic variable name
-        aws_access_key_id=settings.s3_access_key, # Match Pydantic variable name
-        aws_secret_access_key=settings.s3_secret_key # Match Pydantic variable name
-    )
+    # _app.state.s3_client = boto3.client(
+    #     "s3",
+    #     region_name=settings.s3_region, # Match Pydantic variable name
+    #     aws_access_key_id=settings.s3_access_key, # Match Pydantic variable name
+    #     aws_secret_access_key=settings.s3_secret_key # Match Pydantic variable name
+    # )
 
     # --- Database Initialization (REMOVED) ---
     # try:

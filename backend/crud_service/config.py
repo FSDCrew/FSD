@@ -1,10 +1,12 @@
+from pydantic import computed_field
 from pydantic_settings import BaseSettings
 from typing import Dict, Any
 from pathlib import Path
+import os
 
 current_dir = Path(__file__).parent
 
-project_root = current_dir.parent.parent
+project_root = current_dir.parent
 env_path = project_root / ".env"
 
 class Settings(BaseSettings):
@@ -12,20 +14,36 @@ class Settings(BaseSettings):
     Pydantic settings class to manage application configuration.
     It automatically validates and loads settings from environment variables or a .env file.
     """
-    
+
     # Database settings
     # Pydantic will ensure this is a string. If the env var is missing, it will raise an error.
-    crud_database_url: str
+    # Fetch variables
+
+    DB_USER: str
+    DB_PASSWORD: str
+    DB_HOST: str
+    DB_PORT: str
+    DB_NAME: str
+
+    @computed_field
+    @property
+    def CRUD_DATABASE_URL(self) -> str:
+        return f"postgresql+psycopg2://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
     
+    # Cognito Settings
+    COGNITO_REGION: str
+    COGNITO_USER_POOL_ID: str
+    COGNITO_APP_CLIENT_ID: str
+
     # Static config values can be set directly with their types
     sqlalchemy_track_modifications: bool = False
     sqlalchemy_engine_options: Dict[str, Any] = {'pool_recycle': 299}
 
     # S3 settings
-    s3_bucket_name: str
-    s3_access_key: str
-    s3_secret_key: str
-    s3_region: str
+    # s3_bucket_name: str
+    # s3_access_key: str
+    # s3_secret_key: str
+    # s3_region: str
 
     class Config:
         # This tells Pydantic to look for a .env file to load the settings from,
