@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 export default function Header() {
   const router = useRouter();
@@ -16,18 +17,20 @@ export default function Header() {
         <h1 className="text-xl font-bold">FSD Studio</h1>
       </div>
       <nav className="flex items-center gap-4">
-        <button
+        <Button
           onClick={() => router.push("/studio")}
-          className="text-sm hover:text-primary transition-colors"
+          variant="ghost"
+          size="sm"
         >
           Dashboard
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleLogout}
-          className="text-sm px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:opacity-90 transition-opacity"
+          variant="secondary"
+          size="sm"
         >
           Logout
-        </button>
+        </Button>
       </nav>
     </header>
   );

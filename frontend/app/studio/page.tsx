@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
+import { Button } from "@/components/ui/button";
 
 interface Card {
   id: string;
@@ -50,12 +51,12 @@ export default function StudioPage() {
             <h1 className="text-3xl font-bold mb-2">Studio Dashboard</h1>
             <p className="text-muted-foreground">Manage your cards and projects</p>
           </div>
-          <button
+          <Button
             onClick={handleAddCard}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+            variant="default"
           >
             + Add Crew
-          </button>
+          </Button>
         </div>
 
         {/* Cards Grid */}
@@ -70,12 +71,14 @@ export default function StudioPage() {
                 <h3 className="text-xl font-semibold text-card-foreground group-hover:text-primary transition-colors">
                   {card.title}
                 </h3>
-                <button
+                <Button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDeleteCard(card.id);
                   }}
-                  className="text-muted-foreground hover:text-destructive transition-colors"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground hover:text-destructive"
                   title="Delete card"
                 >
                   <svg
@@ -93,7 +96,7 @@ export default function StudioPage() {
                     <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
                     <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
                   </svg>
-                </button>
+                </Button>
               </div>
               <p className="text-muted-foreground leading-relaxed line-clamp-3">{card.description}</p>
               <div className="mt-4 text-sm text-primary opacity-0 group-hover:opacity-100 transition-opacity">
