@@ -4,3 +4,4 @@ pydantic-settings
 SQLAlchemy
 psycopg2-binary
 boto3
+python-jose[cryptography]
