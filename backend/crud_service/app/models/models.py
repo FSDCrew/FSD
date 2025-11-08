@@ -13,7 +13,7 @@ class TaskBase(BaseModel):
     key: str
     description: str
     expected_output: str
-    order: int | None
+    order: int
     
 class TaskCreate(TaskBase):
     agent_key: str | None = None
@@ -26,7 +26,6 @@ class TaskUpdate(TaskBase):
     id: UUID
     description: str | None = None
     expected_output: str | None = None
-    order: int | None = None
     
 class CrewBase(BaseModel):
     name: str

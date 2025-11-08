@@ -22,7 +22,7 @@ class Crew(Base):
     name = Column(String, nullable=False)
     user_id = Column(PostgresUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     user = relationship("User", back_populates="crews")
-    tasks = relationship("Task", back_populates="crew")
+    tasks = relationship("Task", back_populates="crew", order_by="Task.order")
     crew_runs = relationship("CrewRun", back_populates="crew")
     
 class Task(Base):
