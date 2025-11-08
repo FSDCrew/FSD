@@ -1,6 +1,9 @@
 import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import boto3
+
+from config import settings
 
 from .db.connection import test_connection
 
@@ -15,6 +18,14 @@ def init_routers(app: FastAPI):
     app.include_router(status_router)
     app.include_router(crew_router)
     app.include_router(task_router)
+    
+def init_s3_client(app: FastAPI):
+    app.state.s3_client = boto3.client(
+        "s3",
+        region_name=settings.s3_region,
+        aws_access_key_id=settings.s3_access_key,
+        aws_secret_access_key=settings.s3_secret_key
+    )
     
 async def on_startup():
     try:
@@ -36,6 +47,7 @@ def create_app():
         allow_headers=["*"],
     )
 
+    init_s3_client(app)
     init_routers(app)
 
     return app
