@@ -9,8 +9,9 @@
     "generate:crud-api": "openapi --input http://localhost:8000/openapi.json --output ./lib/api/crud --client fetch"
   },
   "dependencies": {
+    "@radix-ui/react-slot": "^1.2.3",
     "@tanstack/react-query": "^5.90.3",
-    "@xyflow/react": "^12.8.6",
+    "@xyflow/react": "^12.9.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.545.0",
