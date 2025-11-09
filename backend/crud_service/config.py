@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     db_name: str
     db_user: str
     db_password: str
+    
+    # Cognito Settings
+    jwks_url: Optional[str] = None
+    cognito_region: str
+    cognito_user_pool_id: str
+    cognito_app_client_id: str
 
     # S3 settings
     s3_bucket_name: str
@@ -32,6 +38,7 @@ class Settings(BaseSettings):
     @model_validator(mode='after')
     def construct_database_url(self):
         self.crud_database_url = f"postgresql+psycopg://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
+        self.jwks_url = f"https://cognito-idp.{self.cognito_region}.amazonaws.com/{self.cognito_user_pool_id}/.well-known/jwks.json"
         return self
 
 settings = Settings() # type: ignore

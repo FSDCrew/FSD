@@ -11,5 +11,6 @@ dependencies = [
     "greenlet>=3.2.4",
     "psycopg>=3.2.12",
     "pydantic-settings>=2.11.0",
+    "python-jose[cryptography]>=3.5.0",
     "sqlalchemy>=2.0.44",
 ]
