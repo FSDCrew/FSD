@@ -20,6 +20,7 @@ def init_routers(app: FastAPI):
     app.include_router(task_router)
     
 def init_s3_client(app: FastAPI):
+    """Initialize S3 client using settings from config.py"""
     app.state.s3_client = boto3.client(
         "s3",
         region_name=settings.s3_region,

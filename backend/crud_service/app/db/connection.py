@@ -4,16 +4,11 @@ from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import text
+from config import settings
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Fetch database credentials from environment variables
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST", "localhost")
-
-DATABASE_URL = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/crud"
+DATABASE_URL = settings.crud_database_url
+if DATABASE_URL is None:
+    raise ValueError("Database URL is not configured. Check your environment variables.")
 
 engine = create_async_engine(DATABASE_URL, echo=True)
 
