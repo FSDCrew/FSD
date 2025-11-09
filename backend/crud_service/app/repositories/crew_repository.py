@@ -13,9 +13,9 @@ class CrewRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
         
-    async def get_crew_with_tasks(self, crew_id: UUID) -> CrewRead | None:
+    async def get_crew_with_tasks(self, crew_id: UUID, user_id: UUID) -> CrewRead | None:
         """Get a crew from the database with tasks and agents."""
-        query = select(CrewDB).options(selectinload(CrewDB.tasks)).where(CrewDB.id == crew_id)
+        query = select(CrewDB).options(selectinload(CrewDB.tasks)).where(CrewDB.id == crew_id).where(CrewDB.user_id == user_id)
         result = await self.session.execute(query)
         db_crew = result.scalar_one_or_none()
         if not db_crew:
@@ -23,6 +23,7 @@ class CrewRepository:
         
         return CrewRead(
             id=UUID(str(db_crew.id)),
+            user_id=UUID(str(db_crew.user_id)),
             name=str(db_crew.name),
             tasks=[
                 TaskRead(
@@ -38,15 +39,16 @@ class CrewRepository:
             agents=[]
         )
 
-    async def get_crews_with_tasks(self, crew_id: UUID | None = None) -> list[CrewRead]:
+    async def get_crews_with_tasks(self, user_id: UUID) -> list[CrewRead]:
         """Get crews from database with tasks."""
-        query = select(CrewDB).options(selectinload(CrewDB.tasks))
+        query = select(CrewDB).options(selectinload(CrewDB.tasks)).where(CrewDB.user_id == user_id) 
         result = await self.session.execute(query)
         db_crews = result.scalars().all()
         
         return [
             CrewRead(
                 id=UUID(str(db_crew.id)),
+                user_id=UUID(str(db_crew.user_id)),
                 name=str(db_crew.name),
                 tasks=[
                     TaskRead(
@@ -77,6 +79,7 @@ class CrewRepository:
         return CrewRead(
             id=UUID(str(db_crew.id)),
             name=str(db_crew.name),
+            user_id=UUID(str(db_crew.user_id)),
             tasks=[],
             agents=[]
         )
@@ -110,6 +113,7 @@ class CrewRepository:
         return CrewRead(
             id=UUID(str(db_crew.id)),
             name=str(db_crew.name),
+            user_id=UUID(str(db_crew.user_id)),
             tasks=tasks,
             agents=[]
         )

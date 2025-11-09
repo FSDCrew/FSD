@@ -1,9 +1,9 @@
 from uuid import UUID
-from fastapi import APIRouter, Query, Depends, HTTPException
+from fastapi import APIRouter, Query, Depends
 
-from app.models.models import CrewCreate, CrewRead, CrewUpdate
+from app.models.models import CrewBase, CrewRead, CrewUpdate, User
 from app.services.crew_service import CrewService
-from app.dependencies import get_crew_service
+from app.dependencies import get_crew_service, get_current_user
 
 crew_router = APIRouter(
     prefix="/crew",
@@ -17,12 +17,13 @@ crew_router = APIRouter(
 )
 async def get_crews(
     crew_id: UUID | None = Query(None, description="Optional Crew ID to filter"),
+    current_user: User = Depends(get_current_user),
     service: CrewService = Depends(get_crew_service),
 ):
     """Get crews, optionally filtered by crew_id."""
     if crew_id:
-        return await service.get_crew_with_tasks(crew_id)
-    return await service.get_crews_with_tasks()
+        return await service.get_crew_with_tasks(crew_id, current_user.id)
+    return await service.get_crews_with_tasks(current_user.id)
 
 @crew_router.post(
     "/",
@@ -30,11 +31,12 @@ async def get_crews(
     response_model=CrewRead,
 )
 async def create_crew(
-    crew: CrewCreate,
+    crew: CrewBase,
+    current_user: User = Depends(get_current_user),
     service: CrewService = Depends(get_crew_service),
 ):
     """Create a new crew."""
-    return await service.create_crew(crew)
+    return await service.create_crew(crew, current_user.id)
 
 @crew_router.put(
     "/",
@@ -43,7 +45,8 @@ async def create_crew(
 )
 async def update_crew(
     crew: CrewUpdate,
+    current_user: User = Depends(get_current_user),
     service: CrewService = Depends(get_crew_service),
 ):
     """Update an existing crew."""
-    return await service.update_crew(crew)
+    return await service.update_crew(crew, current_user)  

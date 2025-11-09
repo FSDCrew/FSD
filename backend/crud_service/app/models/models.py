@@ -35,6 +35,7 @@ class CrewCreate(CrewBase):
     
 class CrewRead(CrewBase):
     id: UUID
+    user_id: UUID
     tasks: list[TaskRead] 
     agents: list[Agent]
 
