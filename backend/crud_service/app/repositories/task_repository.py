@@ -95,15 +95,6 @@ class TaskRepository:
             order=cast(int, db_task.order)
         )
     
-    async def update_tasks(self, tasks: list[TaskUpdate]) -> list[TaskRead]:
-        """Update multiple tasks in the database."""
-        updated_tasks = []
-        for task_patch in tasks:
-            updated_task = await self.update_task(task_patch)
-            if updated_task:
-                updated_tasks.append(updated_task)
-        return updated_tasks
-    
     async def replace_tasks_by_crew(self, crew_id: UUID, tasks: list[TaskCreate]) -> list[TaskRead]:
         """Replace all tasks for a crew."""
         query = select(TaskDB).where(TaskDB.crew_id == crew_id)
