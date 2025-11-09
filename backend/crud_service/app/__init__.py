@@ -10,6 +10,7 @@ from .db.connection import test_connection
 from .api.status_endpoints import status_router
 from .api.crew_endpoints import crew_router
 from .api.task_endpoints import task_router
+from .api.user_endpoints import user_router
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ def init_routers(app: FastAPI):
     app.include_router(status_router)
     app.include_router(crew_router)
     app.include_router(task_router)
+    app.include_router(user_router)
     
 def init_s3_client(app: FastAPI):
     """Initialize S3 client using settings from config.py"""
