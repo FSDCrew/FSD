@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CrewCreate } from '../models/CrewCreate';
+import type { CrewBase } from '../models/CrewBase';
 import type { CrewRead } from '../models/CrewRead';
 import type { CrewUpdate } from '../models/CrewUpdate';
 import type { CancelablePromise } from '../core/CancelablePromise';
@@ -38,7 +38,7 @@ export class CrewService {
      * @throws ApiError
      */
     public static createCrewCrewPost(
-        requestBody: CrewCreate,
+        requestBody: CrewBase,
     ): CancelablePromise<CrewRead> {
         return __request(OpenAPI, {
             method: 'POST',

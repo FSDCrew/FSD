@@ -17,14 +17,14 @@ export class TaskService {
      * @returns TaskRead Successful Response
      * @throws ApiError
      */
-    public static createTaskTaskPost(
+    public static createTaskTaskCrewIdPost(
         crewId: string,
         requestBody: TaskCreate,
     ): CancelablePromise<TaskRead> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/task/',
-            query: {
+            url: '/task/{crew_id}',
+            path: {
                 'crew_id': crewId,
             },
             body: requestBody,
@@ -37,16 +37,21 @@ export class TaskService {
     /**
      * Update One Task
      * Update one task.
+     * @param crewId Crew ID to associate the task with
      * @param requestBody
      * @returns TaskRead Successful Response
      * @throws ApiError
      */
-    public static updateOneTaskTaskPatch(
+    public static updateOneTaskTaskCrewIdPatch(
+        crewId: string,
         requestBody: TaskUpdate,
     ): CancelablePromise<Array<TaskRead>> {
         return __request(OpenAPI, {
             method: 'PATCH',
-            url: '/task/',
+            url: '/task/{crew_id}',
+            path: {
+                'crew_id': crewId,
+            },
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -57,18 +62,18 @@ export class TaskService {
     /**
      * Replace All Tasks For Crew
      * Replace all tasks for a crew.
-     * @param crewId
+     * @param crewId Crew ID to associate the task with
      * @param requestBody
      * @returns TaskRead Successful Response
      * @throws ApiError
      */
-    public static replaceAllTasksForCrewTaskCrewCrewIdPut(
+    public static replaceAllTasksForCrewTaskCrewIdSavePut(
         crewId: string,
         requestBody: Array<TaskCreate>,
     ): CancelablePromise<Array<TaskRead>> {
         return __request(OpenAPI, {
             method: 'PUT',
-            url: '/task/crew/{crew_id}',
+            url: '/task/{crew_id}/save',
             path: {
                 'crew_id': crewId,
             },

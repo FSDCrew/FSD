@@ -2,8 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type CrewCreate = {
+export type CrewBase = {
     name: string;
-    user_id: string;
 };
 

@@ -7,6 +7,7 @@ import type { TaskRead } from './TaskRead';
 export type CrewRead = {
     name: string;
     id: string;
+    user_id: string;
     tasks: Array<TaskRead>;
     agents: Array<Agent>;
 };
