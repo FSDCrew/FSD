@@ -88,6 +88,31 @@ class AuthService:
             logging.error(f"JWT Validation Error: {e}")
             raise
 
+    async def _user_from_token_payload(self, payload: dict) -> User:
+        """Extract user information from validated JWT payload."""
+        user_sub = payload.get("sub")
+        if not user_sub:
+            raise JWTError("Token missing 'sub' claim")
+
+        try:
+            user_id = UUID(user_sub)
+        except (ValueError, TypeError) as e:
+            raise JWTError(f"Invalid user ID format: {e}") from e
+        email = payload.get("email") or ""
+        given_name = payload.get("given_name") or ""
+        family_name = payload.get("family_name") or ""
+        picture = payload.get("picture")
+        name = payload.get("name") or f"{given_name} {family_name}".strip() or email
+
+        return User(
+            id=user_id,
+            email=email,
+            name=name,
+            given_name=given_name,
+            family_name=family_name,
+            picture=picture,
+        )
+
     async def get_user(self, token: str) -> User:
         payload = await self._validate_token(token)
 
@@ -106,16 +131,26 @@ class AuthService:
 
         return user
     
-    async def sync_user(self, new_user: User) -> User:
-        existing_user = await self.get_user(str(new_user.id))
+    async def sync_user(self, token: str) -> User:
+        """Validate token and sync/create user in database."""
+        payload = await self._validate_token(token)
+        user_from_token = await self._user_from_token_payload(payload)
+        print("#########################") # !DEBUG
+        print(user_from_token)
+        print("#########################")
+        
+        existing_user = await self.repository.get_user_by_id(user_from_token.id)
         if existing_user:
+            print("#########################") # !DEBUG
+            print(existing_user)
+            print("#########################")
             return existing_user
 
         return await self.repository.create_user(
-            user_id=new_user.id,
-            email=new_user.email,
-            given_name=new_user.given_name,
-            family_name=new_user.family_name,
-            picture=new_user.picture
+            user_id=user_from_token.id,
+            email=user_from_token.email,
+            given_name=user_from_token.given_name,
+            family_name=user_from_token.family_name,
+            picture=user_from_token.picture
         )
 
