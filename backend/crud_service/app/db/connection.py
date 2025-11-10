@@ -6,7 +6,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy import text
 from config import settings
 
-DATABASE_URL = settings.crud_database_url
+DATABASE_URL = settings.CRUD_DATABASE_URL
 if DATABASE_URL is None:
     raise ValueError("Database URL is not configured. Check your environment variables.")
 
