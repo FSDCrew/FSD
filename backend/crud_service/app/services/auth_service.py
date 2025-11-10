@@ -135,15 +135,9 @@ class AuthService:
         """Validate token and sync/create user in database."""
         payload = await self._validate_token(token)
         user_from_token = await self._user_from_token_payload(payload)
-        print("#########################") # !DEBUG
-        print(user_from_token)
-        print("#########################")
         
         existing_user = await self.repository.get_user_by_id(user_from_token.id)
         if existing_user:
-            print("#########################") # !DEBUG
-            print(existing_user)
-            print("#########################")
             return existing_user
 
         return await self.repository.create_user(

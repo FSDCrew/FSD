@@ -82,9 +82,6 @@ def run_migrations_online() -> None:
     if not url:
         raise ValueError("sqlalchemy.url is not set")
     
-    # Debug: print the URL (remove after debugging)
-    print(f"DEBUG: Database URL: {url}")
-    
     # Check if URL still has unsubstituted placeholders
     if "${" in url:
         raise ValueError(
