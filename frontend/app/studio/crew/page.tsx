@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import ResearchNode from "@/components/ResearchNode";
@@ -254,9 +255,14 @@ export default function CrewPage() {
 
 
 
+  const { isAuthenticated, token } = useAuth();
+
   useEffect(() => {
-    const token = localStorage.getItem("fsd_token");
+    // const token = localStorage.getItem("fsd_token");
+    // if (!token) router.push("/auth/login");
     if (!token) router.push("/auth/login");
+    console.log(token);
+    console.log(isAuthenticated);
 
     // Get card data from URL params
     const cardTitle = searchParams.get("title") || "Untitled";
