@@ -5,47 +5,36 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
-
-interface Card {
-  id: string;
-  title: string;
-  description: string;
-}
+import { useQuery } from "@tanstack/react-query";
+import { CrewRead, getCrewsCrewGet, syncUserUserSyncPost } from "@/lib/api/crud";
 
 export default function StudioPage() {
-  const { isAuthenticated, token } = useAuth();
   const router = useRouter();
-  const [cards, setCards] = useState<Card[]>([]);
+  const { isAuthenticated, token } = useAuth();
+  const { data: user } = useQuery({
+    queryKey: ['user'],
+    queryFn: () => syncUserUserSyncPost(),
+    enabled: isAuthenticated,
+  })
 
-  useEffect(() => {
-    // const token = localStorage.getItem("fsd_token");
-    // if (!token) router.push("/auth/login");
-    if (!token) router.push("/auth/login");
-    console.log(token);
-    console.log(isAuthenticated);
-
-    // Load cards from localStorage
-    const savedCards = localStorage.getItem("studio_cards");
-    if (savedCards) {
-      setCards(JSON.parse(savedCards));
-    }
-  }, [router]);
+  const { data, isLoading } = useQuery({
+    queryKey: ['crews'],
+    queryFn: () => getCrewsCrewGet({ responseStyle: 'data' }),
+  })
+  const crews = Array.isArray(data) ? data : data ? [data] : [];
 
   const handleAddCard = () => {
-    // Navigate to crew page with a new untitled card
     router.push("/studio/crew?title=Untitled&description=");
   };
 
-  const handleEditCard = (card: Card) => {
+  const handleEditCard = (crew: CrewRead) => {
     // Navigate to crew page with existing card data
-    router.push(`/studio/crew?id=${card.id}&title=${encodeURIComponent(card.title)}&description=${encodeURIComponent(card.description)}`);
+    router.push(`/studio/crew?id=${crew.id}&title=${encodeURIComponent(crew.name)}`);
   };
 
   const handleDeleteCard = (id: string) => {
-    const updatedCards = cards.filter(card => card.id !== id);
-    setCards(updatedCards);
-    localStorage.setItem("studio_cards", JSON.stringify(updatedCards));
-  };
+    // TODO: Implement delete logic
+  };  
 
   return (
     <div className="min-h-screen bg-background">
@@ -66,20 +55,20 @@ export default function StudioPage() {
 
         {/* Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {cards.map((card) => (
+          {crews.map((crew) => (
             <div
-              key={card.id}
+              key={crew.id}
               className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer group"
-              onClick={() => handleEditCard(card)}
+              onClick={() => handleEditCard(crew)}
             >
               <div className="flex items-start justify-between mb-3">
                 <h3 className="text-xl font-semibold text-card-foreground group-hover:text-primary transition-colors">
-                  {card.title}
+                  {crew.name}
                 </h3>
                 <Button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDeleteCard(card.id);
+                    handleDeleteCard(crew.id);
                   }}
                   variant="ghost"
                   size="icon-sm"
@@ -103,7 +92,7 @@ export default function StudioPage() {
                   </svg>
                 </Button>
               </div>
-              <p className="text-muted-foreground leading-relaxed line-clamp-3">{card.description}</p>
+              <p className="text-muted-foreground leading-relaxed line-clamp-3">description</p>
               <div className="mt-4 text-sm text-primary opacity-0 group-hover:opacity-100 transition-opacity">
                 Click to edit →
               </div>
@@ -111,7 +100,7 @@ export default function StudioPage() {
           ))}
         </div>
 
-        {cards.length === 0 && (
+        {crews.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground mb-4">No cards yet. Create your first card to get started!</p>
             <button
