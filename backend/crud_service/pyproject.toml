@@ -1,0 +1,16 @@
+[project]
+name = "crud-service"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "alembic>=1.17.1",
+    "boto3>=1.40.69",
+    "fastapi[standard]>=0.121.0",
+    "greenlet>=3.2.4",
+    "psycopg>=3.2.12",
+    "pydantic-settings>=2.11.0",
+    "python-jose[cryptography]>=3.5.0",
+    "sqlalchemy>=2.0.44",
+]

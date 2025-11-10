@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import LogoutButton from "./LogoutButton";
+import { Button } from "./ui/button";
 
 export default function Header() {
   const router = useRouter();
@@ -17,12 +18,13 @@ export default function Header() {
         <h1 className="text-xl font-bold">FSD Studio</h1>
       </div>
       <nav className="flex items-center gap-4">
-        <button
+        <Button
           onClick={() => router.push("/studio")}
-          className="text-sm hover:text-primary transition-colors"
+          variant="ghost"
+          size="sm"
         >
           Dashboard
-        </button>
+        </Button>
         <LogoutButton />
       </nav>
     </header>
