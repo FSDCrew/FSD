@@ -1,3 +1,4 @@
+from pydantic import computed_field
 from pydantic_settings import BaseSettings
 from typing import Dict, Any, Optional
 from pydantic import model_validator
@@ -26,10 +27,10 @@ class Settings(BaseSettings):
     cognito_app_client_id: str
 
     # S3 settings
-    s3_bucket_name: str
-    s3_access_key: str
-    s3_secret_key: str
-    s3_region: str
+    # s3_bucket_name: str
+    # s3_access_key: str
+    # s3_secret_key: str
+    # s3_region: str
 
     class Config:
         env_file = str(env_path) if env_path else None

@@ -1,15 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import LogoutButton from "./LogoutButton";
+import { Button } from "./ui/button";
 
 export default function Header() {
   const router = useRouter();
 
-  const handleLogout = () => {
-    localStorage.removeItem("fsd_token");
-    router.push("/");
-  };
+  // const handleLogout = () => {
+  //   localStorage.removeItem("fsd_token");
+  //   router.push("/");
+  // };
 
   return (
     <header className="w-full flex items-center justify-between py-4 px-6 border-b border-border bg-card">
@@ -24,13 +25,7 @@ export default function Header() {
         >
           Dashboard
         </Button>
-        <Button
-          onClick={handleLogout}
-          variant="secondary"
-          size="sm"
-        >
-          Logout
-        </Button>
+        <LogoutButton />
       </nav>
     </header>
   );
