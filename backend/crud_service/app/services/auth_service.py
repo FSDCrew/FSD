@@ -8,10 +8,10 @@ from jose import jwt, JWTError
 from typing import Any
 from app.repositories.user_repository import UserRepository
 
-if settings.jwks_url is None:
+if settings.JWKS_URL is None:
     raise ValueError("JWKS_URL is not configured. Check your environment variables")
 
-JWKS_URL: str = settings.jwks_url
+JWKS_URL: str = settings.JWKS_URL
 JWKS_TTL_SECONDS = 60 * 60 
 
 _jwks_cache: list[dict[str, Any]] = []
@@ -75,10 +75,10 @@ class AuthService:
                 token,
                 rsa_key,
                 algorithms=["RS256"],
-                audience=settings.cognito_app_client_id,
+                audience=settings.COGNITO_APP_CLIENT_ID,
                 issuer=(
-                    f"https://cognito-idp.{settings.cognito_region}.amazonaws.com/"
-                    f"{settings.cognito_user_pool_id}"
+                    f"https://cognito-idp.{settings.COGNITO_REGION}.amazonaws.com/"
+                    f"{settings.COGNITO_USER_POOL_ID}"
                 ),
                 options={"verify_at_hash": False},
             )
@@ -135,15 +135,9 @@ class AuthService:
         """Validate token and sync/create user in database."""
         payload = await self._validate_token(token)
         user_from_token = await self._user_from_token_payload(payload)
-        print("#########################") # !DEBUG
-        print(user_from_token)
-        print("#########################")
         
         existing_user = await self.repository.get_user_by_id(user_from_token.id)
         if existing_user:
-            print("#########################") # !DEBUG
-            print(existing_user)
-            print("#########################")
             return existing_user
 
         return await self.repository.create_user(
