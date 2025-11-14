@@ -65,12 +65,17 @@ class ArtifactType(Enum):
     DOCUMENT = "DOCUMENT"
     OTHER = "OTHER"
     
-class Artifact(BaseModel):
-    id: UUID
-    crew_run_id: UUID
+class ArtifactBase(BaseModel):
     type: ArtifactType
     object_key: str | None
     file_name: str | None
+
+class ArtifactCreate(ArtifactBase):
+    pass
+
+class ArtifactRead(ArtifactBase):
+    id: UUID
+    crew_run_id: UUID
     
 class User(BaseModel):
     id: UUID

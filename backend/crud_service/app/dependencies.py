@@ -9,8 +9,13 @@ from app.services.crew_service import CrewService
 from app.services.task_service import TaskService
 from app.repositories.task_repository import TaskRepository
 from app.repositories.user_repository import UserRepository
+from app.repositories.artifact_repository import ArtifactRepository
+from app.services.artifact_service import ArtifactService
 from app.services.auth_service import AuthService
 from app.models.models import User
+
+import boto3
+from config import settings
 
 auth_scheme = HTTPBearer(auto_error=False)
 
@@ -70,3 +75,17 @@ async def get_task_repository(session: AsyncSession = Depends(get_session)) -> T
 async def get_task_service(repository: TaskRepository = Depends(get_task_repository), crew_service: CrewService = Depends(get_crew_service)) -> TaskService:
     """Dependency to get TaskService instance with repository injected."""
     return TaskService(repository, crew_service)
+
+async def get_artifact_repository(session: AsyncSession = Depends(get_session)) -> ArtifactRepository:
+    """Dependency to get ArtifactRepository instance with database session."""
+    return ArtifactRepository(session)
+
+async def get_artifact_service(repository: ArtifactRepository = Depends(get_artifact_repository)) -> ArtifactService:
+    """Dependency to get ArtifactService instance with repository injected."""
+    s3_client = boto3.client(
+        's3',
+        aws_access_key_id=settings.S3_ACCESS_KEY,
+        aws_secret_access_key=settings.S3_SECRET_KEY,
+        region_name=settings.S3_REGION
+    )
+    return ArtifactService(repository, s3_client)

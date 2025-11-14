@@ -8,3 +8,5 @@ crewai
 crewai-tools
 
 python-dotenv
+
+httpx
