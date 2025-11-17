@@ -13,7 +13,7 @@ class TaskRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
     
-    async def get_task(self, task_id: UUID) -> TaskRead | None:
+    async def get_task(self, task_id: UUID) -> TaskDB | None:
         """Get a task from the database."""
         query = select(TaskDB).where(TaskDB.id == task_id)
         result = await self.session.execute(query)
@@ -21,34 +21,18 @@ class TaskRepository:
         # TODO: Place validation in service layer
         if not db_task:
             return None
-        return TaskRead(
-            id=UUID(str(db_task.id)),
-            key=str(db_task.key),
-            description=str(db_task.description) if hasattr(db_task, 'description') else "",
-            expected_output=str(db_task.expected_output) if hasattr(db_task, 'expected_output') else "",
-            agent_key=str(db_task.agent_key),
-            order=cast(int, db_task.order)
-        )
+        
+        return db_task
 
-    async def get_tasks_by_crew(self, crew_id: UUID) -> list[TaskRead]:
+    async def get_tasks_by_crew(self, crew_id: UUID) -> list[TaskDB]:
         """Get all tasks for a crew."""
         query = select(TaskDB).where(TaskDB.crew_id == crew_id)
         result = await self.session.execute(query)
         db_tasks = result.scalars().all()
         
-        return [
-            TaskRead(
-                id=UUID(str(task.id)),
-                key=str(task.key),
-                description=str(task.description) if hasattr(task, 'description') else "",
-                expected_output=str(task.expected_output) if hasattr(task, 'expected_output') else "",
-                agent_key=str(task.agent_key),
-                order=cast(int, task.order)
-            )
-            for task in db_tasks
-        ]
+        return db_tasks
     
-    async def create_task(self, task: TaskCreate, crew_id: UUID) -> TaskRead:
+    async def create_task(self, task: TaskCreate, crew_id: UUID) -> TaskDB:
         """Create a new task in the database."""
         db_task = TaskDB(
             key=task.key,
@@ -60,17 +44,9 @@ class TaskRepository:
         self.session.add(db_task)
         await self.session.commit()
         await self.session.refresh(db_task)
-
-        return TaskRead(
-            id=UUID(str(db_task.id)),
-            key=str(db_task.key),
-            description=str(db_task.description) if hasattr(db_task, 'description') else "",
-            expected_output=str(db_task.expected_output) if hasattr(db_task, 'expected_output') else "",
-            agent_key=str(db_task.agent_key),
-            order=cast(int, db_task.order)
-        )
+        return db_task
     
-    async def update_task(self, task_patch: TaskUpdate) -> TaskRead | None:
+    async def update_task(self, task_patch: TaskUpdate) -> TaskDB | None:
         """Update an existing task in the database."""
         query = select(TaskDB).where(TaskDB.id == task_patch.id)
         result = await self.session.execute(query)
@@ -85,17 +61,10 @@ class TaskRepository:
         
         await self.session.commit()
         await self.session.refresh(db_task)
-        
-        return TaskRead(
-            id=UUID(str(db_task.id)),
-            key=str(db_task.key),
-            description=str(db_task.description) if hasattr(db_task, 'description') else "",
-            expected_output=str(db_task.expected_output) if hasattr(db_task, 'expected_output') else "",
-            agent_key=str(db_task.agent_key),
-            order=cast(int, db_task.order)
-        )
+
+        return db_task
     
-    async def replace_tasks_by_crew(self, crew_id: UUID, tasks: list[TaskCreate]) -> list[TaskRead]:
+    async def replace_tasks_by_crew(self, crew_id: UUID, tasks: list[TaskCreate]) -> list[TaskDB]:
         """Replace all tasks for a crew."""
         query = select(TaskDB).where(TaskDB.crew_id == crew_id)
         result = await self.session.execute(query)
@@ -117,14 +86,4 @@ class TaskRepository:
         
         await self.session.commit()
         
-        return [
-            TaskRead(
-                id=UUID(str(db_task.id)),
-                key=str(db_task.key),
-                description=str(db_task.description) if hasattr(db_task, 'description') else "",
-                expected_output=str(db_task.expected_output) if hasattr(db_task, 'expected_output') else "",
-                agent_key=str(db_task.agent_key),
-                order=cast(int, db_task.order)
-            )
-            for db_task in created_tasks
-        ]
+        return created_tasks

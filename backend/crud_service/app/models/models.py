@@ -21,6 +21,7 @@ class TaskCreate(TaskBase):
 class TaskRead(TaskBase):
     id: UUID
     agent_key: str
+    model_config = ConfigDict(from_attributes=True)
     
 class TaskUpdate(TaskBase):
     id: UUID
