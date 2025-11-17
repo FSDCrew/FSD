@@ -59,3 +59,13 @@ class CrewRepository:
         await self.session.refresh(db_crew, ["tasks"])
         
         return db_crew
+    
+    async def delete_crew(self, crew_id: UUID) -> None:
+        """Delete a crew from the database."""
+        query = select(CrewDB).where(CrewDB.id == crew_id)
+        result = await self.session.execute(query)
+        db_crew = result.scalar_one_or_none()
+        if db_crew:
+            await self.session.delete(db_crew)
+            await self.session.commit()
+        return None

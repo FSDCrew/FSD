@@ -49,4 +49,18 @@ async def update_crew(
     service: CrewService = Depends(get_crew_service),
 ):
     """Update an existing crew."""
-    return await service.update_crew(crew, current_user)  
+    return await service.update_crew(crew, current_user)
+
+@crew_router.delete(
+    "/{crew_id}",
+    status_code=204,
+    response_model=None,
+)
+async def delete_crew(
+    crew_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: CrewService = Depends(get_crew_service),
+):
+    """Delete an existing crew."""
+    await service.delete_crew(crew_id, current_user.id)
+    return None

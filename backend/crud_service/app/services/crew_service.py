@@ -118,3 +118,11 @@ class CrewService:
             ],
             agents=[]
         )
+
+    async def delete_crew(self, crew_id: UUID, user_id: UUID) -> None:
+        """Delete an existing crew."""
+        existing_crew = await self.validate_crew(crew_id, user_id)
+        self._is_crew_owner(existing_crew.user_id, user_id)
+        await self.repository.delete_crew(crew_id)
+        return None
+    
