@@ -1,7 +1,7 @@
 from uuid import UUID
 from fastapi import APIRouter, Query, Depends
 
-from app.models.models import CrewBase, CrewRead, CrewUpdate, User
+from app.models.models import CrewBase, CrewCreate, CrewRead, CrewUpdate, User
 from app.services.crew_service import CrewService
 from app.dependencies import get_crew_service, get_current_user
 
@@ -31,7 +31,7 @@ async def get_crews(
     response_model=CrewRead,
 )
 async def create_crew(
-    crew: CrewBase,
+    crew: CrewCreate,
     current_user: User = Depends(get_current_user),
     service: CrewService = Depends(get_crew_service),
 ):

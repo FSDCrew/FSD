@@ -35,9 +35,10 @@ class CrewCreate(CrewBase):
     
 class CrewRead(CrewBase):
     id: UUID
-    user_id: UUID
     tasks: list[TaskRead] 
     agents: list[Agent]
+    
+    model_config = ConfigDict(from_attributes=True)
 
 class CrewUpdate(CrewBase):
     id: UUID
