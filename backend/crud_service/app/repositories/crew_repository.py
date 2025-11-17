@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.schemas.schemas import Crew as CrewDB, Task as TaskDB
-from app.models.models import CrewCreate, CrewUpdate, CrewRead, TaskRead
+from app.models.models import CrewCreate, CrewUpdate, CrewRead, TaskRead, CrewRunRead
 
 
 class CrewRepository:
@@ -15,7 +15,7 @@ class CrewRepository:
         
     async def get_crew_with_tasks(self, crew_id: UUID, user_id: UUID) -> CrewRead | None:
         """Get a crew from the database with tasks and agents."""
-        query = select(CrewDB).options(selectinload(CrewDB.tasks)).where(CrewDB.id == crew_id).where(CrewDB.user_id == user_id)
+        query = select(CrewDB).options(selectinload(CrewDB.tasks), selectinload(CrewDB.crew_runs)).where(CrewDB.id == crew_id).where(CrewDB.user_id == user_id)
         result = await self.session.execute(query)
         db_crew = result.scalar_one_or_none()
         if not db_crew:

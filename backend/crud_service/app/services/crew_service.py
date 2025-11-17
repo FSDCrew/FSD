@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from uuid import UUID
 
 from app.models.models import CrewBase, CrewCreate, CrewUpdate, CrewRead, User
-from app.models.models import TaskRead
+from app.models.models import TaskRead, CrewRunRead, ArtifactRead
 from app.repositories.crew_repository import CrewRepository
 
 class CrewService:
@@ -45,7 +45,14 @@ class CrewService:
                 )
                 for task in db_crew.tasks
             ],
-            agents=[]
+            agents=[],
+            crew_runs=[
+                CrewRunRead(
+                    id=crew_run.id,
+                    output=crew_run.output
+                )
+                for crew_run in (db_crew.crew_runs if db_crew.crew_runs else [])
+            ]
         )
 
     async def get_crews_with_tasks(self, user_id: UUID) -> list[CrewRead]:

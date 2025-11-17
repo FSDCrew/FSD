@@ -27,23 +27,6 @@ class TaskUpdate(TaskBase):
     id: UUID
     description: str | None = None
     expected_output: str | None = None
-    
-class CrewBase(BaseModel):
-    name: str
-
-class CrewCreate(CrewBase):
-    user_id: UUID
-    
-class CrewRead(CrewBase):
-    id: UUID
-    tasks: list[TaskRead] 
-    agents: list[Agent]
-    
-    model_config = ConfigDict(from_attributes=True)
-
-class CrewUpdate(CrewBase):
-    id: UUID
-    name: str | None = None
 
 class ArtifactType(Enum):
     TEXT = "TEXT"
@@ -85,7 +68,25 @@ class CrewRunRead(CrewRunBase):
 class CrewRunUpdate(CrewRunBase):
     id: UUID
     output: dict[str, Any] | None = None
+
+class CrewBase(BaseModel):
+    name: str
+
+class CrewCreate(CrewBase):
+    user_id: UUID
     
+class CrewRead(CrewBase):
+    id: UUID
+    tasks: list[TaskRead] 
+    agents: list[Agent]
+    crew_runs: list[CrewRunRead] | None = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class CrewUpdate(CrewBase):
+    id: UUID
+    name: str | None = None    
+
 class User(BaseModel):
     id: UUID
     email: str
