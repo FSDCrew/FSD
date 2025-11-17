@@ -19,7 +19,7 @@ class ArtifactRepository:
             crew_run_id=crew_run_id,
             type=ArtifactType(artifact.type.value),
             object_key=artifact.object_key,
-            file_name=artifact.filename
+            file_name=artifact.file_name
         )
         self.session.add(db_artifact)
         await self.session.commit()

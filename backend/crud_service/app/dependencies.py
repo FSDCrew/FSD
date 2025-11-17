@@ -11,6 +11,8 @@ from app.repositories.task_repository import TaskRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.artifact_repository import ArtifactRepository
 from app.services.artifact_service import ArtifactService
+from app.repositories.crew_run_repository import CrewRunRepository
+from app.services.crew_run_service import CrewRunService
 from app.services.auth_service import AuthService
 from app.models.models import User
 
@@ -89,3 +91,11 @@ async def get_artifact_service(repository: ArtifactRepository = Depends(get_arti
         region_name=settings.S3_REGION
     )
     return ArtifactService(repository, s3_client)
+
+async def get_crew_run_repository(session: AsyncSession = Depends(get_session)) -> CrewRunRepository:
+    """Dependency to get CrewRunRepository instance with database session."""
+    return CrewRunRepository(session)
+
+async def get_crew_run_service(repository: CrewRunRepository = Depends(get_crew_run_repository), crew_service: CrewService = Depends(get_crew_service)) -> CrewRunService:
+    """Dependency to get CrewRunService instance with repository injected."""
+    return CrewRunService(repository)

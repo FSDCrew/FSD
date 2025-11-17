@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any
 from uuid import UUID
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class Agent(BaseModel):
     key: str
@@ -43,20 +43,6 @@ class CrewUpdate(CrewBase):
     id: UUID
     name: str | None = None
 
-class CrewRunBase(BaseModel):
-    output: dict[str, Any] | None = None
-
-class CrewRunCreate(CrewRunBase):
-    crew_id: UUID
-    
-class CrewRunRead(CrewRunBase):
-    id: UUID
-    output: dict[str, Any] | None = None
-
-class CrewRunUpdate(CrewRunBase):
-    id: UUID
-    output: dict[str, Any] | None = None
-    
 class ArtifactType(Enum):
     TEXT = "TEXT"
     IMAGE = "IMAGE"
@@ -67,15 +53,36 @@ class ArtifactType(Enum):
     
 class ArtifactBase(BaseModel):
     type: ArtifactType
-    object_key: str | None
     file_name: str | None
 
 class ArtifactCreate(ArtifactBase):
-    pass
+    object_key: str | None = None
 
 class ArtifactRead(ArtifactBase):
     id: UUID
     crew_run_id: UUID
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ArtifactServerCreate(ArtifactBase):
+    file_content_base64: str
+
+class CrewRunBase(BaseModel):
+    output: dict[str, Any] | None = None
+
+class CrewRunCreate(CrewRunBase):
+    crew_id: UUID
+    
+class CrewRunRead(CrewRunBase):
+    id: UUID
+    output: dict[str, Any] | None = None
+    artifacts: list[ArtifactRead] | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class CrewRunUpdate(CrewRunBase):
+    id: UUID
+    output: dict[str, Any] | None = None
     
 class User(BaseModel):
     id: UUID
