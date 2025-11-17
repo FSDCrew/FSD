@@ -10,7 +10,6 @@ crew_run_router = APIRouter(
     tags=["crew-run"],
 )
 
-# 1. Create crew run endpoint (Called by Crew Service)
 @crew_run_router.post(
     "/",
     status_code=201,

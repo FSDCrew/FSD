@@ -48,7 +48,7 @@ async def create_artifact(
 
 @artifact_router.get(
     "/{artifact_id}",
-    response_model=str # This should return the presigned url
+    response_model=str
 )
 async def get_artifact(
     artifact_id: UUID = Path(..., description="Artifact ID to retrieve", example="123e4567-e89b-12d3-a456-426614174000"),
