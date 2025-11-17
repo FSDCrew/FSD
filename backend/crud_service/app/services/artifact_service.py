@@ -12,9 +12,8 @@ import os
 
 from app.services.crew_service import CrewService
 
-PRESIGNED_URL_EXPIRATION = 3600  # 1 hour
+PRESIGNED_URL_EXPIRATION = 3600  
 
-# Upload to s3, and getting presigned url
 
 class ArtifactService:
     def __init__(self, repository: ArtifactRepository, s3_client: boto3.client):
@@ -24,10 +23,10 @@ class ArtifactService:
 
     async def create_artifact(
         self, 
-        uploaded_file: Any, # The file stream from the API (e.g., UploadFile)
-        artifact_type: ArtifactType, # The type (e.g., TEXT, IMAGE)
+        uploaded_file: Any,
+        artifact_type: ArtifactType,
         crew_run_id: UUID, 
-        user_id: UUID # Passed from current_user dependency
+        user_id: UUID
     ) -> ArtifactRead:
         """
         1. Validate access.
@@ -35,7 +34,6 @@ class ArtifactService:
         3. Create the database record.
         """
 
-        # 1. Upload to S3
         object_key, file_name = self._upload_content_to_s3(
             uploaded_file=uploaded_file, 
             crew_run_id=crew_run_id, 
@@ -43,7 +41,6 @@ class ArtifactService:
             artifact_type=artifact_type
         )
 
-        # 2. Create the database record
         artifact_create = ArtifactCreate(
             type=artifact_type,
             object_key=object_key,
@@ -77,7 +74,6 @@ class ArtifactService:
 
         # May need come back to this. Currently allows for artifact upload via bytes and UploadFile
         if isinstance(uploaded_file, dict):
-            # Use dictionary access for the new flow
             original_filename = uploaded_file.get('filename', '')
             content_type = uploaded_file.get('content_type', 'application/octet-stream')
             file_stream = uploaded_file.get('file', uploaded_file)
@@ -90,15 +86,11 @@ class ArtifactService:
         if not original_filename:
              raise HTTPException(status_code=400, detail="Uploaded file is missing a filename.")
 
-        # Extract file extension safely using os.path.splitext
         _, ext = os.path.splitext(original_filename)
         
         # Create a unique S3 key: artifacts/{user_id}/{crew_run_id}/file_uuid.<ext>
         file_uuid = uuid.uuid4()
         object_key = f"artifacts/{user_id}/{crew_run_id}/{file_uuid}{ext}"
-        
-        # Create the file name for the database entry
-        # file_name = f"{crew_run_id}-{file_uuid}{ext}" 
 
         try:
             self.s3_client.upload_fileobj(

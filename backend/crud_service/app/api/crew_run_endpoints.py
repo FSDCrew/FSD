@@ -18,14 +18,12 @@ crew_run_router = APIRouter(
 )
 async def create_crew_run(
     crew_run_data: CrewRunCreate,
-    current_user: User = Depends(get_current_user), # For user context/validation
+    current_user: User = Depends(get_current_user), 
     service: CrewRunService = Depends(get_crew_run_service),
 ):
     """Create a new crew run record for a crew."""
-    # Add ownership/access check for the crew_id inside the service layer
     return await service.create_crew_run(crew_run_data)
 
-# 2. Retrieve crew run with artifacts endpoint (Called by Frontend)
 @crew_run_router.get(
     "/{crew_run_id}",
     response_model=CrewRunRead

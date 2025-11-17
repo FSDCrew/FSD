@@ -9,16 +9,13 @@ class CrewRunService:
     def __init__(self, repository: CrewRunRepository):
         self.repository = repository
         
-    # 1. Create crew run record
     async def create_crew_run(self, crew_run_data: CrewRunCreate) -> CrewRunRead:
         """Creates a crew run and returns the Pydantic model."""
         db_crew_run = await self.repository.create_crew_run(crew_run_data)
-        # reload with artifacts eagerly loaded
         full_crew_run = await self.repository.get_crew_run_by_id_with_artifacts(db_crew_run.id)
 
         return CrewRunRead.from_orm(full_crew_run)
 
-    # 2. Retrieve crew run with artifacts
     async def get_crew_run_by_id_with_artifacts(self, crew_run_id: UUID, user_id: UUID) -> CrewRunRead:
         """Retrieves a crew run and its artifacts, performing access validation."""
         db_crew_run = await self.repository.get_crew_run_by_id_with_artifacts(crew_run_id)

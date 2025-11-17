@@ -18,7 +18,6 @@ artifact_router = APIRouter(
     response_model=ArtifactRead
 )
 async def create_artifact(
-    # CHANGE 1: Use the Pydantic model for the JSON body
     artifact_upload: ArtifactServerCreate, 
     crew_run_id: UUID = Path(..., description="Crew Run ID to associate the artifact with", example="123e4567-e89b-12d3-a456-426614174000"),
     current_user: User = Depends(get_current_user),
@@ -27,13 +26,11 @@ async def create_artifact(
     """
     Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
     """
-    
-    # CHANGE 2: Decode Base64 content into a stream
+
     try:
         file_bytes = base64.b64decode(artifact_upload.file_content_base64)
         file_stream = io.BytesIO(file_bytes)
         
-        # Prepare object for service layer (mimics UploadFile structure)
         uploaded_file = {
             'file': file_stream,
             'filename': artifact_upload.file_name, 
@@ -42,7 +39,6 @@ async def create_artifact(
     except Exception as e:
          raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Base64 content: {e}")
 
-    # CHANGE 3: Call the service layer with model fields
     return await artifact_service.create_artifact(
         uploaded_file=uploaded_file,
         artifact_type=artifact_upload.type,

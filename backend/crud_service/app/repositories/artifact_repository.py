@@ -8,7 +8,6 @@ class ArtifactRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    # Create artifact linked to crew run id
     async def create_artifact(self, artifact: ArtifactCreate, crew_run_id: UUID) -> ArtifactDB:
         """
         Creates a new artifact in the database, linked to a crew run.
@@ -26,7 +25,6 @@ class ArtifactRepository:
         await self.session.refresh(db_artifact)
         return db_artifact
 
-    # Get artifact by id
     async def get_artifact(self, artifact_id: UUID) -> ArtifactDB | None:
         """Retrieve an artifact by its ID."""
         query = select(ArtifactDB).where(ArtifactDB.id == artifact_id)
