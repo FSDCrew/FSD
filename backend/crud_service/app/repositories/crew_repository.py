@@ -1,12 +1,11 @@
-import uuid
 from uuid import UUID
 from typing import cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.schemas.schemas import Crew as CrewDB, Task as TaskDB, CrewRun as CrewRunDB
-from app.models.models import CrewCreate, CrewUpdate, CrewRead, TaskRead, CrewRunRead
+from app.schemas.schemas import Crew as CrewDB, CrewRun as CrewRunDB
+from app.models.models import CrewCreate, CrewUpdate
 
 
 class CrewRepository:

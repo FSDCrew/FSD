@@ -2,8 +2,8 @@ from typing import Any
 from fastapi import HTTPException
 from uuid import UUID
 
-from app.models.models import CrewBase, CrewCreate, CrewUpdate, CrewRead, User
-from app.models.models import TaskRead, CrewRunRead, ArtifactRead
+from app.models.models import CrewCreate, CrewUpdate, CrewRead, User
+from app.models.models import TaskRead, CrewRunRead
 from app.repositories.crew_repository import CrewRepository
 
 class CrewService:

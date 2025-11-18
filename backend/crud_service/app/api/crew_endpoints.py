@@ -1,7 +1,7 @@
 from uuid import UUID
 from fastapi import APIRouter, Query, Depends
 
-from app.models.models import CrewBase, CrewCreate, CrewRead, CrewUpdate, User
+from app.models.models import CrewCreate, CrewRead, CrewUpdate, User
 from app.services.crew_service import CrewService
 from app.dependencies import get_crew_service, get_current_user
 

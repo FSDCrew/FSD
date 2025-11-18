@@ -1,6 +1,4 @@
-import os
 from collections.abc import AsyncGenerator
-from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import text

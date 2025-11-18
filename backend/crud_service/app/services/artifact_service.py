@@ -4,13 +4,9 @@ from app.schemas.schemas import Artifact as ArtifactDB
 from fastapi import HTTPException, status
 from uuid import UUID
 import uuid
-import boto3
 from typing import Any
-from datetime import datetime, timedelta
 from config import settings
 import os
-
-from app.services.crew_service import CrewService
 
 PRESIGNED_URL_EXPIRATION = 3600  
 

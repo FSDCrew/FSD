@@ -2,7 +2,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from app.schemas.schemas import CrewRun as CrewRunDB, Artifact as ArtifactDB
+from app.schemas.schemas import CrewRun as CrewRunDB
 from app.models.models import CrewRunCreate
 
 class CrewRunRepository:
