@@ -1,3 +1,4 @@
+from typing import Any
 from fastapi import HTTPException
 from uuid import UUID
 
@@ -19,7 +20,48 @@ class CrewService:
         crew = await self.repository.get_crew_with_tasks(crew_id, user_id)
         if crew is None:
             raise HTTPException(status_code=404, detail="Crew not found")
-        return crew
+        return self._convert_to_crew_read(crew)
+
+    def _convert_to_crew_read(self, db_crew: Any) -> CrewRead:
+        """Helper to convert CrewDB object to CrewRead Pydantic model."""
+        
+        def convert_tasks(db_tasks: Any) -> list[TaskRead]:
+            if not db_tasks:
+                return []
+            
+            return [
+                TaskRead(
+                    id=task.id,
+                    key=str(task.key),
+                    description=str(task.description) if hasattr(task, 'description') else "",
+                    expected_output=str(task.expected_output) if hasattr(task, 'expected_output') else "",
+                    agent_key=str(task.agent_key),
+                    order=int(task.order)
+                )
+                for task in db_tasks
+            ]
+
+        # Helper to safely convert CrewRun ORM objects to CrewRunRead Pydantic models
+        def convert_crew_runs(db_runs: Any) -> list[CrewRunRead]:
+            if not db_runs:
+                return []
+            
+            return [
+                CrewRunRead(
+                    id=crew_run.id,
+                    output=crew_run.output if hasattr(crew_run, 'output') else None,
+                )
+                for crew_run in db_runs
+            ]
+
+        return CrewRead(
+            id=UUID(str(db_crew.id)),
+            name=str(db_crew.name),
+            user_id=UUID(str(db_crew.user_id)),
+            tasks=convert_tasks(db_crew.tasks),
+            agents=[],
+            crew_runs=convert_crew_runs(db_crew.crew_runs)
+        )
     
     async def get_crew_with_tasks(self, crew_id: UUID, user_id: UUID) -> CrewRead | None:
         """Get a crew by ID."""
@@ -30,30 +72,7 @@ class CrewService:
         if not db_crew:
             return None
 
-        return CrewRead(
-            id=db_crew.id,
-            user_id=db_crew.user_id,
-            name=db_crew.name,
-            tasks=[
-                TaskRead(
-                    id=task.id,
-                    key=task.key,
-                    description=task.description if hasattr(task, 'description') else "",
-                    expected_output=task.expected_output if hasattr(task, 'expected_output') else "",
-                    agent_key=task.agent_key,
-                    order=task.order
-                )
-                for task in db_crew.tasks
-            ],
-            agents=[],
-            crew_runs=[
-                CrewRunRead(
-                    id=crew_run.id,
-                    output=crew_run.output
-                )
-                for crew_run in (db_crew.crew_runs if db_crew.crew_runs else [])
-            ]
-        )
+        return self._convert_to_crew_read(db_crew)
 
     async def get_crews_with_tasks(self, user_id: UUID) -> list[CrewRead]:
         """Get crews, optionally filtered by crew_id."""
@@ -64,65 +83,36 @@ class CrewService:
         if not db_crews:
             return []
 
-        return [CrewRead(
-            id=db_crew.id,
-            user_id=db_crew.user_id,
-            name=db_crew.name,
-            tasks=[
-                TaskRead(
-                    id=task.id,
-                    key=task.key,
-                    description=task.description if hasattr(task, 'description') else "",
-                    expected_output=task.expected_output if hasattr(task, 'expected_output') else "",
-                    agent_key=task.agent_key,
-                    order=task.order
-                )
-                for task in (db_crew.tasks if db_crew.tasks else [])
-            ],
-            agents=[]
-        ) for db_crew in db_crews
-        ]
+        return [self._convert_to_crew_read(db_crew) for db_crew in db_crews]
     
     async def create_crew(self, crew: CrewCreate, user_id: UUID) -> CrewRead:
         """Create a new crew."""
         db_crew = await self.repository.create_crew(CrewCreate(name=crew.name, user_id=user_id))
         return CrewRead(
-            id=db_crew.id,
-            user_id=db_crew.user_id,
-            name=db_crew.name,
+            id=UUID(str(db_crew.id)),
+            name=str(db_crew.name),
+            user_id=UUID(str(db_crew.user_id)),
             tasks=[],
-            agents=[]
+            agents=[],
+            crew_runs=[]
     )
     
     async def update_crew(self, crew: CrewUpdate, current_user: User) -> CrewRead | None:
         """Update an existing crew."""
         existing_crew = await self.validate_crew(crew.id, current_user.id)
-        self._is_crew_owner(existing_crew.user_id, current_user.id)
+        self._is_crew_owner(UUID(str(existing_crew.user_id)), current_user.id)
 
         db_crew = await self.repository.update_crew(crew)
 
-        return CrewRead(
-            id=db_crew.id,
-            user_id=db_crew.user_id,
-            name=db_crew.name,
-            tasks=[
-                TaskRead(
-                    id=task.id,
-                    key=task.key,
-                    description=task.description if hasattr(task, 'description') else "",
-                    expected_output=task.expected_output if hasattr(task, 'expected_output') else "",
-                    agent_key=task.agent_key,
-                    order=task.order
-                )
-                for task in db_crew.tasks
-            ],
-            agents=[]
-        )
+        if db_crew is None:
+            return None
+
+        return self._convert_to_crew_read(db_crew)
 
     async def delete_crew(self, crew_id: UUID, user_id: UUID) -> None:
         """Delete an existing crew."""
         existing_crew = await self.validate_crew(crew_id, user_id)
-        self._is_crew_owner(existing_crew.user_id, user_id)
+        self._is_crew_owner(UUID(str(existing_crew.user_id)), user_id)
         await self.repository.delete_crew(crew_id)
         return None
     

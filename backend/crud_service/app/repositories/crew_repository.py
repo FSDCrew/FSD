@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.schemas.schemas import Crew as CrewDB, Task as TaskDB
+from app.schemas.schemas import Crew as CrewDB, Task as TaskDB, CrewRun as CrewRunDB
 from app.models.models import CrewCreate, CrewUpdate, CrewRead, TaskRead, CrewRunRead
 
 
@@ -13,9 +13,9 @@ class CrewRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
         
-    async def get_crew_with_tasks(self, crew_id: UUID, user_id: UUID) -> CrewRead | None:
+    async def get_crew_with_tasks(self, crew_id: UUID, user_id: UUID) -> CrewDB | None:
         """Get a crew from the database with tasks and agents."""
-        query = select(CrewDB).options(selectinload(CrewDB.tasks), selectinload(CrewDB.crew_runs)).where(CrewDB.id == crew_id).where(CrewDB.user_id == user_id)
+        query = select(CrewDB).options(selectinload(CrewDB.tasks), selectinload(CrewDB.crew_runs).selectinload(CrewRunDB.artifacts)).where(CrewDB.id == crew_id).where(CrewDB.user_id == user_id)
         result = await self.session.execute(query)
         db_crew = result.scalar_one_or_none()
         if not db_crew:
@@ -23,11 +23,11 @@ class CrewRepository:
         
         return db_crew
 
-    async def get_crews_with_tasks(self, user_id: UUID) -> list[CrewRead]:
+    async def get_crews_with_tasks(self, user_id: UUID) -> list[CrewDB]:
         """Get crews from database with tasks."""
-        query = select(CrewDB).options(selectinload(CrewDB.tasks)).where(CrewDB.user_id == user_id) 
+        query = select(CrewDB).options(selectinload(CrewDB.tasks), selectinload(CrewDB.crew_runs).selectinload(CrewRunDB.artifacts)).where(CrewDB.user_id == user_id) 
         result = await self.session.execute(query)
-        db_crews = result.scalars().all()
+        db_crews = list(result.scalars().all())
         
         return db_crews
     
@@ -45,7 +45,7 @@ class CrewRepository:
     
     async def update_crew(self, crew_patch: CrewUpdate) -> CrewDB | None:
         """Update an existing crew in the database."""
-        query = select(CrewDB).options(selectinload(CrewDB.tasks)).where(CrewDB.id == crew_patch.id)
+        query = select(CrewDB).options(selectinload(CrewDB.tasks), selectinload(CrewDB.crew_runs).selectinload(CrewRunDB.artifacts)).where(CrewDB.id == crew_patch.id)
         result = await self.session.execute(query)
         db_crew = result.scalar_one_or_none()
         if not db_crew:

@@ -21,6 +21,7 @@ class TaskCreate(TaskBase):
 class TaskRead(TaskBase):
     id: UUID
     agent_key: str
+
     model_config = ConfigDict(from_attributes=True)
     
 class TaskUpdate(TaskBase):
@@ -77,6 +78,7 @@ class CrewCreate(CrewBase):
     
 class CrewRead(CrewBase):
     id: UUID
+    user_id: UUID
     tasks: list[TaskRead] 
     agents: list[Agent]
     crew_runs: list[CrewRunRead] | None = None

@@ -28,7 +28,7 @@ class TaskRepository:
         """Get all tasks for a crew."""
         query = select(TaskDB).where(TaskDB.crew_id == crew_id)
         result = await self.session.execute(query)
-        db_tasks = result.scalars().all()
+        db_tasks = list(result.scalars().all())
         
         return db_tasks
     
