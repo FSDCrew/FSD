@@ -18,7 +18,6 @@ class TaskRepository:
         query = select(TaskDB).where(TaskDB.id == task_id)
         result = await self.session.execute(query)
         db_task = result.scalar_one_or_none()
-        # TODO: Place validation in service layer
         if not db_task:
             return None
         

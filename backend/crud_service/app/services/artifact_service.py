@@ -80,7 +80,7 @@ class ArtifactService:
             file_stream = getattr(uploaded_file, 'file', uploaded_file)
         
         if not original_filename:
-             raise HTTPException(status_code=400, detail="Uploaded file is missing a filename.")
+            raise HTTPException(status_code=400, detail="Uploaded file is missing a filename.")
 
         _, ext = os.path.splitext(original_filename)
         
