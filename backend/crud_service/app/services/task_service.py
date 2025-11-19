@@ -2,7 +2,9 @@ from app.models.models import TaskRead, TaskCreate, TaskUpdate
 from app.repositories.task_repository import TaskRepository
 from fastapi import HTTPException
 from uuid import UUID
-from typing import Any, cast
+from typing import cast
+
+from app.schemas.schemas import Task as TaskDB
 
 from app.services.crew_service import CrewService
 
@@ -12,16 +14,10 @@ class TaskService:
         self.repository = repository
         self.crew_service = crew_service
 
-    def _convert_to_task_read(self, db_task: Any) -> TaskRead:
+    def _convert_to_task_read(self, db_task: TaskDB) -> TaskRead:
         """Helper to convert TaskDB object to TaskRead Pydantic model."""
-        return TaskRead(
-            id=UUID(str(db_task.id)),
-            key=str(db_task.key),
-            description=str(db_task.description) if hasattr(db_task, 'description') else "",
-            expected_output=str(db_task.expected_output) if hasattr(db_task, 'expected_output') else "",
-            agent_key=str(db_task.agent_key),
-            order=cast(int, db_task.order)
-        )
+
+        return TaskRead.model_validate(db_task)
 
     async def create_task(self, task: TaskCreate, crew_id: UUID, user_id: UUID) -> TaskRead:
         """Create a new task."""

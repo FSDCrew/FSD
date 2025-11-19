@@ -7,12 +7,13 @@ import uuid
 from typing import Any
 from config import settings
 import os
+from botocore.client import BaseClient
 
 PRESIGNED_URL_EXPIRATION = 3600  
 
 
 class ArtifactService:
-    def __init__(self, repository: ArtifactRepository, s3_client: Any):
+    def __init__(self, repository: ArtifactRepository, s3_client: BaseClient):
         self.repository = repository
         self.s3_client = s3_client
         

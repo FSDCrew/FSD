@@ -74,7 +74,8 @@ class CrewBase(BaseModel):
     name: str
 
 class CrewCreate(CrewBase):
-    user_id: UUID
+    # user_id: UUID
+    pass
     
 class CrewRead(CrewBase):
     id: UUID

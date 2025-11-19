@@ -12,8 +12,8 @@ class CrewRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
         
-    async def get_crew_with_tasks(self, crew_id: UUID, user_id: UUID) -> CrewDB | None:
-        """Get a crew from the database with tasks and agents."""
+    async def get_fully_loaded_crew_by_id(self, crew_id: UUID, user_id: UUID) -> CrewDB | None:
+        """Retrieve a single Crew by its ID, eagerly loading all associated tasks and crew runs"""
         query = select(CrewDB).options(selectinload(CrewDB.tasks), selectinload(CrewDB.crew_runs).selectinload(CrewRunDB.artifacts)).where(CrewDB.id == crew_id).where(CrewDB.user_id == user_id)
         result = await self.session.execute(query)
         db_crew = result.scalar_one_or_none()
@@ -22,19 +22,19 @@ class CrewRepository:
         
         return db_crew
 
-    async def get_crews_with_tasks(self, user_id: UUID) -> list[CrewDB]:
-        """Get crews from database with tasks."""
+    async def get_all_fully_loaded_crews(self, user_id: UUID) -> list[CrewDB]:
+        """Retrieve all Crews belonging to a user, eagerly loading all associated tasks and crew runs"""
         query = select(CrewDB).options(selectinload(CrewDB.tasks), selectinload(CrewDB.crew_runs).selectinload(CrewRunDB.artifacts)).where(CrewDB.user_id == user_id) 
         result = await self.session.execute(query)
         db_crews = list(result.scalars().all())
         
         return db_crews
     
-    async def create_crew(self, crew: CrewCreate) -> CrewDB:
+    async def create_crew(self, crew: CrewCreate, user_id: UUID) -> CrewDB:
         """Create a new crew in the database."""
         db_crew = CrewDB(
             name=crew.name,
-            user_id=crew.user_id
+            user_id=user_id
         )
         self.session.add(db_crew)
         await self.session.commit()
@@ -59,12 +59,17 @@ class CrewRepository:
         
         return db_crew
     
-    async def delete_crew(self, crew_id: UUID) -> None:
+    async def delete_crew(self, crew_id: UUID) -> CrewDB | None:
         """Delete a crew from the database."""
         query = select(CrewDB).where(CrewDB.id == crew_id)
         result = await self.session.execute(query)
         db_crew = result.scalar_one_or_none()
         if db_crew:
+
+            deleted_crew = db_crew
+
             await self.session.delete(db_crew)
             await self.session.commit()
+
+            return deleted_crew
         return None

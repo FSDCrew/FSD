@@ -22,8 +22,8 @@ async def get_crews(
 ):
     """Get crews, optionally filtered by crew_id."""
     if crew_id:
-        return await service.get_crew_with_tasks(crew_id, current_user.id)
-    return await service.get_crews_with_tasks(current_user.id)
+        return await service.get_fully_loaded_crew_by_id(crew_id, current_user.id)
+    return await service.get_all_fully_loaded_crews(current_user.id)
 
 @crew_router.post(
     "/",
