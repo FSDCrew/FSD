@@ -2,7 +2,6 @@ from app.models.models import TaskRead, TaskCreate, TaskUpdate
 from app.repositories.task_repository import TaskRepository
 from fastapi import HTTPException
 from uuid import UUID
-from typing import cast
 
 from app.schemas.schemas import Task as TaskDB
 
