@@ -1,38 +1,45 @@
+from pydantic import computed_field
 from pydantic_settings import BaseSettings
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from pydantic import model_validator
 from pathlib import Path
+import os
 
 current_dir = Path(__file__).parent
-
-project_root = current_dir.parent.parent
-env_path = project_root / ".env"
+env_path = ".env"
 
 class Settings(BaseSettings):
     """
     Pydantic settings class to manage application configuration.
     It automatically validates and loads settings from environment variables or a .env file.
     """
+    CRUD_DATABASE_URL: Optional[str] = None
+    DB_HOST: str
+    DB_PORT: str
+    DB_NAME: str
+    DB_USER: str
+    DB_PASSWORD: str
     
-    # Database settings
-    # Pydantic will ensure this is a string. If the env var is missing, it will raise an error.
-    crud_database_url: str
-    
-    # Static config values can be set directly with their types
-    sqlalchemy_track_modifications: bool = False
-    sqlalchemy_engine_options: Dict[str, Any] = {'pool_recycle': 299}
+    # Cognito Settings
+    JWKS_URL: Optional[str] = None
+    COGNITO_REGION: str
+    COGNITO_USER_POOL_ID: str
+    COGNITO_APP_CLIENT_ID: str
 
     # S3 settings
-    s3_bucket_name: str
-    s3_access_key: str
-    s3_secret_key: str
-    s3_region: str
+    S3_BUCKET_NAME: str
+    S3_ACCESS_KEY: str
+    S3_SECRET_KEY: str
+    S3_REGION: str
 
     class Config:
-        # This tells Pydantic to look for a .env file to load the settings from,
-        # replacing the need for load_dotenv().
-        env_file = env_path
+        env_file = str(env_path) if env_path else None
         env_file_encoding = 'utf-8'
 
-# Create a single instance of the Settings class that can be imported
-# by other parts of your application.
-settings = Settings()
+    @model_validator(mode='after')
+    def construct_database_url(self):
+        self.CRUD_DATABASE_URL = f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        self.JWKS_URL = f"https://cognito-idp.{self.COGNITO_REGION}.amazonaws.com/{self.COGNITO_USER_POOL_ID}/.well-known/jwks.json"
+        return self
+
+settings = Settings() # type: ignore

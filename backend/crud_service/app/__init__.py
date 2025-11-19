@@ -1,48 +1,63 @@
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import boto3
 
 from config import settings
-# from app.database import engine, Base
-from .api.routes import router as crud_router
+
+from .db.connection import test_connection
+
+from .api.status_endpoints import status_router
+from .api.crew_endpoints import crew_router
+from .api.task_endpoints import task_router
+from .api.user_endpoints import user_router
+from .api.artifact_endpoints import artifact_router
+from .api.crew_run_endpoints import crew_run_router
+
+logger = logging.getLogger(__name__)
 
 
-_app: FastAPI = None
+def init_routers(app: FastAPI):
+    app.include_router(status_router)
+    app.include_router(crew_router)
+    app.include_router(task_router)
+    app.include_router(user_router)
+    app.include_router(artifact_router)
+    app.include_router(crew_run_router)
+    
+def init_s3_client(app: FastAPI):
+    """Initialize S3 client using settings from config.py"""
+    app.state.s3_client = boto3.client(
+        "s3",
+        region_name=settings.S3_REGION,
+        aws_access_key_id=settings.S3_ACCESS_KEY,
+        aws_secret_access_key=settings.S3_SECRET_KEY
+    )
+    
+async def on_startup():
+    try:
+        # await test_connection()
+        ...
+    except Exception as e:
+        logger.error(f"Error initializing database connection: {e}")
+        raise HTTPException(status_code=500, detail="Database connection failed")
 
 def create_app():
-    global _app
-    if _app:
-        return _app
-
-    _app = FastAPI()
-
-    _app.add_middleware(
+    app = FastAPI()
+    
+    app.add_event_handler("startup", on_startup)
+    
+    app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"], # Consider restricting this in production
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
-    # --- S3 Client Initialization ---
-    _app.state.s3_client = boto3.client(
-        "s3",
-        region_name=settings.s3_region, # Match Pydantic variable name
-        aws_access_key_id=settings.s3_access_key, # Match Pydantic variable name
-        aws_secret_access_key=settings.s3_secret_key # Match Pydantic variable name
-    )
+    init_s3_client(app)
+    init_routers(app)
 
-    # --- Database Initialization (REMOVED) ---
-    # try:
-    #     Base.metadata.create_all(bind=engine)
-    #     print("Database tables created successfully")
-    # except Exception as e:
-    #     print(f"Error creating database tables: {e}")
+    return app
 
-    # --- Router Registration ---
-    _app.include_router(crud_router, prefix="/crud", tags=["CRUD"])
-
-    return _app
-
-# Create the app instance for uvicorn to find
 app = create_app()
