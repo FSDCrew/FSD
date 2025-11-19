@@ -71,7 +71,7 @@ class CrewService:
     
     async def create_crew(self, crew: CrewCreate, user_id: UUID) -> CrewRead:
         """Create a new crew."""
-        db_crew = await self.repository.create_crew(CrewCreate(name=crew.name), user_id=user_id)
+        db_crew = await self.repository.create_crew(crew, user_id=user_id)
         return CrewRead(
             id=UUID(str(db_crew.id)),
             name=str(db_crew.name),
