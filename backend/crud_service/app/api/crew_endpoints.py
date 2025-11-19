@@ -1,7 +1,7 @@
 from uuid import UUID
 from fastapi import APIRouter, Query, Depends
 
-from app.models.models import CrewBase, CrewRead, CrewUpdate, User
+from app.models.models import CrewCreate, CrewRead, CrewUpdate, User
 from app.services.crew_service import CrewService
 from app.dependencies import get_crew_service, get_current_user
 
@@ -22,8 +22,8 @@ async def get_crews(
 ):
     """Get crews, optionally filtered by crew_id."""
     if crew_id:
-        return await service.get_crew_with_tasks(crew_id, current_user.id)
-    return await service.get_crews_with_tasks(current_user.id)
+        return await service.get_fully_loaded_crew_by_id(crew_id, current_user.id)
+    return await service.get_all_fully_loaded_crews(current_user.id)
 
 @crew_router.post(
     "/",
@@ -31,7 +31,7 @@ async def get_crews(
     response_model=CrewRead,
 )
 async def create_crew(
-    crew: CrewBase,
+    crew: CrewCreate,
     current_user: User = Depends(get_current_user),
     service: CrewService = Depends(get_crew_service),
 ):
@@ -49,4 +49,18 @@ async def update_crew(
     service: CrewService = Depends(get_crew_service),
 ):
     """Update an existing crew."""
-    return await service.update_crew(crew, current_user)  
+    return await service.update_crew(crew, current_user)
+
+@crew_router.delete(
+    "/{crew_id}",
+    status_code=204,
+    response_model=None,
+)
+async def delete_crew(
+    crew_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: CrewService = Depends(get_crew_service),
+):
+    """Delete an existing crew."""
+    await service.delete_crew(crew_id, current_user.id)
+    return None
