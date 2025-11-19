@@ -11,8 +11,8 @@ class Agent(BaseModel):
     
 class TaskBase(BaseModel):
     key: str
-    description: str
-    expected_output: str
+    # description: str
+    # expected_output: str
     order: int
     
 class TaskCreate(TaskBase):
