@@ -1,7 +1,7 @@
 from uuid import UUID
 from typing import cast
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 
 from app.schemas.schemas import Crew as CrewDB, CrewRun as CrewRunDB
@@ -60,16 +60,13 @@ class CrewRepository:
         return db_crew
     
     async def delete_crew(self, crew_id: UUID) -> CrewDB | None:
-        """Delete a crew from the database."""
-        query = select(CrewDB).where(CrewDB.id == crew_id)
-        result = await self.session.execute(query)
-        db_crew = result.scalar_one_or_none()
-        if db_crew:
-
-            deleted_crew = db_crew
-
-            await self.session.delete(db_crew)
-            await self.session.commit()
-
-            return deleted_crew
-        return None
+        """Delete a crew from the database and return the deleted row, using a single DELETE ... RETURNING."""
+        stmt = (
+            delete(CrewDB)
+            .where(CrewDB.id == crew_id)
+            .returning(CrewDB)
+        )
+        result = await self.session.execute(stmt)
+        deleted_crew = result.scalars().first()
+        await self.session.commit()
+        return deleted_crew
