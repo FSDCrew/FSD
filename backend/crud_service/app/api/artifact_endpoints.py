@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, Path, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, Path, HTTPException, status
 from uuid import UUID
 import io
 import base64
 
-from app.models.models import ArtifactRead, ArtifactCreate, ArtifactType, ArtifactServerCreate, User
+from app.models.models import ArtifactRead, ArtifactServerCreate, User
 from app.services.artifact_service import ArtifactService
 from app.dependencies import get_artifact_service, get_current_user
 
@@ -37,7 +37,7 @@ async def create_artifact(
             'content_type': 'application/octet-stream'
         }
     except Exception as e:
-         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Base64 content: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Base64 content: {e}")
 
     return await artifact_service.create_artifact(
         uploaded_file=uploaded_file,
