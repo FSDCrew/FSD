@@ -8,7 +8,8 @@ class CrewService:
     def __init__(self, repository: CrewRepository):
         self.repository = repository
     
-    def _is_crew_owner(self, crew_owner_id: UUID, current_user_id: UUID) -> bool:
+    def is_crew_owner(self, crew_owner_id: UUID, current_user_id: UUID) -> bool:
+        """Check if the current user is the owner of the crew."""
         if crew_owner_id == current_user_id:
             return True
         raise HTTPException(status_code=403, detail="You are not the owner of this crew")
@@ -39,5 +40,5 @@ class CrewService:
     async def update_crew(self, crew: CrewUpdate, current_user: User) -> CrewRead | None:
         """Update an existing crew."""
         existing_crew = await self.validate_crew(crew.id, current_user.id)
-        self._is_crew_owner(existing_crew.user_id, current_user.id)
+        self.is_crew_owner(existing_crew.user_id, current_user.id)
         return await self.repository.update_crew(crew)
