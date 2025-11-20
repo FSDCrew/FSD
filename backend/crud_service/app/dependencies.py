@@ -74,9 +74,12 @@ async def get_task_repository(session: AsyncSession = Depends(get_session)) -> T
     return TaskRepository(session)
 
 
-async def get_task_service(repository: TaskRepository = Depends(get_task_repository), crew_service: CrewService = Depends(get_crew_service)) -> TaskService:
-    """Dependency to get TaskService instance with repository injected."""
-    return TaskService(repository, crew_service)
+async def get_task_service(session: AsyncSession = Depends(get_session)) -> TaskService:
+    """Dependency to get TaskService instance with repositories sharing the same session."""
+    task_repository = TaskRepository(session)
+    crew_repository = CrewRepository(session)
+    crew_service = CrewService(crew_repository)
+    return TaskService(task_repository, crew_service)
 
 async def get_artifact_repository(session: AsyncSession = Depends(get_session)) -> ArtifactRepository:
     """Dependency to get ArtifactRepository instance with database session."""

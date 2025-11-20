@@ -36,8 +36,7 @@ def init_s3_client(app: FastAPI):
     
 async def on_startup():
     try:
-        # await test_connection()
-        ...
+        await test_connection()
     except Exception as e:
         logger.error(f"Error initializing database connection: {e}")
         raise HTTPException(status_code=500, detail="Database connection failed")
