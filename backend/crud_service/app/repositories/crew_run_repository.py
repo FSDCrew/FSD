@@ -16,7 +16,7 @@ class CrewRunRepository:
             output=crew_run_data.output
         )
         self.session.add(db_crew_run)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(db_crew_run)
         return db_crew_run
 

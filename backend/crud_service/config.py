@@ -1,9 +1,7 @@
-from pydantic import computed_field
 from pydantic_settings import BaseSettings
-from typing import Dict, Any, Optional
+from typing import Optional
 from pydantic import model_validator
 from pathlib import Path
-import os
 
 current_dir = Path(__file__).parent
 env_path = ".env"

@@ -12,7 +12,9 @@ from app.repositories.user_repository import UserRepository
 from app.repositories.artifact_repository import ArtifactRepository
 from app.services.artifact_service import ArtifactService
 from app.repositories.crew_run_repository import CrewRunRepository
+from app.repositories.queue_repository import QueueRepository
 from app.services.crew_run_service import CrewRunService
+from app.services.queue_service import QueueService
 from app.services.auth_service import AuthService
 from app.models.models import User
 
@@ -99,6 +101,21 @@ async def get_crew_run_repository(session: AsyncSession = Depends(get_session)) 
     """Dependency to get CrewRunRepository instance with database session."""
     return CrewRunRepository(session)
 
-async def get_crew_run_service(repository: CrewRunRepository = Depends(get_crew_run_repository), crew_service: CrewService = Depends(get_crew_service)) -> CrewRunService:
-    """Dependency to get CrewRunService instance with repository injected."""
-    return CrewRunService(repository)
+async def get_queue_repository(session: AsyncSession = Depends(get_session)) -> QueueRepository:
+    """Dependency to get QueueRepository instance with database session."""
+    return QueueRepository(session)
+
+async def get_crew_run_service(
+    session: AsyncSession = Depends(get_session),
+    crew_service: CrewService = Depends(get_crew_service)
+) -> CrewRunService:
+    """Dependency to get CrewRunService instance with repositories sharing the same session."""
+    crew_run_repository = CrewRunRepository(session)
+    queue_repository = QueueRepository(session)
+    return CrewRunService(crew_service, crew_run_repository, queue_repository, session)
+
+async def get_queue_service(
+    repository: QueueRepository = Depends(get_queue_repository)
+) -> QueueService:
+    """Dependency to get QueueService instance with repository injected."""
+    return QueueService(repository)

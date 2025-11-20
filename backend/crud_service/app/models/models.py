@@ -50,6 +50,30 @@ class ArtifactType(Enum):
     AUDIO = "AUDIO"
     DOCUMENT = "DOCUMENT"
     OTHER = "OTHER"
+
+class QueueStatus(Enum):
+    QUEUED = "QUEUED"
+    CLAIMED = "CLAIMED"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+class ClaimJobResponse(BaseModel):
+    id: UUID
+    crew_run_id: UUID
+    status: QueueStatus
+    lease_token: str
+    visible_at: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UpdateStatusRequest(BaseModel):
+    lease_token: str
+    status: QueueStatus
+
+
+class HeartbeatRequest(BaseModel):
+    lease_token: str
     
 class ArtifactBase(BaseModel):
     type: ArtifactType
