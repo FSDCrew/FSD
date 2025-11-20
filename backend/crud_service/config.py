@@ -28,9 +28,9 @@ class Settings(BaseSettings):
 
     # S3 settings
     S3_BUCKET_NAME: str
-    S3_ACCESS_KEY: str
-    S3_SECRET_KEY: str
     S3_REGION: str
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
 
     class Config:
         env_file = str(env_path) if env_path else None

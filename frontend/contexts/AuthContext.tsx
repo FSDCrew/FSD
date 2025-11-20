@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { getCurrentUser, fetchAuthSession, signOut, AuthUser } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
 
@@ -11,6 +11,7 @@ interface AuthContextType {
   checkUser: () => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
+  isRedirecting: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -23,73 +24,68 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
+  
+  const [isRedirecting, setIsRedirecting] = useState(false); 
+  const isInitialized = useRef(false);
 
   useEffect(() => {
-    // 1. Set up the Hub listener to catch auth events
-    const unsubscribe = Hub.listen("auth", ({ payload }) => {
-      const { event } = payload;
-      console.log("Auth event:", event);
+    if (isInitialized.current) return;
+    isInitialized.current = true;
 
-      // 2. When 'signedIn' fires, the code exchange is complete.
-      //    Run checkUser() to get the user data and tokens.
-      if (event === "signedIn") {
-        console.log("Hub: 'signedIn' event detected. Running checkUser.");
+    // ... (Hub Listener setup remains the same)
+    const unsubscribe = Hub.listen("auth", ({ payload }) => {
+      const { event } = payload as { event: string };
+      if (event === "signedIn" || event === "tokenRefresh") {
         checkUser();
-      
-      // 3. When 'signedOut' fires, clear the user state.
-      } else if (event === "signedOut") {
-        console.log("Hub: 'signedOut' event detected. Clearing user state.");
+      } else if (event === "signedOut" || event === "tokenRefresh_failure") {
+        // ... (sign out logic)
         setUser(null);
         setToken(null);
+        setLoading(false);
+        setIsRedirecting(false); 
       }
     });
 
-    // Only check user on mount if we're NOT in the middle of OAuth callback
     const isOAuthCallback = window.location.search.includes('code=') || 
                             window.location.search.includes('error=');
-    
-    if (!isOAuthCallback) {
-      checkUser();
-    } else {
-      setLoading(false);
-    }
-    // } else {
-    //   // We're in OAuth flow - just stop loading spinner
-    //   // The Hub listener will handle the rest
-    //   setLoading(false);
-    // }
 
-    // 5. Cleanup the listener when the component unmounts
+    if (isOAuthCallback) {
+      console.log("🔐 OAuth callback detected. Initiating masked redirect process.");
+      setIsRedirecting(true);
+      setLoading(false);
+    } else {
+      checkUser();
+    }
+
     return () => {
-      console.log("AuthProvider Unmounted: Cleaning up Hub listener.");
+      isInitialized.current = false;
       unsubscribe();
     };
-  }, []); 
+  }, []);
+
 
   const checkUser = async () => {
-    console.log("checkUser: Starting...");
+    setLoading(true); 
+    
     try {
       const session = await fetchAuthSession();
-      console.log("checkUser: Session fetched successfully.");
-
       const currentUser = await getCurrentUser();
-      console.log("checkUser: Current user fetched.", currentUser);
-
+      
       setUser(currentUser);
       setToken(session.tokens?.idToken?.toString() ?? null);
     } catch (error) {
-      console.log("Not signed in", error);
       setUser(null);
       setToken(null);
     } finally {
-      console.log("%ccheckUser: Finally block reached. Setting loading to false.", "color: green; font-weight: bold;");
       setLoading(false);
+      setIsRedirecting(false); 
     }
   };
 
+
   const logout = async () => {
     try {
-      await signOut();
+      await signOut({ global: true });
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -99,6 +95,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     user,
     token,
     loading,
+    isRedirecting,
     checkUser,
     logout,
     isAuthenticated: !!user,
