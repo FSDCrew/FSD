@@ -27,3 +27,17 @@ class CrewRunService:
             )
 
         return CrewRunRead.from_orm(db_crew_run)
+    
+    async def update_crew_run_output(self, crew_run_id: UUID, output: dict) -> CrewRunRead:
+        """Updates the output of a crew run."""
+        # TODO: Should output be an array of objects rather than just a dictionary?
+        db_crew_run = await self.crew_run_repository.update_crew_run_output(crew_run_id, output)
+        
+        if db_crew_run is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Crew Run with ID {crew_run_id} not found."
+            )
+        
+        full_crew_run = await self.crew_run_repository.get_crew_run_by_id_with_artifacts(crew_run_id)
+        return CrewRunRead.from_orm(full_crew_run)

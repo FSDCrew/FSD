@@ -30,3 +30,16 @@ class CrewRunRepository:
         result = await self.session.execute(query)
 
         return result.scalar_one_or_none()
+    
+    async def update_crew_run_output(self, crew_run_id: UUID, output: dict) -> CrewRunDB | None:
+        """Updates the output of a crew run."""
+        query = select(CrewRunDB).where(CrewRunDB.id == crew_run_id)
+        result = await self.session.execute(query)
+        db_crew_run = result.scalar_one_or_none()
+        
+        if db_crew_run:
+            setattr(db_crew_run, "output", output)
+            await self.session.commit()
+            await self.session.refresh(db_crew_run)
+        
+        return db_crew_run
