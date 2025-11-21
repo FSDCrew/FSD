@@ -46,6 +46,7 @@ class QueueStatus(Enum):
 class ClaimJobResponse(BaseModel):
     id: UUID
     crew_run_id: UUID
+    crew_id: UUID
     status: QueueStatus
     lease_token: str
     visible_at: str
@@ -85,6 +86,7 @@ class CrewRunCreate(CrewRunBase):
     
 class CrewRunRead(CrewRunBase):
     id: UUID
+    crew_id: UUID
     output: dict[str, Any] | None = None
     artifacts: list[ArtifactRead] | None = None
 

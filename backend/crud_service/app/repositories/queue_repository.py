@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import and_, case
+from sqlalchemy.orm import selectinload
 from app.schemas.schemas import CrewRunQueue as CrewRunQueueDB
 from app.models.models import QueueStatus
 
@@ -36,6 +37,7 @@ class QueueRepository:
         
         query = (
             select(CrewRunQueueDB)
+            .options(selectinload(CrewRunQueueDB.crew_run))
             .where(
                 and_(
                     CrewRunQueueDB.status.in_([QueueStatus.QUEUED, QueueStatus.FAILED]),

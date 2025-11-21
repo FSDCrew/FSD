@@ -17,7 +17,19 @@ class QueueService:
         db_job = await self.repository.claim_next_job(visibility_timeout_seconds)
         
         if db_job:
-            return ClaimJobResponse.model_validate(db_job)
+            crew_id = db_job.crew_run.crew_id if db_job.crew_run else None
+            if crew_id is None:
+                raise ValueError(f"Crew run {db_job.crew_run_id} not found or has no crew_id")
+            
+            response_data = {
+                "id": db_job.id,
+                "crew_run_id": db_job.crew_run_id,
+                "crew_id": crew_id,
+                "status": db_job.status,
+                "lease_token": db_job.lease_token,
+                "visible_at": db_job.visible_at.isoformat(),
+            }
+            return ClaimJobResponse.model_validate(response_data)
         return None
 
     async def update_queue_status(
