@@ -86,8 +86,8 @@ async def get_artifact_service(repository: ArtifactRepository = Depends(get_arti
     """Dependency to get ArtifactService instance with repository injected."""
     s3_client = boto3.client(
         's3',
-        aws_access_key_id=settings.S3_ACCESS_KEY,
-        aws_secret_access_key=settings.S3_SECRET_KEY,
+        # aws_access_key_id=settings.S3_ACCESS_KEY,
+        # aws_secret_access_key=settings.S3_SECRET_KEY,
         region_name=settings.S3_REGION
     )
     return ArtifactService(repository, s3_client)
