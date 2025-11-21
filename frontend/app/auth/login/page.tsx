@@ -7,16 +7,7 @@ import LoginButton from "@/components/LoginButton";
 
 
 export default function LoginPage() {
-
-  // const handleLogin = (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   // Simple mock login - replace with your actual auth logic
-  //   if (email && password) {
-  //     localStorage.setItem("fsd_token", "mock-token-" + Date.now());
-  //     router.push("/studio");
-  //   }
-  // };
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, isRedirecting } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -25,11 +16,13 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, loading, router]);
 
-
-  if (loading) {
-    return <div>Loading...</div>;
+  if (loading || isRedirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-lg">
+        Loading...
+      </div>
+    );
   }
-
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">

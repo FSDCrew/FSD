@@ -4,19 +4,16 @@ from app.schemas.schemas import Artifact as ArtifactDB
 from fastapi import HTTPException, status
 from uuid import UUID
 import uuid
-import boto3
 from typing import Any
-from datetime import datetime, timedelta
 from config import settings
 import os
-
-from app.services.crew_service import CrewService
+from botocore.client import BaseClient
 
 PRESIGNED_URL_EXPIRATION = 3600  
 
 
 class ArtifactService:
-    def __init__(self, repository: ArtifactRepository, s3_client: boto3.client):
+    def __init__(self, repository: ArtifactRepository, s3_client: BaseClient):
         self.repository = repository
         self.s3_client = s3_client
         
@@ -84,7 +81,7 @@ class ArtifactService:
             file_stream = getattr(uploaded_file, 'file', uploaded_file)
         
         if not original_filename:
-             raise HTTPException(status_code=400, detail="Uploaded file is missing a filename.")
+            raise HTTPException(status_code=400, detail="Uploaded file is missing a filename.")
 
         _, ext = os.path.splitext(original_filename)
         

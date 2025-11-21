@@ -1,8 +1,8 @@
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from app.schemas.schemas import Artifact as ArtifactDB, CrewRun as CrewRunDB, Crew as CrewDB
-from app.models.models import ArtifactRead, ArtifactType, ArtifactCreate
+from app.schemas.schemas import Artifact as ArtifactDB
+from app.models.models import ArtifactType, ArtifactCreate
 
 class ArtifactRepository:
     def __init__(self, session: AsyncSession):

@@ -11,8 +11,8 @@ class Agent(BaseModel):
     
 class TaskBase(BaseModel):
     key: str
-    description: str
-    expected_output: str
+    # description: str
+    # expected_output: str
     order: int
     
 class TaskCreate(TaskBase):
@@ -21,27 +21,13 @@ class TaskCreate(TaskBase):
 class TaskRead(TaskBase):
     id: UUID
     agent_key: str
+
+    model_config = ConfigDict(from_attributes=True)
     
 class TaskUpdate(TaskBase):
     id: UUID
     description: str | None = None
     expected_output: str | None = None
-    
-class CrewBase(BaseModel):
-    name: str
-
-class CrewCreate(CrewBase):
-    user_id: UUID
-    
-class CrewRead(CrewBase):
-    id: UUID
-    user_id: UUID
-    tasks: list[TaskRead] 
-    agents: list[Agent]
-
-class CrewUpdate(CrewBase):
-    id: UUID
-    name: str | None = None
 
 class ArtifactType(Enum):
     TEXT = "TEXT"
@@ -107,7 +93,27 @@ class CrewRunRead(CrewRunBase):
 class CrewRunUpdate(CrewRunBase):
     id: UUID
     output: dict[str, Any] | None = None
+
+class CrewBase(BaseModel):
+    name: str
+
+class CrewCreate(CrewBase):
+    # user_id: UUID
+    pass
     
+class CrewRead(CrewBase):
+    id: UUID
+    user_id: UUID
+    tasks: list[TaskRead] 
+    agents: list[Agent]
+    crew_runs: list[CrewRunRead] | None = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class CrewUpdate(CrewBase):
+    id: UUID
+    name: str | None = None    
+
 class User(BaseModel):
     id: UUID
     email: str

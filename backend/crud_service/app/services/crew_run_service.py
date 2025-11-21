@@ -25,7 +25,7 @@ class CrewRunService:
         await self.session.refresh(db_crew_run)
         full_crew_run = await self.crew_run_repository.get_crew_run_by_id_with_artifacts(crew_run_id)
 
-        return CrewRunRead.from_orm(full_crew_run)
+        return CrewRunRead.model_validate(full_crew_run)
 
     async def get_crew_run_by_id_with_artifacts(self, crew_run_id: UUID, user_id: UUID) -> CrewRunRead:
         """Retrieves a crew run and its artifacts, performing access validation."""

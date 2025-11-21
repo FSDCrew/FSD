@@ -1,14 +1,17 @@
 "use client"
 
 import { useAuth } from '../contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function LogoutButton() {
     const { isAuthenticated, loading, logout } = useAuth();
+    const router = useRouter();
 
     const handleLogout = async () => {
       if (!isAuthenticated) return;
       try {
           await logout();
+          router.push("/auth/login");
       } catch (err) {
           console.log("Error signing out:", err);
       }
