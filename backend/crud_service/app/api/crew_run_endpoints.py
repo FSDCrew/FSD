@@ -1,6 +1,5 @@
-from fastapi import APIRouter, Depends, Path, Body
+from fastapi import APIRouter, Depends, Path
 from uuid import UUID
-from typing import Dict, Any
 from app.models.models import CrewRunRead, CrewRunCreate, User
 from app.services.crew_run_service import CrewRunService
 from app.dependencies import get_crew_run_service, get_current_user
@@ -34,16 +33,3 @@ async def get_crew_run(
 ):
     """Retrieve a crew run and all associated artifacts."""
     return await service.get_crew_run_by_id_with_artifacts(crew_run_id, current_user.id)
-
-@crew_run_router.put(
-    "/{crew_run_id}/output",
-    status_code=200,
-    response_model=CrewRunRead
-)
-async def update_crew_run_output(
-    crew_run_id: UUID = Path(..., description="Crew Run ID to update"),
-    output: Dict[str, Any] = Body(..., description="Output data to update"),
-    service: CrewRunService = Depends(get_crew_run_service),
-):
-    """Update the output of a crew run. Used by CrewService to post results."""
-    return await service.update_crew_run_output(crew_run_id, output)

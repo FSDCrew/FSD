@@ -41,13 +41,23 @@ class CrewService:
             name=str(db_crew.name),
             user_id=UUID(str(db_crew.user_id)),
             tasks=convert_tasks(db_crew.tasks),
-            agents=[],
             crew_runs=convert_crew_runs(db_crew.crew_runs)
         )
+        
+    async def get_fully_loaded_crew_by_id_internal(self, crew_id: UUID) -> CrewRead:
+        """Get a fully loaded crew by ID for internal services without ownership validation."""
+        db_crew = await self.repository.get_fully_loaded_crew_by_id_internal(crew_id)
+        
+        if not db_crew:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Crew with ID {crew_id} not found."
+            )
+        
+        return self._convert_to_crew_read(db_crew)
     
     async def get_fully_loaded_crew_by_id(self, crew_id: UUID, user_id: UUID) -> CrewRead | None:
         """Get a crew by ID."""
-        # TODO: Retrieve agents 
         # TODO: Retrieve task descriptions and expected outputs
         db_crew = await self.repository.get_fully_loaded_crew_by_id(crew_id, user_id)
         
@@ -61,9 +71,7 @@ class CrewService:
 
     async def get_all_fully_loaded_crews(self, user_id: UUID) -> list[CrewRead]:
         """Get crews, optionally filtered by crew_id."""
-        # TODO: Retrieve agents 
         # TODO: Retrieve task descriptions and expected outputs
-        
         db_crews = await self.repository.get_all_fully_loaded_crews(user_id)
         if not db_crews:
             return []
@@ -78,7 +86,6 @@ class CrewService:
             name=str(db_crew.name),
             user_id=UUID(str(db_crew.user_id)),
             tasks=[],
-            agents=[],
             crew_runs=[]
     )
     

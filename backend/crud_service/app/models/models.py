@@ -107,7 +107,6 @@ class CrewRead(CrewBase):
     id: UUID
     user_id: UUID
     tasks: list[TaskRead] 
-    agents: list[Agent]
     crew_runs: list[CrewRunRead] | None = None
     
     model_config = ConfigDict(from_attributes=True)

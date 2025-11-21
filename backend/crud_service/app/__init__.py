@@ -13,7 +13,7 @@ from .api.task_endpoints import task_router
 from .api.user_endpoints import user_router
 from .api.artifact_endpoints import artifact_router
 from .api.crew_run_endpoints import crew_run_router
-from .api.queue_endpoints import queue_router
+from .api.internal_endpoints import internal_router
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def init_routers(app: FastAPI):
     app.include_router(user_router)
     app.include_router(artifact_router)
     app.include_router(crew_run_router)
-    app.include_router(queue_router)
+    app.include_router(internal_router)
     
 def init_s3_client(app: FastAPI):
     """Initialize S3 client using settings from config.py"""
