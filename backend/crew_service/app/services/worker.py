@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 class Worker:
     """Worker that polls the db queue from CrudService and executes jobs."""
     
+    MAX_CONCURRENT_JOBS = 3
+    
     def __init__(self):
         timeout = httpx.Timeout(30.0)
         self.crud_client = AuthenticatedClient(
@@ -73,6 +75,11 @@ class Worker:
     
     async def _poll_and_process(self):
         """Poll the queue and process a job if available."""
+        self._cleanup_completed_tasks()
+        
+        if len(self.running_jobs) >= self.MAX_CONCURRENT_JOBS:
+            return
+        
         try:
             from app.api.crud_client.types import Unset
             
@@ -93,8 +100,6 @@ class Worker:
                     self._execute_job(job)
                 )
                 self.running_jobs[job.id] = (task, job.lease_token)
-                
-                self._cleanup_completed_tasks()
         except errors.UnexpectedStatus as e:
             if e.status_code == 404:
                 # No job available, this is normal
