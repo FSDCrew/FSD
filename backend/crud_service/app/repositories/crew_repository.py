@@ -21,6 +21,19 @@ class CrewRepository:
             return None
         
         return db_crew
+    
+    async def get_fully_loaded_crew_by_id_internal(self, crew_id: UUID) -> CrewDB | None:
+        """Retrieve a single Crew by its ID for internal services without user ownership constraint."""
+        query = select(CrewDB).options(
+            selectinload(CrewDB.tasks),
+            selectinload(CrewDB.crew_runs).selectinload(CrewRunDB.artifacts)
+        ).where(CrewDB.id == crew_id)
+        result = await self.session.execute(query)
+        db_crew = result.scalar_one_or_none()
+        if not db_crew:
+            return None
+        
+        return db_crew
 
     async def get_all_fully_loaded_crews(self, user_id: UUID) -> list[CrewDB]:
         """Retrieve all Crews belonging to a user, eagerly loading all associated tasks and crew runs"""

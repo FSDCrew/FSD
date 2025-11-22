@@ -1,18 +1,21 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import Depends, Request, HTTPException, status
+from fastapi import Depends, Header, Request, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from typing import Optional
 
 from app.db.connection import get_session
 from app.repositories.crew_repository import CrewRepository
 from app.services.crew_service import CrewService
+from app.services.internal_service import InternalService
 from app.services.task_service import TaskService
 from app.repositories.task_repository import TaskRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.artifact_repository import ArtifactRepository
 from app.services.artifact_service import ArtifactService
 from app.repositories.crew_run_repository import CrewRunRepository
+from app.repositories.queue_repository import QueueRepository
 from app.services.crew_run_service import CrewRunService
+from app.services.queue_service import QueueService
 from app.services.auth_service import AuthService
 from app.models.models import User
 
@@ -74,13 +77,18 @@ async def get_task_repository(session: AsyncSession = Depends(get_session)) -> T
     return TaskRepository(session)
 
 
-async def get_task_service(repository: TaskRepository = Depends(get_task_repository), crew_service: CrewService = Depends(get_crew_service)) -> TaskService:
-    """Dependency to get TaskService instance with repository injected."""
-    return TaskService(repository, crew_service)
+async def get_task_service(session: AsyncSession = Depends(get_session)) -> TaskService:
+    """Dependency to get TaskService instance with repositories sharing the same session."""
+    task_repository = TaskRepository(session)
+    crew_repository = CrewRepository(session)
+    crew_service = CrewService(crew_repository)
+    return TaskService(task_repository, crew_service)
+
 
 async def get_artifact_repository(session: AsyncSession = Depends(get_session)) -> ArtifactRepository:
     """Dependency to get ArtifactRepository instance with database session."""
     return ArtifactRepository(session)
+
 
 async def get_artifact_service(repository: ArtifactRepository = Depends(get_artifact_repository)) -> ArtifactService:
     """Dependency to get ArtifactService instance with repository injected."""
@@ -92,10 +100,58 @@ async def get_artifact_service(repository: ArtifactRepository = Depends(get_arti
     )
     return ArtifactService(repository, s3_client)
 
+
 async def get_crew_run_repository(session: AsyncSession = Depends(get_session)) -> CrewRunRepository:
     """Dependency to get CrewRunRepository instance with database session."""
     return CrewRunRepository(session)
 
-async def get_crew_run_service(repository: CrewRunRepository = Depends(get_crew_run_repository), crew_service: CrewService = Depends(get_crew_service)) -> CrewRunService:
-    """Dependency to get CrewRunService instance with repository injected."""
-    return CrewRunService(repository)
+
+async def get_queue_repository(session: AsyncSession = Depends(get_session)) -> QueueRepository:
+    """Dependency to get QueueRepository instance with database session."""
+    return QueueRepository(session)
+
+
+async def get_crew_run_service(
+    session: AsyncSession = Depends(get_session),
+    crew_service: CrewService = Depends(get_crew_service)
+) -> CrewRunService:
+    """Dependency to get CrewRunService instance with repositories sharing the same session."""
+    crew_run_repository = CrewRunRepository(session)
+    queue_repository = QueueRepository(session)
+    return CrewRunService(crew_service, crew_run_repository, queue_repository, session)
+
+
+async def get_queue_service(
+    repository: QueueRepository = Depends(get_queue_repository)
+) -> QueueService:
+    """Dependency to get QueueService instance with repository injected."""
+    return QueueService(repository)
+
+
+async def get_internal_service(crew_service: CrewService = Depends(get_crew_service)) -> InternalService:
+    """Dependency to get InternalService instance."""
+    return InternalService(crew_service)
+
+
+async def require_internal_api_key(
+    api_key_header: Optional[str] = Header(None, alias="X-Internal-Api-Key"),
+    auth_creds: Optional[HTTPAuthorizationCredentials] = Depends(auth_scheme),
+    internal_service: InternalService = Depends(get_internal_service),
+) -> None:
+    """
+    Ensure the caller is another internal service by validating either the
+    legacy `X-Internal-Api-Key` header or an `Authorization: Bearer <token>`
+    header (used by openapi-python-client's AuthenticatedClient).
+    """
+    api_key = api_key_header
+
+    if not api_key and auth_creds and auth_creds.scheme.lower() == "bearer":
+        api_key = auth_creds.credentials
+
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing internal API key",
+        )
+
+    internal_service.validate_api_key(api_key)

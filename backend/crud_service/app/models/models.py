@@ -36,6 +36,31 @@ class ArtifactType(Enum):
     AUDIO = "AUDIO"
     DOCUMENT = "DOCUMENT"
     OTHER = "OTHER"
+
+class QueueStatus(Enum):
+    QUEUED = "QUEUED"
+    CLAIMED = "CLAIMED"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+class ClaimJobResponse(BaseModel):
+    id: UUID
+    crew_run_id: UUID
+    crew_id: UUID
+    status: QueueStatus
+    lease_token: str
+    visible_at: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UpdateStatusRequest(BaseModel):
+    lease_token: str
+    status: QueueStatus
+
+
+class HeartbeatRequest(BaseModel):
+    lease_token: str
     
 class ArtifactBase(BaseModel):
     type: ArtifactType
@@ -61,8 +86,11 @@ class CrewRunCreate(CrewRunBase):
     
 class CrewRunRead(CrewRunBase):
     id: UUID
+    crew_id: UUID
     output: dict[str, Any] | None = None
     artifacts: list[ArtifactRead] | None = None
+    queue_status: QueueStatus | None = None
+    retry_count: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -81,7 +109,6 @@ class CrewRead(CrewBase):
     id: UUID
     user_id: UUID
     tasks: list[TaskRead] 
-    agents: list[Agent]
     crew_runs: list[CrewRunRead] | None = None
     
     model_config = ConfigDict(from_attributes=True)

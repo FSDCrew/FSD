@@ -7,7 +7,7 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from app.schemas.schemas import Base, User, Crew, Task, CrewRun, Artifact
+from app.schemas.schemas import Base, User, Crew, Task, CrewRun, Artifact, CrewRunQueue
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
