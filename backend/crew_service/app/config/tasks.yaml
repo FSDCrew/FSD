@@ -2,6 +2,9 @@ marketing_research:
   key: marketing_research
   name: Marketing Research Task
   crew_inputs: theme, BRAND_DESCRIPTION
+  produces: ["RESEARCH_CONTEXT"]
+  requires_any: []
+  requires_all: []
   description: >
     <important_rules>
       1. You must not make up any information. Only include information that you are confident about.
@@ -108,6 +111,9 @@ content_strategy:
   key: content_strategy
   name: Content Strategy Task
   crew_inputs: theme, BRAND_DESCRIPTION, sample
+  produces: ["STRATEGY_CONTEXT"]
+  requires_any: [""]
+  requires_all: []
   description: >
     <important_rules>
       1. You must not make up any information. Only include information that you are confident about.
@@ -402,3 +408,113 @@ social_media_schedule:
     </your_task>
   expected_output: >
     A HTML table string that follows the sample schedule format that is converted to an Excel file using the HTML to Excel tool.
+
+generate_orshot_payload:
+  key: generate_orshot_payload
+  name: Generate Orshot Template Payload Task
+  crew_inputs: template_id, user_fields_list
+  produces: ["ORSHOT_PAYLOAD"]
+  requires_any: ["STRATEGY_CONTEXT", "RESEARCH_CONTEXT"]
+  requires_all: []
+  description: >
+    <important_rules>
+      1. OUTPUT FORMAT: You must return ONLY a valid raw JSON string. Do not wrap it in markdown (```json). Do not add conversational filler.
+      2. DATA INTEGRITY: Do not make up information. Extract facts strictly from the <context>.
+      3. STYLING: You must convert natural language style descriptions (e.g. "blue background", "10px font") into CamelCase CSS properties using dot notation.
+        - Example: "Blue text" -> "field.color": "#0000FF"
+         - Example: "Font size 20" -> "field.fontSize": "20px"
+      4. HIERARCHY: 'templateId' must be at the root. All content fields go inside 'modifications'.
+    </important_rules>
+
+    <context>
+      1. **Target Template ID:** {template_id}
+      2. **User Schema List:** {user_fields_list} (This defines the keys you must generate, datatype and description of the keys).
+      3. **Project Context:** (Automatically loaded from previous tasks).
+      4. **Image URLs:** If the Project Context contains image URLs, you can use them to populate Image datatype fields, else generate Image using Image Generation tool.
+    </context>
+
+    <tools>
+      - name: generate_image
+        description: Generates an image based on a natural language description.
+        input:
+          description: string
+          examples:
+            - "A serene beach at sunset with palm trees and gentle waves."
+            - "A futuristic cityscape with flying cars and neon lights."
+    </tools>
+
+    <tools_usage_rules>
+      1. You MUST use the Generate Image tool to create images for any Image datatype fields if no suitable image URLs are found in the Project Context. 
+      2. You MUST generate the image based on the description provided in the User Schema List for that field, else context of the project from Project Context.
+    </tools_usage_rules>
+
+    <sample_payload>
+      {
+        "templateId": 12345,
+        "modifications": {
+          "title": "Exciting New Product Launch",
+          "caption": "Discover the features of our latest innovation.",
+          "hero_bg": "https://example.com/images/hero_bg.png",
+          "button_color": "#FF5733"
+        },
+        "response" : {
+          "type": "url",
+          "format": "webp",
+          "scale": 1
+        }
+      }
+    </sample_payload>
+
+    <your_task>
+      Iterate through every item in the **User Schema List** and execute this logic:
+
+      **1. FOR TEXT/STRING FIELDS:**
+         - **Content:** Analyze **Project Context** for relevant facts. 
+           - *Crucial:* You must **Summarize** or **Rewrite** the extracted text to strictly match any length constraints in the description. 
+           - *Example:* If description says "Short 3 word title", you must write a new 3-word title based on the research (e.g., "Future of Coffee"), rather than just looking for an existing string.
+         - **Style:** Parse the user's description for visual cues (color, size, weight). 
+           - If found, append them as dotted keys (e.g., `field.fontSize`) to the modifications map.
+           - If "Brand Color" is requested, find the hex code in the **Brand Context**.
+
+      **2. FOR IMAGE FIELDS:**
+         - **Step A (Search):** Scan **Project Context** specifically for a S3 URL link.
+         - **Step B (Decision Logic):**
+            - **CASE 1: Artifact Found**
+              - If the context contains an S3 URL link from a previous task, **MAP IT DIRECTLY** to the image field value.
+            - **CASE 2: Artifact Not Found (Generate)**
+              - If NO S3 URL link is found, you **MUST use your Image Tool**.
+              - The tool will return a S3 URL link string. Map that result to the field.
+
+      **3. FINALIZE:**
+         - Compile all fields into the `modifications` object.
+         - Ensure valid JSON syntax.
+    </your_task>
+    
+  expected_output: >
+    A JSON object ready for the Orshot API (containing templateId, modifications, and response).
+  agent: orshot_template_mapper
+
+generate_marketing_image:
+  key: generate_marketing_image
+  name: Generate Campaign Image
+  crew_inputs: image_description
+  description: >
+    <important_rules>
+      1. **TOOL MANDATE:** You MUST use the `generate_image_artifact` tool. Do not pretend to generate images.
+      2. **OUTPUT FORMAT:** Your final answer must be ONLY the S3 URL string returned by the tool.
+    </important_rules>
+
+    <context>
+      **Project Context:** (Automatically loaded from previous tasks).
+      **Brand Context:** (Automatically loaded from previous tasks).
+    </context>
+
+    <your_task>
+      1. **Analyze:** Review the Project and Brand context. Identify the key subject, mood, and color palette required for a "Image".
+      2. **Prompt Engineering:** Construct a highly detailed, descriptive prompt (e.g., "A cinematic, photorealistic shot of a futuristic coffee cup, neon lighting, 8k resolution...").
+      3. **Generate:** Pass this prompt to your `generate_image_artifact` tool.
+      4. **Output:** The tool will return a S3 URL string. Return this string exactly as your final answer.
+    </your_task>
+
+  expected_output: >
+    A valid S3 URL string pointing to the generated image.
