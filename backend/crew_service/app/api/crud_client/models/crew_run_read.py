@@ -7,6 +7,7 @@ from uuid import UUID
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.queue_status import QueueStatus
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -25,12 +26,16 @@ class CrewRunRead:
         crew_id (UUID):
         output (CrewRunReadOutputType0 | None | Unset):
         artifacts (list[ArtifactRead] | None | Unset):
+        queue_status (None | QueueStatus | Unset):
+        retry_count (int | None | Unset):
     """
 
     id: UUID
     crew_id: UUID
     output: CrewRunReadOutputType0 | None | Unset = UNSET
     artifacts: list[ArtifactRead] | None | Unset = UNSET
+    queue_status: None | QueueStatus | Unset = UNSET
+    retry_count: int | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -60,6 +65,20 @@ class CrewRunRead:
         else:
             artifacts = self.artifacts
 
+        queue_status: None | str | Unset
+        if isinstance(self.queue_status, Unset):
+            queue_status = UNSET
+        elif isinstance(self.queue_status, QueueStatus):
+            queue_status = self.queue_status.value
+        else:
+            queue_status = self.queue_status
+
+        retry_count: int | None | Unset
+        if isinstance(self.retry_count, Unset):
+            retry_count = UNSET
+        else:
+            retry_count = self.retry_count
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -72,6 +91,10 @@ class CrewRunRead:
             field_dict["output"] = output
         if artifacts is not UNSET:
             field_dict["artifacts"] = artifacts
+        if queue_status is not UNSET:
+            field_dict["queue_status"] = queue_status
+        if retry_count is not UNSET:
+            field_dict["retry_count"] = retry_count
 
         return field_dict
 
@@ -126,11 +149,39 @@ class CrewRunRead:
 
         artifacts = _parse_artifacts(d.pop("artifacts", UNSET))
 
+        def _parse_queue_status(data: object) -> None | QueueStatus | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                queue_status_type_0 = QueueStatus(data)
+
+                return queue_status_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | QueueStatus | Unset, data)
+
+        queue_status = _parse_queue_status(d.pop("queue_status", UNSET))
+
+        def _parse_retry_count(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        retry_count = _parse_retry_count(d.pop("retry_count", UNSET))
+
         crew_run_read = cls(
             id=id,
             crew_id=crew_id,
             output=output,
             artifacts=artifacts,
+            queue_status=queue_status,
+            retry_count=retry_count,
         )
 
         crew_run_read.additional_properties = d

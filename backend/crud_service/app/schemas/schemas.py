@@ -56,6 +56,7 @@ class CrewRunQueue(Base):
     id = Column(PostgresUUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
     crew_run_id = Column(PostgresUUID(as_uuid=True), ForeignKey("crew_runs.id"), nullable=False, unique=True)
     status = Column(Enum(QueueStatus), nullable=False, default=QueueStatus.QUEUED)
+    retry_count = Column(Integer, nullable=False, default=0)
     visible_at = Column(DateTime(timezone=True), nullable=False, server_default=text('NOW()'))
     lease_token = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text('NOW()'))

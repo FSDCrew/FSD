@@ -28,6 +28,7 @@ class QueueRepository:
         """
         Claim the next available job from the queue using SKIP LOCKED.
         Returns None if no job is available.
+        Jobs with retry_count >= 5 will not be retried.
         
         Args:
             visibility_timeout_seconds: How long the job should remain invisible after claiming (default 5 minutes)
@@ -41,7 +42,8 @@ class QueueRepository:
             .where(
                 and_(
                     CrewRunQueueDB.status.in_([QueueStatus.QUEUED, QueueStatus.FAILED]),
-                    CrewRunQueueDB.visible_at <= datetime.now(timezone.utc)
+                    CrewRunQueueDB.visible_at <= datetime.now(timezone.utc),
+                    CrewRunQueueDB.retry_count < 5
                 )
             )
             .order_by(
@@ -60,7 +62,7 @@ class QueueRepository:
         job = result.scalar_one_or_none()
         
         if job:
-            setattr(job, "status", QueueStatus.CLAIMED.value)
+            setattr(job, "status", QueueStatus.CLAIMED)
             setattr(job, "lease_token", lease_token)
             setattr(job, "visible_at", new_visible_at)
             await self.session.commit()
@@ -69,18 +71,40 @@ class QueueRepository:
         
         return None
 
-    async def update_status(
-        self,
-        queue_id: UUID,
-        lease_token: str,
-        status: QueueStatus
-    ) -> CrewRunQueueDB | None:
+    async def get_queue_entry(self, queue_id: UUID, lease_token: str) -> CrewRunQueueDB | None:
         """
-        Update the status of a queue entry, verifying the lease token.
+        Get a queue entry by queue_id and lease_token.
         Returns None if the lease token doesn't match or job not found.
         """
         query = (
             select(CrewRunQueueDB)
+            .options(selectinload(CrewRunQueueDB.crew_run))
+            .where(
+                and_(
+                    CrewRunQueueDB.id == queue_id,
+                    CrewRunQueueDB.lease_token == lease_token
+                )
+            )
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
+    async def update_status(
+        self,
+        queue_id: UUID,
+        lease_token: str,
+        status: QueueStatus,
+        retry_count: int | None = None,
+        visible_at: datetime | None = None
+    ) -> CrewRunQueueDB | None:
+        """
+        Update the status of a queue entry, verifying the lease token.
+        Optionally update retry_count and visible_at if provided.
+        Returns None if the lease token doesn't match or job not found.
+        """
+        query = (
+            select(CrewRunQueueDB)
+            .options(selectinload(CrewRunQueueDB.crew_run))
             .where(
                 and_(
                     CrewRunQueueDB.id == queue_id,
@@ -92,9 +116,13 @@ class QueueRepository:
         job = result.scalar_one_or_none()
         
         if job:
-            setattr(job, "status", status.value)
+            setattr(job, "status", status)
+            if retry_count is not None:
+                setattr(job, "retry_count", retry_count)
+            if visible_at is not None:
+                setattr(job, "visible_at", visible_at)
             await self.session.commit()
-            await self.session.refresh(job)
+            await self.session.refresh(job, ["crew_run"])
             return job
         
         return None

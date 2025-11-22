@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from starlette.status import HTTP_404_NOT_FOUND
 from app.repositories.queue_repository import QueueRepository
 from app.models.models import QueueStatus, ClaimJobResponse
+from datetime import datetime, timezone
 
 
 class QueueService:
@@ -21,15 +22,14 @@ class QueueService:
             if crew_id is None:
                 raise ValueError(f"Crew run {db_job.crew_run_id} not found or has no crew_id")
             
-            response_data = {
+            return ClaimJobResponse.model_validate({
                 "id": db_job.id,
                 "crew_run_id": db_job.crew_run_id,
                 "crew_id": crew_id,
                 "status": db_job.status,
                 "lease_token": db_job.lease_token,
                 "visible_at": db_job.visible_at.isoformat(),
-            }
-            return ClaimJobResponse.model_validate(response_data)
+            })
         return None
 
     async def update_queue_status(
@@ -37,19 +37,45 @@ class QueueService:
         queue_id: UUID,
         lease_token: str,
         status: QueueStatus
-    ) -> None:
+    ) -> ClaimJobResponse | None:
         """
         Update the status of a queue entry.
         Requires valid lease_token so that only the worker that claimed the job can update the status.
+        Increments retry_count if status is FAILED.
+        Sets visible_at to now if status is FAILED so it can be retried immediately.
         Raises HTTPException if queue entry not found or lease token invalid.
+        Returns the updated queue entry as ClaimJobResponse.
         """
-        db_job = await self.repository.update_status(queue_id, lease_token, status)
+        db_job = await self.repository.get_queue_entry(queue_id, lease_token)
         
         if not db_job:
             raise HTTPException(
                 status_code=HTTP_404_NOT_FOUND,
                 detail="Queue entry not found or lease token invalid"
             )
+        
+        retry_count = None
+        visible_at = None
+        if status == QueueStatus.FAILED:
+            current_retry_count = getattr(db_job, "retry_count", 0) or 0
+            retry_count = current_retry_count + 1
+            visible_at = datetime.now(timezone.utc)
+        
+        updated_job = await self.repository.update_status(queue_id, lease_token, status, retry_count, visible_at)
+        assert updated_job is not None, "Job should exist after validation"
+        
+        crew_id = updated_job.crew_run.crew_id if updated_job.crew_run else None
+        if crew_id is None:
+            raise ValueError(f"Crew run {updated_job.crew_run_id} not found or has no crew_id")
+        
+        return ClaimJobResponse.model_validate({
+            "id": updated_job.id,
+            "crew_run_id": updated_job.crew_run_id,
+            "crew_id": crew_id,
+            "status": updated_job.status,
+            "lease_token": updated_job.lease_token,
+            "visible_at": updated_job.visible_at.isoformat(),
+        })
 
     async def heartbeat(
         self,

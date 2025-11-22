@@ -98,8 +98,7 @@ async def update_queue_status_internal(
     service: QueueService = Depends(get_queue_service),
 ):
     """Update the status of a queue entry (internal use only)."""
-    await service.update_queue_status(queue_id, request.lease_token, request.status)
-    return {"status": "updated", "queue_id": str(queue_id)}
+    return await service.update_queue_status(queue_id, request.lease_token, request.status)
 
 
 @internal_router.post(

@@ -89,6 +89,8 @@ class CrewRunRead(CrewRunBase):
     crew_id: UUID
     output: dict[str, Any] | None = None
     artifacts: list[ArtifactRead] | None = None
+    queue_status: QueueStatus | None = None
+    retry_count: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
