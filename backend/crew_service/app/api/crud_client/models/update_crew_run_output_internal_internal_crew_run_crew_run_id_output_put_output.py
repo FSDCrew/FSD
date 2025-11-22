@@ -6,11 +6,13 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="UpdateCrewRunOutputCrewRunCrewRunIdOutputPutOutput")
+T = TypeVar(
+    "T", bound="UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput"
+)
 
 
 @_attrs_define
-class UpdateCrewRunOutputCrewRunCrewRunIdOutputPutOutput:
+class UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput:
     """Output data to update"""
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -24,10 +26,10 @@ class UpdateCrewRunOutputCrewRunCrewRunIdOutputPutOutput:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        update_crew_run_output_crew_run_crew_run_id_output_put_output = cls()
+        update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put_output = cls()
 
-        update_crew_run_output_crew_run_crew_run_id_output_put_output.additional_properties = d
-        return update_crew_run_output_crew_run_crew_run_id_output_put_output
+        update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put_output.additional_properties = d
+        return update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put_output
 
     @property
     def additional_keys(self) -> list[str]:

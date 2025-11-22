@@ -8,22 +8,25 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.crew_run_read import CrewRunRead
 from ...models.http_validation_error import HTTPValidationError
-from ...models.update_crew_run_output_crew_run_crew_run_id_output_put_output import (
-    UpdateCrewRunOutputCrewRunCrewRunIdOutputPutOutput,
+from ...models.update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put_output import (
+    UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput,
 )
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     crew_run_id: UUID,
     *,
-    body: UpdateCrewRunOutputCrewRunCrewRunIdOutputPutOutput,
+    body: UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
+    if not isinstance(x_internal_api_key, Unset):
+        headers["X-Internal-Api-Key"] = x_internal_api_key
 
     _kwargs: dict[str, Any] = {
         "method": "put",
-        "url": "/crew-run/{crew_run_id}/output".format(
+        "url": "/internal/crew-run/{crew_run_id}/output".format(
             crew_run_id=crew_run_id,
         ),
     }
@@ -69,16 +72,19 @@ def _build_response(
 def sync_detailed(
     crew_run_id: UUID,
     *,
-    client: AuthenticatedClient | Client,
-    body: UpdateCrewRunOutputCrewRunCrewRunIdOutputPutOutput,
+    client: AuthenticatedClient,
+    body: UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> Response[CrewRunRead | HTTPValidationError]:
-    """Update Crew Run Output
+    """Update Crew Run Output Internal
 
-     Update the output of a crew run. Used by CrewService to post results.
+     Update the output of a crew run via internal API.
 
     Args:
         crew_run_id (UUID): Crew Run ID to update
-        body (UpdateCrewRunOutputCrewRunCrewRunIdOutputPutOutput): Output data to update
+        x_internal_api_key (None | str | Unset):
+        body (UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput): Output data to
+            update
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -91,6 +97,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         crew_run_id=crew_run_id,
         body=body,
+        x_internal_api_key=x_internal_api_key,
     )
 
     response = client.get_httpx_client().request(
@@ -103,16 +110,19 @@ def sync_detailed(
 def sync(
     crew_run_id: UUID,
     *,
-    client: AuthenticatedClient | Client,
-    body: UpdateCrewRunOutputCrewRunCrewRunIdOutputPutOutput,
+    client: AuthenticatedClient,
+    body: UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> CrewRunRead | HTTPValidationError | None:
-    """Update Crew Run Output
+    """Update Crew Run Output Internal
 
-     Update the output of a crew run. Used by CrewService to post results.
+     Update the output of a crew run via internal API.
 
     Args:
         crew_run_id (UUID): Crew Run ID to update
-        body (UpdateCrewRunOutputCrewRunCrewRunIdOutputPutOutput): Output data to update
+        x_internal_api_key (None | str | Unset):
+        body (UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput): Output data to
+            update
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -126,22 +136,26 @@ def sync(
         crew_run_id=crew_run_id,
         client=client,
         body=body,
+        x_internal_api_key=x_internal_api_key,
     ).parsed
 
 
 async def asyncio_detailed(
     crew_run_id: UUID,
     *,
-    client: AuthenticatedClient | Client,
-    body: UpdateCrewRunOutputCrewRunCrewRunIdOutputPutOutput,
+    client: AuthenticatedClient,
+    body: UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> Response[CrewRunRead | HTTPValidationError]:
-    """Update Crew Run Output
+    """Update Crew Run Output Internal
 
-     Update the output of a crew run. Used by CrewService to post results.
+     Update the output of a crew run via internal API.
 
     Args:
         crew_run_id (UUID): Crew Run ID to update
-        body (UpdateCrewRunOutputCrewRunCrewRunIdOutputPutOutput): Output data to update
+        x_internal_api_key (None | str | Unset):
+        body (UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput): Output data to
+            update
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -154,6 +168,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         crew_run_id=crew_run_id,
         body=body,
+        x_internal_api_key=x_internal_api_key,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -164,16 +179,19 @@ async def asyncio_detailed(
 async def asyncio(
     crew_run_id: UUID,
     *,
-    client: AuthenticatedClient | Client,
-    body: UpdateCrewRunOutputCrewRunCrewRunIdOutputPutOutput,
+    client: AuthenticatedClient,
+    body: UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> CrewRunRead | HTTPValidationError | None:
-    """Update Crew Run Output
+    """Update Crew Run Output Internal
 
-     Update the output of a crew run. Used by CrewService to post results.
+     Update the output of a crew run via internal API.
 
     Args:
         crew_run_id (UUID): Crew Run ID to update
-        body (UpdateCrewRunOutputCrewRunCrewRunIdOutputPutOutput): Output data to update
+        x_internal_api_key (None | str | Unset):
+        body (UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput): Output data to
+            update
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -188,5 +206,6 @@ async def asyncio(
             crew_run_id=crew_run_id,
             client=client,
             body=body,
+            x_internal_api_key=x_internal_api_key,
         )
     ).parsed

@@ -22,11 +22,13 @@ class CrewRunRead:
     """
     Attributes:
         id (UUID):
+        crew_id (UUID):
         output (CrewRunReadOutputType0 | None | Unset):
         artifacts (list[ArtifactRead] | None | Unset):
     """
 
     id: UUID
+    crew_id: UUID
     output: CrewRunReadOutputType0 | None | Unset = UNSET
     artifacts: list[ArtifactRead] | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -35,6 +37,8 @@ class CrewRunRead:
         from ..models.crew_run_read_output_type_0 import CrewRunReadOutputType0
 
         id = str(self.id)
+
+        crew_id = str(self.crew_id)
 
         output: dict[str, Any] | None | Unset
         if isinstance(self.output, Unset):
@@ -61,6 +65,7 @@ class CrewRunRead:
         field_dict.update(
             {
                 "id": id,
+                "crew_id": crew_id,
             }
         )
         if output is not UNSET:
@@ -77,6 +82,8 @@ class CrewRunRead:
 
         d = dict(src_dict)
         id = UUID(d.pop("id"))
+
+        crew_id = UUID(d.pop("crew_id"))
 
         def _parse_output(data: object) -> CrewRunReadOutputType0 | None | Unset:
             if data is None:
@@ -121,6 +128,7 @@ class CrewRunRead:
 
         crew_run_read = cls(
             id=id,
+            crew_id=crew_id,
             output=output,
             artifacts=artifacts,
         )

@@ -16,25 +16,17 @@ class TaskCreate:
     """
     Attributes:
         key (str):
-        description (str):
-        expected_output (str):
         order (int):
         agent_key (None | str | Unset):
     """
 
     key: str
-    description: str
-    expected_output: str
     order: int
     agent_key: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         key = self.key
-
-        description = self.description
-
-        expected_output = self.expected_output
 
         order = self.order
 
@@ -49,8 +41,6 @@ class TaskCreate:
         field_dict.update(
             {
                 "key": key,
-                "description": description,
-                "expected_output": expected_output,
                 "order": order,
             }
         )
@@ -63,10 +53,6 @@ class TaskCreate:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
         key = d.pop("key")
-
-        description = d.pop("description")
-
-        expected_output = d.pop("expected_output")
 
         order = d.pop("order")
 
@@ -81,8 +67,6 @@ class TaskCreate:
 
         task_create = cls(
             key=key,
-            description=description,
-            expected_output=expected_output,
             order=order,
             agent_key=agent_key,
         )

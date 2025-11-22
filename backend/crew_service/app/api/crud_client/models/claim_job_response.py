@@ -18,6 +18,7 @@ class ClaimJobResponse:
     Attributes:
         id (UUID):
         crew_run_id (UUID):
+        crew_id (UUID):
         status (QueueStatus):
         lease_token (str):
         visible_at (str):
@@ -25,6 +26,7 @@ class ClaimJobResponse:
 
     id: UUID
     crew_run_id: UUID
+    crew_id: UUID
     status: QueueStatus
     lease_token: str
     visible_at: str
@@ -34,6 +36,8 @@ class ClaimJobResponse:
         id = str(self.id)
 
         crew_run_id = str(self.crew_run_id)
+
+        crew_id = str(self.crew_id)
 
         status = self.status.value
 
@@ -47,6 +51,7 @@ class ClaimJobResponse:
             {
                 "id": id,
                 "crew_run_id": crew_run_id,
+                "crew_id": crew_id,
                 "status": status,
                 "lease_token": lease_token,
                 "visible_at": visible_at,
@@ -62,6 +67,8 @@ class ClaimJobResponse:
 
         crew_run_id = UUID(d.pop("crew_run_id"))
 
+        crew_id = UUID(d.pop("crew_id"))
+
         status = QueueStatus(d.pop("status"))
 
         lease_token = d.pop("lease_token")
@@ -71,6 +78,7 @@ class ClaimJobResponse:
         claim_job_response = cls(
             id=id,
             crew_run_id=crew_run_id,
+            crew_id=crew_id,
             status=status,
             lease_token=lease_token,
             visible_at=visible_at,

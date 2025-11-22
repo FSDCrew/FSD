@@ -5,43 +5,31 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.crew_create import CrewCreate
 from ...models.crew_read import CrewRead
-from ...models.http_validation_error import HTTPValidationError
 from ...types import Response
 
 
-def _get_kwargs(
-    *,
-    body: CrewCreate,
-) -> dict[str, Any]:
-    headers: dict[str, Any] = {}
-
+def _get_kwargs() -> dict[str, Any]:
     _kwargs: dict[str, Any] = {
-        "method": "post",
+        "method": "get",
         "url": "/crew/",
     }
 
-    _kwargs["json"] = body.to_dict()
-
-    headers["Content-Type"] = "application/json"
-
-    _kwargs["headers"] = headers
     return _kwargs
 
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> CrewRead | HTTPValidationError | None:
-    if response.status_code == 201:
-        response_201 = CrewRead.from_dict(response.json())
+) -> list[CrewRead] | None:
+    if response.status_code == 200:
+        response_200 = []
+        _response_200 = response.json()
+        for response_200_item_data in _response_200:
+            response_200_item = CrewRead.from_dict(response_200_item_data)
 
-        return response_201
+            response_200.append(response_200_item)
 
-    if response.status_code == 422:
-        response_422 = HTTPValidationError.from_dict(response.json())
-
-        return response_422
+        return response_200
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -51,7 +39,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[CrewRead | HTTPValidationError]:
+) -> Response[list[CrewRead]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -63,26 +51,20 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: CrewCreate,
-) -> Response[CrewRead | HTTPValidationError]:
-    """Create Crew
+) -> Response[list[CrewRead]]:
+    """Get All Crews
 
-     Create a new crew.
-
-    Args:
-        body (CrewCreate):
+     Get all crews for the current user.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[CrewRead | HTTPValidationError]
+        Response[list[CrewRead]]
     """
 
-    kwargs = _get_kwargs(
-        body=body,
-    )
+    kwargs = _get_kwargs()
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -94,52 +76,41 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: CrewCreate,
-) -> CrewRead | HTTPValidationError | None:
-    """Create Crew
+) -> list[CrewRead] | None:
+    """Get All Crews
 
-     Create a new crew.
-
-    Args:
-        body (CrewCreate):
+     Get all crews for the current user.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        CrewRead | HTTPValidationError
+        list[CrewRead]
     """
 
     return sync_detailed(
         client=client,
-        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: CrewCreate,
-) -> Response[CrewRead | HTTPValidationError]:
-    """Create Crew
+) -> Response[list[CrewRead]]:
+    """Get All Crews
 
-     Create a new crew.
-
-    Args:
-        body (CrewCreate):
+     Get all crews for the current user.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[CrewRead | HTTPValidationError]
+        Response[list[CrewRead]]
     """
 
-    kwargs = _get_kwargs(
-        body=body,
-    )
+    kwargs = _get_kwargs()
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -149,26 +120,21 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: CrewCreate,
-) -> CrewRead | HTTPValidationError | None:
-    """Create Crew
+) -> list[CrewRead] | None:
+    """Get All Crews
 
-     Create a new crew.
-
-    Args:
-        body (CrewCreate):
+     Get all crews for the current user.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        CrewRead | HTTPValidationError
+        list[CrewRead]
     """
 
     return (
         await asyncio_detailed(
             client=client,
-            body=body,
         )
     ).parsed

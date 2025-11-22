@@ -15,16 +15,12 @@ class TaskRead:
     """
     Attributes:
         key (str):
-        description (str):
-        expected_output (str):
         order (int):
         id (UUID):
         agent_key (str):
     """
 
     key: str
-    description: str
-    expected_output: str
     order: int
     id: UUID
     agent_key: str
@@ -32,10 +28,6 @@ class TaskRead:
 
     def to_dict(self) -> dict[str, Any]:
         key = self.key
-
-        description = self.description
-
-        expected_output = self.expected_output
 
         order = self.order
 
@@ -48,8 +40,6 @@ class TaskRead:
         field_dict.update(
             {
                 "key": key,
-                "description": description,
-                "expected_output": expected_output,
                 "order": order,
                 "id": id,
                 "agent_key": agent_key,
@@ -63,10 +53,6 @@ class TaskRead:
         d = dict(src_dict)
         key = d.pop("key")
 
-        description = d.pop("description")
-
-        expected_output = d.pop("expected_output")
-
         order = d.pop("order")
 
         id = UUID(d.pop("id"))
@@ -75,8 +61,6 @@ class TaskRead:
 
         task_read = cls(
             key=key,
-            description=description,
-            expected_output=expected_output,
             order=order,
             id=id,
             agent_key=agent_key,

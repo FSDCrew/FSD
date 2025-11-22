@@ -6,11 +6,11 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="CrewBase")
+T = TypeVar("T", bound="CrewCreate")
 
 
 @_attrs_define
-class CrewBase:
+class CrewCreate:
     """
     Attributes:
         name (str):
@@ -37,12 +37,12 @@ class CrewBase:
         d = dict(src_dict)
         name = d.pop("name")
 
-        crew_base = cls(
+        crew_create = cls(
             name=name,
         )
 
-        crew_base.additional_properties = d
-        return crew_base
+        crew_create.additional_properties = d
+        return crew_create
 
     @property
     def additional_keys(self) -> list[str]:

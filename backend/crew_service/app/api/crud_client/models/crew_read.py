@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..types import UNSET, Unset
+
 if TYPE_CHECKING:
-    from ..models.agent import Agent
+    from ..models.crew_run_read import CrewRunRead
     from ..models.task_read import TaskRead
 
 
@@ -23,14 +25,14 @@ class CrewRead:
         id (UUID):
         user_id (UUID):
         tasks (list[TaskRead]):
-        agents (list[Agent]):
+        crew_runs (list[CrewRunRead] | None | Unset):
     """
 
     name: str
     id: UUID
     user_id: UUID
     tasks: list[TaskRead]
-    agents: list[Agent]
+    crew_runs: list[CrewRunRead] | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -45,10 +47,17 @@ class CrewRead:
             tasks_item = tasks_item_data.to_dict()
             tasks.append(tasks_item)
 
-        agents = []
-        for agents_item_data in self.agents:
-            agents_item = agents_item_data.to_dict()
-            agents.append(agents_item)
+        crew_runs: list[dict[str, Any]] | None | Unset
+        if isinstance(self.crew_runs, Unset):
+            crew_runs = UNSET
+        elif isinstance(self.crew_runs, list):
+            crew_runs = []
+            for crew_runs_type_0_item_data in self.crew_runs:
+                crew_runs_type_0_item = crew_runs_type_0_item_data.to_dict()
+                crew_runs.append(crew_runs_type_0_item)
+
+        else:
+            crew_runs = self.crew_runs
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -58,15 +67,16 @@ class CrewRead:
                 "id": id,
                 "user_id": user_id,
                 "tasks": tasks,
-                "agents": agents,
             }
         )
+        if crew_runs is not UNSET:
+            field_dict["crew_runs"] = crew_runs
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.agent import Agent
+        from ..models.crew_run_read import CrewRunRead
         from ..models.task_read import TaskRead
 
         d = dict(src_dict)
@@ -83,19 +93,36 @@ class CrewRead:
 
             tasks.append(tasks_item)
 
-        agents = []
-        _agents = d.pop("agents")
-        for agents_item_data in _agents:
-            agents_item = Agent.from_dict(agents_item_data)
+        def _parse_crew_runs(data: object) -> list[CrewRunRead] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                crew_runs_type_0 = []
+                _crew_runs_type_0 = data
+                for crew_runs_type_0_item_data in _crew_runs_type_0:
+                    crew_runs_type_0_item = CrewRunRead.from_dict(
+                        crew_runs_type_0_item_data
+                    )
 
-            agents.append(agents_item)
+                    crew_runs_type_0.append(crew_runs_type_0_item)
+
+                return crew_runs_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[CrewRunRead] | None | Unset, data)
+
+        crew_runs = _parse_crew_runs(d.pop("crew_runs", UNSET))
 
         crew_read = cls(
             name=name,
             id=id,
             user_id=user_id,
             tasks=tasks,
-            agents=agents,
+            crew_runs=crew_runs,
         )
 
         crew_read.additional_properties = d

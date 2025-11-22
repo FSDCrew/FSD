@@ -13,7 +13,12 @@ from ...types import UNSET, Response, Unset
 def _get_kwargs(
     *,
     visibility_timeout_seconds: int | Unset = 300,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
+    if not isinstance(x_internal_api_key, Unset):
+        headers["X-Internal-Api-Key"] = x_internal_api_key
+
     params: dict[str, Any] = {}
 
     params["visibility_timeout_seconds"] = visibility_timeout_seconds
@@ -22,10 +27,11 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/queue/claim",
+        "url": "/internal/queue/claim",
         "params": params,
     }
 
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -75,16 +81,17 @@ def _build_response(
 
 def sync_detailed(
     *,
-    client: AuthenticatedClient | Client,
+    client: AuthenticatedClient,
     visibility_timeout_seconds: int | Unset = 300,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> Response[ClaimJobResponse | None | HTTPValidationError]:
-    """Claim Next Job
+    """Claim Next Job Internal
 
-     Claim the next available job from the queue.
-    Returns None if no job is available.
+     Claim the next available job from the queue (internal use only).
 
     Args:
         visibility_timeout_seconds (int | Unset):  Default: 300.
+        x_internal_api_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -96,6 +103,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         visibility_timeout_seconds=visibility_timeout_seconds,
+        x_internal_api_key=x_internal_api_key,
     )
 
     response = client.get_httpx_client().request(
@@ -107,16 +115,17 @@ def sync_detailed(
 
 def sync(
     *,
-    client: AuthenticatedClient | Client,
+    client: AuthenticatedClient,
     visibility_timeout_seconds: int | Unset = 300,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> ClaimJobResponse | None | HTTPValidationError | None:
-    """Claim Next Job
+    """Claim Next Job Internal
 
-     Claim the next available job from the queue.
-    Returns None if no job is available.
+     Claim the next available job from the queue (internal use only).
 
     Args:
         visibility_timeout_seconds (int | Unset):  Default: 300.
+        x_internal_api_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -129,21 +138,23 @@ def sync(
     return sync_detailed(
         client=client,
         visibility_timeout_seconds=visibility_timeout_seconds,
+        x_internal_api_key=x_internal_api_key,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
-    client: AuthenticatedClient | Client,
+    client: AuthenticatedClient,
     visibility_timeout_seconds: int | Unset = 300,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> Response[ClaimJobResponse | None | HTTPValidationError]:
-    """Claim Next Job
+    """Claim Next Job Internal
 
-     Claim the next available job from the queue.
-    Returns None if no job is available.
+     Claim the next available job from the queue (internal use only).
 
     Args:
         visibility_timeout_seconds (int | Unset):  Default: 300.
+        x_internal_api_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -155,6 +166,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         visibility_timeout_seconds=visibility_timeout_seconds,
+        x_internal_api_key=x_internal_api_key,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -164,16 +176,17 @@ async def asyncio_detailed(
 
 async def asyncio(
     *,
-    client: AuthenticatedClient | Client,
+    client: AuthenticatedClient,
     visibility_timeout_seconds: int | Unset = 300,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> ClaimJobResponse | None | HTTPValidationError | None:
-    """Claim Next Job
+    """Claim Next Job Internal
 
-     Claim the next available job from the queue.
-    Returns None if no job is available.
+     Claim the next available job from the queue (internal use only).
 
     Args:
         visibility_timeout_seconds (int | Unset):  Default: 300.
+        x_internal_api_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -187,5 +200,6 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             visibility_timeout_seconds=visibility_timeout_seconds,
+            x_internal_api_key=x_internal_api_key,
         )
     ).parsed

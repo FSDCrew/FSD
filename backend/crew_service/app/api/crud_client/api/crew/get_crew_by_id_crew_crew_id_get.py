@@ -8,30 +8,17 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.crew_read import CrewRead
 from ...models.http_validation_error import HTTPValidationError
-from ...types import UNSET, Response, Unset
+from ...types import Response
 
 
 def _get_kwargs(
-    *,
-    crew_id: None | Unset | UUID = UNSET,
+    crew_id: UUID,
 ) -> dict[str, Any]:
-    params: dict[str, Any] = {}
-
-    json_crew_id: None | str | Unset
-    if isinstance(crew_id, Unset):
-        json_crew_id = UNSET
-    elif isinstance(crew_id, UUID):
-        json_crew_id = str(crew_id)
-    else:
-        json_crew_id = crew_id
-    params["crew_id"] = json_crew_id
-
-    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/crew/",
-        "params": params,
+        "url": "/crew/{crew_id}".format(
+            crew_id=crew_id,
+        ),
     }
 
     return _kwargs
@@ -39,32 +26,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> CrewRead | list[CrewRead] | HTTPValidationError | None:
+) -> CrewRead | HTTPValidationError | None:
     if response.status_code == 200:
-
-        def _parse_response_200(data: object) -> CrewRead | list[CrewRead]:
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                response_200_type_0 = CrewRead.from_dict(data)
-
-                return response_200_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            if not isinstance(data, list):
-                raise TypeError()
-            response_200_type_1 = []
-            _response_200_type_1 = data
-            for response_200_type_1_item_data in _response_200_type_1:
-                response_200_type_1_item = CrewRead.from_dict(
-                    response_200_type_1_item_data
-                )
-
-                response_200_type_1.append(response_200_type_1_item)
-
-            return response_200_type_1
-
-        response_200 = _parse_response_200(response.json())
+        response_200 = CrewRead.from_dict(response.json())
 
         return response_200
 
@@ -81,7 +45,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[CrewRead | list[CrewRead] | HTTPValidationError]:
+) -> Response[CrewRead | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -91,23 +55,23 @@ def _build_response(
 
 
 def sync_detailed(
+    crew_id: UUID,
     *,
     client: AuthenticatedClient,
-    crew_id: None | Unset | UUID = UNSET,
-) -> Response[CrewRead | list[CrewRead] | HTTPValidationError]:
-    """Get Crews
+) -> Response[CrewRead | HTTPValidationError]:
+    """Get Crew By Id
 
-     Get crews, optionally filtered by crew_id.
+     Get a single crew by ID.
 
     Args:
-        crew_id (None | Unset | UUID): Optional Crew ID to filter
+        crew_id (UUID): Crew ID to retrieve
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[CrewRead | list[CrewRead] | HTTPValidationError]
+        Response[CrewRead | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
@@ -122,49 +86,49 @@ def sync_detailed(
 
 
 def sync(
+    crew_id: UUID,
     *,
     client: AuthenticatedClient,
-    crew_id: None | Unset | UUID = UNSET,
-) -> CrewRead | list[CrewRead] | HTTPValidationError | None:
-    """Get Crews
+) -> CrewRead | HTTPValidationError | None:
+    """Get Crew By Id
 
-     Get crews, optionally filtered by crew_id.
+     Get a single crew by ID.
 
     Args:
-        crew_id (None | Unset | UUID): Optional Crew ID to filter
+        crew_id (UUID): Crew ID to retrieve
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        CrewRead | list[CrewRead] | HTTPValidationError
+        CrewRead | HTTPValidationError
     """
 
     return sync_detailed(
-        client=client,
         crew_id=crew_id,
+        client=client,
     ).parsed
 
 
 async def asyncio_detailed(
+    crew_id: UUID,
     *,
     client: AuthenticatedClient,
-    crew_id: None | Unset | UUID = UNSET,
-) -> Response[CrewRead | list[CrewRead] | HTTPValidationError]:
-    """Get Crews
+) -> Response[CrewRead | HTTPValidationError]:
+    """Get Crew By Id
 
-     Get crews, optionally filtered by crew_id.
+     Get a single crew by ID.
 
     Args:
-        crew_id (None | Unset | UUID): Optional Crew ID to filter
+        crew_id (UUID): Crew ID to retrieve
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[CrewRead | list[CrewRead] | HTTPValidationError]
+        Response[CrewRead | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
@@ -177,28 +141,28 @@ async def asyncio_detailed(
 
 
 async def asyncio(
+    crew_id: UUID,
     *,
     client: AuthenticatedClient,
-    crew_id: None | Unset | UUID = UNSET,
-) -> CrewRead | list[CrewRead] | HTTPValidationError | None:
-    """Get Crews
+) -> CrewRead | HTTPValidationError | None:
+    """Get Crew By Id
 
-     Get crews, optionally filtered by crew_id.
+     Get a single crew by ID.
 
     Args:
-        crew_id (None | Unset | UUID): Optional Crew ID to filter
+        crew_id (UUID): Crew ID to retrieve
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        CrewRead | list[CrewRead] | HTTPValidationError
+        CrewRead | HTTPValidationError
     """
 
     return (
         await asyncio_detailed(
-            client=client,
             crew_id=crew_id,
+            client=client,
         )
     ).parsed
