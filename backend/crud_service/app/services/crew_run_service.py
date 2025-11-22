@@ -15,13 +15,19 @@ class CrewRunService:
     
     async def create_crew_run(self, crew_run_data: CrewRunCreate, user_id: UUID) -> CrewRunRead:
         """Creates a crew run, enqueues it, and returns the Pydantic model."""
-        await self.crew_service.validate_crew(crew_run_data.crew_id, user_id)
-        self.crew_service.is_crew_owner(crew_run_data.crew_id, user_id)
-        async with self.session.begin():
+        crew = await self.crew_service.validate_crew(crew_run_data.crew_id, user_id)
+        self.crew_service.is_crew_owner(crew.user_id, user_id)
+        try:
             db_crew_run = await self.crew_run_repository.create_crew_run(crew_run_data)
-            crew_run_id = db_crew_run.id.value
+            crew_run_id = UUID(str(db_crew_run.id))
             await self.queue_repository.enqueue_crew_run(crew_run_id)
-        
+            await self.session.commit()
+        except Exception as e:
+            await self.session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create crew run: {e}"
+            )
         await self.session.refresh(db_crew_run)
         full_crew_run = await self.crew_run_repository.get_crew_run_by_id_with_artifacts(crew_run_id)
 

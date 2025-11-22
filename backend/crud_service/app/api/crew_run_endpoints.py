@@ -9,19 +9,6 @@ crew_run_router = APIRouter(
     tags=["crew-run"],
 )
 
-@crew_run_router.post(
-    "/",
-    status_code=201,
-    response_model=CrewRunRead
-)
-async def create_crew_run(
-    crew_run_data: CrewRunCreate,
-    current_user: User = Depends(get_current_user), 
-    service: CrewRunService = Depends(get_crew_run_service),
-):
-    """Create a new crew run record for a crew and enqueue it."""
-    return await service.create_crew_run(crew_run_data, current_user.id)
-
 @crew_run_router.get(
     "/{crew_run_id}",
     response_model=CrewRunRead
