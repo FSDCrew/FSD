@@ -44,7 +44,8 @@ class ArtifactService:
             file_name=file_name
         )
 
-        return await self.repository.create_artifact(artifact_create, crew_run_id)
+        db_artifact = await self.repository.create_artifact(artifact_create, crew_run_id)
+        return ArtifactRead.model_validate(db_artifact)
     
     async def get_artifact_presigned_url(self, artifact_id: UUID) -> str:
         """Retrieve an artifact by its ID and return a presigned S3 URL."""
