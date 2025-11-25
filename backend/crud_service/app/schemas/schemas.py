@@ -1,11 +1,12 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Enum, text, DateTime, Index
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PostgresUUID
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.ext.asyncio import AsyncAttrs
+from sqlalchemy.orm import DeclarativeBase, relationship
 
 from app.models.models import ArtifactType, QueueStatus
 
-Base = declarative_base()
+class Base(AsyncAttrs, DeclarativeBase):
+    pass
 
 class User(Base):
     __tablename__ = "users"
