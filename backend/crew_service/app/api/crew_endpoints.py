@@ -1,0 +1,23 @@
+from uuid import UUID
+from fastapi import APIRouter, Depends, HTTPException
+from app.dependencies import get_crew_service, get_user_token
+from app.models.models import CrewRun, CrewRunCreateRequest
+from app.services.crew_service import CrewService
+
+crew_router = APIRouter(
+    prefix="/crew",
+    tags=["crew"],
+)
+
+@crew_router.post(
+    "/kickoff",
+    response_model=CrewRun,
+    status_code=201,
+)
+async def crew_kickoff(
+    crew_run_data: CrewRunCreateRequest,
+    user_token: str = Depends(get_user_token),
+    crew_service: CrewService = Depends(get_crew_service)
+):
+    """Kick off a crew run. Only crew owners can kick off their crews."""
+    return await crew_service.kickoff_crew_run(crew_run_data, user_token)
