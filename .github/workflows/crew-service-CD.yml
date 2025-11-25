@@ -6,6 +6,7 @@ on:
       - github-actions
     paths:
       - 'backend/crew_service/**'
+  workflow_dispatch:
       
 env:
   # --- AWS Configuration ---
