@@ -26,7 +26,7 @@ class CrewService:
     def _convert_to_crew_read(self, db_crew: CrewDB) -> CrewRead:
         """Helper to convert CrewDB object to CrewRead Pydantic model."""
         
-        def convert_tasks(db_tasks: TaskDB) -> list[TaskRead]:
+        def convert_tasks(db_tasks: list[TaskDB]) -> list[TaskRead]:
             if not db_tasks:
                 return []
             return [TaskRead.model_validate(task) for task in db_tasks]
