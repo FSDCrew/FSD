@@ -14,6 +14,7 @@ env:
   ASG_NAME: crud-service-asg
   
   DOCKER_BUILD_CONTEXT: ./backend/crud_service
+  MIGRATION_SCRIPT_PATH: backend/crud_service/scripts/db_migrate_apply.sh
 
 jobs:
   deploy:
