@@ -1,9 +1,7 @@
-from pydantic import computed_field
 from pydantic_settings import BaseSettings
-from typing import Dict, Any, Optional
+from typing import Optional
 from pydantic import model_validator
 from pathlib import Path
-import os
 
 current_dir = Path(__file__).parent
 env_path = ".env"
@@ -13,6 +11,8 @@ class Settings(BaseSettings):
     Pydantic settings class to manage application configuration.
     It automatically validates and loads settings from environment variables or a .env file.
     """
+    INTERNAL_CREW_API_KEY: str
+    
     CRUD_DATABASE_URL: Optional[str] = None
     DB_HOST: str
     DB_PORT: str
@@ -28,9 +28,9 @@ class Settings(BaseSettings):
 
     # S3 settings
     S3_BUCKET_NAME: str
-    S3_ACCESS_KEY: str
-    S3_SECRET_KEY: str
     S3_REGION: str
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
 
     class Config:
         env_file = str(env_path) if env_path else None

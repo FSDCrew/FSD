@@ -13,6 +13,7 @@ from .api.task_endpoints import task_router
 from .api.user_endpoints import user_router
 from .api.artifact_endpoints import artifact_router
 from .api.crew_run_endpoints import crew_run_router
+from .api.internal_endpoints import internal_router
 
 logger = logging.getLogger(__name__)
 
@@ -24,20 +25,20 @@ def init_routers(app: FastAPI):
     app.include_router(user_router)
     app.include_router(artifact_router)
     app.include_router(crew_run_router)
+    app.include_router(internal_router)
     
 def init_s3_client(app: FastAPI):
     """Initialize S3 client using settings from config.py"""
     app.state.s3_client = boto3.client(
         "s3",
         region_name=settings.S3_REGION,
-        aws_access_key_id=settings.S3_ACCESS_KEY,
-        aws_secret_access_key=settings.S3_SECRET_KEY
+        # aws_access_key_id=settings.S3_ACCESS_KEY,
+        # aws_secret_access_key=settings.S3_SECRET_KEY
     )
     
 async def on_startup():
     try:
-        # await test_connection()
-        ...
+        await test_connection()
     except Exception as e:
         logger.error(f"Error initializing database connection: {e}")
         raise HTTPException(status_code=500, detail="Database connection failed")

@@ -1,5 +1,5 @@
 from uuid import UUID
-from fastapi import APIRouter, Query, Depends
+from fastapi import APIRouter, Query, Depends, Path
 
 from app.models.models import CrewCreate, CrewRead, CrewUpdate, User
 from app.services.crew_service import CrewService
@@ -11,18 +11,28 @@ crew_router = APIRouter(
 )
 
 @crew_router.get(
-    "/",
+    "/{crew_id}",
     status_code=200,
-    response_model=CrewRead | list[CrewRead],
+    response_model=CrewRead,
 )
-async def get_crews(
-    crew_id: UUID | None = Query(None, description="Optional Crew ID to filter"),
+async def get_crew_by_id(
+    crew_id: UUID = Path(..., description="Crew ID to retrieve"),
     current_user: User = Depends(get_current_user),
     service: CrewService = Depends(get_crew_service),
 ):
-    """Get crews, optionally filtered by crew_id."""
-    if crew_id:
-        return await service.get_fully_loaded_crew_by_id(crew_id, current_user.id)
+    """Get a single crew by ID."""
+    return await service.get_fully_loaded_crew_by_id(crew_id, current_user.id)
+
+@crew_router.get(
+    "/",
+    status_code=200,
+    response_model=list[CrewRead],
+)
+async def get_all_crews(
+    current_user: User = Depends(get_current_user),
+    service: CrewService = Depends(get_crew_service),
+):
+    """Get all crews for the current user."""
     return await service.get_all_fully_loaded_crews(current_user.id)
 
 @crew_router.post(
