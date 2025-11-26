@@ -30,7 +30,10 @@ class CrewRunRepository:
         query = (
             select(CrewRunDB)
             .where(CrewRunDB.id == crew_run_id)
-            .options(selectinload(CrewRunDB.artifacts))
+            .options(
+                selectinload(CrewRunDB.artifacts),
+                selectinload(CrewRunDB.queue_entry)
+            )
         )
         result = await self.session.execute(query)
 
@@ -41,7 +44,10 @@ class CrewRunRepository:
         query = (
             select(CrewRunDB)
             .where(CrewRunDB.id == crew_run_id)
-            .options(selectinload(CrewRunDB.artifacts))
+            .options(
+                selectinload(CrewRunDB.artifacts),
+                selectinload(CrewRunDB.queue_entry)
+            )
         )
         result = await self.session.execute(query)
 
