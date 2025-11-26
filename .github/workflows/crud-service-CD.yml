@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'backend/crud_service/**'
+  workflow_dispatch:
       
 env:
   # --- AWS Configuration ---

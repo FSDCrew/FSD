@@ -3,7 +3,7 @@ name: CD | CREW Service Deployment
 on:
   push:
     branches:
-      - github-actions
+      - main
     paths:
       - 'backend/crew_service/**'
   workflow_dispatch:
