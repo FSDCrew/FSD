@@ -3,7 +3,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.crew_run_repository import CrewRunRepository
 from app.repositories.queue_repository import QueueRepository
-from app.models.models import CrewRunCreate, CrewRunRead
+from app.models.models import CrewRunCreate, CrewRunRead, CrewRunMetadata
 from app.services.crew_service import CrewService
 
 class CrewRunService:
@@ -12,6 +12,16 @@ class CrewRunService:
         self.crew_run_repository = repository
         self.queue_repository = queue_repository
         self.session = session
+        
+    def _convert_db_to_read(self, db_crew_run) -> CrewRunRead:
+        """Converts DB model to CrewRunRead."""
+        crew_run_read = CrewRunRead.model_validate(db_crew_run)
+        
+        if db_crew_run.queue_entry:
+            crew_run_read.queue_status = db_crew_run.queue_entry.status
+            crew_run_read.retry_count = db_crew_run.queue_entry.retry_count
+        
+        return crew_run_read
     
     async def create_crew_run(self, crew_run_data: CrewRunCreate, user_id: UUID) -> CrewRunRead:
         """Creates a crew run, enqueues it, and returns the Pydantic model."""
@@ -31,7 +41,7 @@ class CrewRunService:
         await self.session.refresh(db_crew_run)
         full_crew_run = await self.crew_run_repository.get_crew_run_by_id_with_artifacts(crew_run_id)
 
-        return CrewRunRead.model_validate(full_crew_run)
+        return self._convert_db_to_read(full_crew_run)
 
     async def get_crew_run_by_id_with_artifacts(self, crew_run_id: UUID, user_id: UUID) -> CrewRunRead:
         """Retrieves a crew run and its artifacts, performing access validation."""
@@ -43,7 +53,19 @@ class CrewRunService:
                 detail=f"Crew Run with ID {crew_run_id} not found."
             )
 
-        return CrewRunRead.from_orm(db_crew_run)
+        return self._convert_db_to_read(db_crew_run)
+    
+    async def get_crew_run_by_id_internal(self, crew_run_id: UUID) -> CrewRunRead:
+        """Retrieves a crew run by ID for internal use without user validation."""
+        db_crew_run = await self.crew_run_repository.get_crew_run_by_id_internal(crew_run_id)
+
+        if db_crew_run is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Crew Run with ID {crew_run_id} not found."
+            )
+
+        return self._convert_db_to_read(db_crew_run)
     
     async def update_crew_run_output(self, crew_run_id: UUID, output: dict) -> CrewRunRead:
         """Updates the output of a crew run."""
@@ -57,4 +79,4 @@ class CrewRunService:
             )
         
         full_crew_run = await self.crew_run_repository.get_crew_run_by_id_with_artifacts(crew_run_id)
-        return CrewRunRead.from_orm(full_crew_run)
+        return self._convert_db_to_read(full_crew_run)

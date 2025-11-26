@@ -11,9 +11,14 @@ class CrewRunRepository:
 
     async def create_crew_run(self, crew_run_data: CrewRunCreate) -> CrewRunDB:
         """Creates a new crew run record."""
+        metadata_dict = None
+        if crew_run_data.run_metadata:
+            metadata_dict = crew_run_data.run_metadata.model_dump()
+        
         db_crew_run = CrewRunDB(
             crew_id=crew_run_data.crew_id,
-            output=crew_run_data.output
+            output=crew_run_data.output,
+            run_metadata=metadata_dict
         )
         self.session.add(db_crew_run)
         await self.session.flush()
@@ -22,6 +27,17 @@ class CrewRunRepository:
 
     async def get_crew_run_by_id_with_artifacts(self, crew_run_id: UUID) -> CrewRunDB | None:
         """Retrieves a crew run by ID, loading all associated artifacts in one query."""
+        query = (
+            select(CrewRunDB)
+            .where(CrewRunDB.id == crew_run_id)
+            .options(selectinload(CrewRunDB.artifacts))
+        )
+        result = await self.session.execute(query)
+
+        return result.scalar_one_or_none()
+    
+    async def get_crew_run_by_id_internal(self, crew_run_id: UUID) -> CrewRunDB | None:
+        """Retrieves a crew run by ID for internal use, loading all associated artifacts."""
         query = (
             select(CrewRunDB)
             .where(CrewRunDB.id == crew_run_id)

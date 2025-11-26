@@ -78,8 +78,13 @@ class ArtifactRead(ArtifactBase):
 class ArtifactServerCreate(ArtifactBase):
     file_content_base64: str
 
+class CrewRunMetadata(BaseModel):
+    inputs: dict[str, Any]
+    task_nodes: list[dict[str, Any]] | None = None
+
 class CrewRunBase(BaseModel):
     output: dict[str, Any] | None = None
+    run_metadata: CrewRunMetadata | None = None
 
 class CrewRunCreate(CrewRunBase):
     crew_id: UUID
