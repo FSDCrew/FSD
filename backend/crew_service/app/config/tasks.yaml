@@ -38,19 +38,14 @@ tasks:
   marketing_research:
     reads:
       - field: theme
-        type: string
         cardinality: required
       - field: brand_description
-        type: string
         cardinality: required
       - field: target_audience_description
-        type: string
         cardinality: required
       - field: start_date
-        type: date
         cardinality: required
       - field: end_date
-        type: date
         cardinality: required
     writes:
       - field: marketing_research
@@ -167,22 +162,16 @@ tasks:
   content_strategy:
     reads:
       - field: theme
-        type: string
         cardinality: required
       - field: brand_description
-        type: string
         cardinality: required
       - field: target_audience_description
-        type: string
         cardinality: required
       - field: start_date
-        type: date
         cardinality: required
       - field: end_date
-        type: date
         cardinality: required
       - field: marketing_research
-        type: MarketingResearch
         cardinality: required
     writes:
       - field: content_strategy
@@ -229,25 +218,18 @@ tasks:
   social_media_schedule:
     reads:
       - field: theme
-        type: string
         cardinality: required
       - field: brand_description
-        type: string
         cardinality: required
       - field: target_audience_description
-        type: string
         cardinality: required
       - field: start_date
-        type: date
         cardinality: required
       - field: end_date
-        type: date
         cardinality: required
       - field: marketing_research
-        type: MarketingResearch
         cardinality: required
       - field: content_strategy
-        type: ContentStrategy
         cardinality: required
     writes:
       - field: social_media_schedule
