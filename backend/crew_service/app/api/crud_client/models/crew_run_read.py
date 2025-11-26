@@ -12,6 +12,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.artifact_read import ArtifactRead
+    from ..models.crew_run_metadata import CrewRunMetadata
     from ..models.crew_run_read_output_type_0 import CrewRunReadOutputType0
 
 
@@ -25,6 +26,7 @@ class CrewRunRead:
         id (UUID):
         crew_id (UUID):
         output (CrewRunReadOutputType0 | None | Unset):
+        run_metadata (CrewRunMetadata | None | Unset):
         artifacts (list[ArtifactRead] | None | Unset):
         queue_status (None | QueueStatus | Unset):
         retry_count (int | None | Unset):
@@ -33,12 +35,14 @@ class CrewRunRead:
     id: UUID
     crew_id: UUID
     output: CrewRunReadOutputType0 | None | Unset = UNSET
+    run_metadata: CrewRunMetadata | None | Unset = UNSET
     artifacts: list[ArtifactRead] | None | Unset = UNSET
     queue_status: None | QueueStatus | Unset = UNSET
     retry_count: int | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.crew_run_metadata import CrewRunMetadata
         from ..models.crew_run_read_output_type_0 import CrewRunReadOutputType0
 
         id = str(self.id)
@@ -52,6 +56,14 @@ class CrewRunRead:
             output = self.output.to_dict()
         else:
             output = self.output
+
+        run_metadata: dict[str, Any] | None | Unset
+        if isinstance(self.run_metadata, Unset):
+            run_metadata = UNSET
+        elif isinstance(self.run_metadata, CrewRunMetadata):
+            run_metadata = self.run_metadata.to_dict()
+        else:
+            run_metadata = self.run_metadata
 
         artifacts: list[dict[str, Any]] | None | Unset
         if isinstance(self.artifacts, Unset):
@@ -89,6 +101,8 @@ class CrewRunRead:
         )
         if output is not UNSET:
             field_dict["output"] = output
+        if run_metadata is not UNSET:
+            field_dict["run_metadata"] = run_metadata
         if artifacts is not UNSET:
             field_dict["artifacts"] = artifacts
         if queue_status is not UNSET:
@@ -101,6 +115,7 @@ class CrewRunRead:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.artifact_read import ArtifactRead
+        from ..models.crew_run_metadata import CrewRunMetadata
         from ..models.crew_run_read_output_type_0 import CrewRunReadOutputType0
 
         d = dict(src_dict)
@@ -124,6 +139,23 @@ class CrewRunRead:
             return cast(CrewRunReadOutputType0 | None | Unset, data)
 
         output = _parse_output(d.pop("output", UNSET))
+
+        def _parse_run_metadata(data: object) -> CrewRunMetadata | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                run_metadata_type_0 = CrewRunMetadata.from_dict(data)
+
+                return run_metadata_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(CrewRunMetadata | None | Unset, data)
+
+        run_metadata = _parse_run_metadata(d.pop("run_metadata", UNSET))
 
         def _parse_artifacts(data: object) -> list[ArtifactRead] | None | Unset:
             if data is None:
@@ -179,6 +211,7 @@ class CrewRunRead:
             id=id,
             crew_id=crew_id,
             output=output,
+            run_metadata=run_metadata,
             artifacts=artifacts,
             queue_status=queue_status,
             retry_count=retry_count,

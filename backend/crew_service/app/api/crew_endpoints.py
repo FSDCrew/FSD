@@ -9,6 +9,17 @@ crew_router = APIRouter(
     tags=["crew"],
 )
 
+@crew_router.get(
+    "/crews/{crew_id}/required-inputs",
+)
+async def get_required_inputs(
+    crew_id: UUID,
+    user_token: str = Depends(get_user_token),
+    crew_service: CrewService = Depends(get_crew_service)
+):
+    """Get required inputs for a crew based on its tasks and flow dependencies."""
+    return await crew_service.get_required_inputs(crew_id, user_token)
+
 @crew_router.post(
     "/kickoff",
     response_model=CrewRun,

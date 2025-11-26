@@ -2,64 +2,32 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any, TypeVar
-from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="TaskRead")
+T = TypeVar("T", bound="CrewRunMetadataInputs")
 
 
 @_attrs_define
-class TaskRead:
-    """
-    Attributes:
-        key (str):
-        order (int):
-        id (UUID):
-    """
+class CrewRunMetadataInputs:
+    """ """
 
-    key: str
-    order: int
-    id: UUID
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        key = self.key
-
-        order = self.order
-
-        id = str(self.id)
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "key": key,
-                "order": order,
-                "id": id,
-            }
-        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        key = d.pop("key")
+        crew_run_metadata_inputs = cls()
 
-        order = d.pop("order")
-
-        id = UUID(d.pop("id"))
-
-        task_read = cls(
-            key=key,
-            order=order,
-            id=id,
-        )
-
-        task_read.additional_properties = d
-        return task_read
+        crew_run_metadata_inputs.additional_properties = d
+        return crew_run_metadata_inputs
 
     @property
     def additional_keys(self) -> list[str]:
