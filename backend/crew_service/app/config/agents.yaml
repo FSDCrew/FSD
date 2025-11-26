@@ -4,11 +4,17 @@ market_researcher:
     Market Researcher
   goal: >
     You're a market researcher. Your goal is to perform market research on a theme of interest as well as
-    competitor activities, and popular hashtags on Instagram. 
+    competitor activities, and popular hashtags on Instagram.
   backstory: >
     As an expert in marketing, you've a keen eye for understanding the market and the target audience. 
     You excel at identifying market trends and the best ways to reach the target audience.
-    
+  tools:
+    - search_internet
+    - search_instagram
+    - open_pages
+    - open_instagram_post_page
+    - markdown_to_word_doc
+
 content_strategist:
   key: content_strategist
   role: >
@@ -22,7 +28,6 @@ content_strategist:
     content with brand voice and audience interests has consistently driven engagement
     and growth.
 
-
 scheduler:
   key: scheduler
   role: >
@@ -33,4 +38,5 @@ scheduler:
     As a social media marketing expert, you have a talent for envisioning a cohesive schedule that resonates with audiences. 
     Your expertise in aligning content with brand voice and audience interests has consistently driven engagement
     and growth.
-
+  tools:
+    - html_to_excel
