@@ -3,7 +3,7 @@
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 
-interface CanvaDesignNodeData extends Record<string, unknown> {
+interface OrshotNodeData extends Record<string, unknown> {
   label: string;
   expectedOutput?: string;
   crewInput?: {
@@ -15,8 +15,8 @@ interface CanvaDesignNodeData extends Record<string, unknown> {
   onDelete?: () => void;
 }
 
-const CanvaDesignNode = memo(({ data, isConnectable, id }: NodeProps) => {
-  const nodeData = data as CanvaDesignNodeData;
+const OrshotNode = memo(({ data, isConnectable, id }: NodeProps) => {
+  const nodeData = data as OrshotNodeData;
   
   return (
     <>
@@ -53,7 +53,7 @@ const CanvaDesignNode = memo(({ data, isConnectable, id }: NodeProps) => {
           🗑️
         </button>
         <div style={{ fontSize: "12px", fontWeight: "600", marginBottom: "8px", textAlign: "center" }}>
-          Canva Design
+          Orshot
         </div>
         <div style={{ marginBottom: "8px" }}>
           <label style={{ fontSize: "10px", display: "block", marginBottom: "2px" }}>Expected Output:</label>
@@ -132,6 +132,6 @@ const CanvaDesignNode = memo(({ data, isConnectable, id }: NodeProps) => {
   );
 });
 
-CanvaDesignNode.displayName = "CanvaDesignNode";
+OrshotNode.displayName = "OrshotNode";
 
-export default CanvaDesignNode;
+export default OrshotNode;

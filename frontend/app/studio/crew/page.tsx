@@ -7,9 +7,10 @@ import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import ResearchNode from "@/components/ResearchNode";
 import CopywritingNode from "@/components/CopywritingNode";
-import CanvaDesignNode from "@/components/CanvaDesignNode";
+import OrshotNode from "@/components/OrshotNode";
 import SurveyNode from "@/components/SurveyNode";
 import SchedulerNode from "@/components/SchedulerNode";
+import StartNode from "@/components/StartNode";
 import {
   ReactFlow,
   MiniMap,
@@ -19,24 +20,39 @@ import {
   useNodesState,
   useEdgesState,
   addEdge,
+  useReactFlow,
   type Connection,
   type Node,
   type Edge,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { createCrewCrewPost, updateCrewCrewPut, getCrewsCrewGet, replaceAllTasksForCrewTaskCrewIdSavePut, type CrewRead, type TaskCreate } from "@/lib/api/crud";
+import { client } from "@/lib/api/crud/client.gen";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 const nodeTypes = {
+  start: StartNode,
   research: ResearchNode,
   copywriting: CopywritingNode,
-  "canva design": CanvaDesignNode,
+  orshot: OrshotNode,
   survey: SurveyNode,
   scheduler: SchedulerNode,
 };
 
-const initialNodes: Node[] = [];
+const START_NODE: Node = {
+  id: 'start-node',
+  type: 'start',
+  position: { x: 50, y: 250 },
+  data: { label: 'START' },
+  draggable: true,
+  deletable: false,
+  selectable: true,
+};
+
+const initialNodes: Node[] = [START_NODE];
 const initialEdges: Edge[] = [];
 
-type TaskType = "research" | "copywriting" | "canva design" | "survey" | "scheduler";
+type TaskType = "research" | "copywriting" | "orshot" | "survey" | "scheduler";
 
 interface NodeData extends Record<string, unknown> {
   label: string;
@@ -58,31 +74,31 @@ const nodeTypeConfigs = [
   {
     type: "research" as TaskType,
     label: "Research Node",
-    color: "#3b82f6",
+    color: "#4b82dbff",
     icon: "🔍",
   },
   {
     type: "copywriting" as TaskType,
     label: "Copywriting Node",
-    color: "#8b5cf6",
+    color: "#7357b5ff",
     icon: "✍️",
   },
   {
-    type: "canva design" as TaskType,
-    label: "Canva Design Node",
-    color: "#ec4899",
+    type: "orshot" as TaskType,
+    label: "Orshot Node",
+    color: "#dc5699ff",
     icon: "🎨",
   },
   {
     type: "survey" as TaskType,
     label: "Survey Node",
-    color: "#10b981",
+    color: "#51a88bff",
     icon: "📊",
   },
   {
     type: "scheduler" as TaskType,
     label: "Scheduler Node",
-    color: "#f59e0b",
+    color: "#f4ad34ff",
     icon: "📅",
   },
 ];
@@ -101,6 +117,8 @@ export default function CrewPage() {
   const [pendingMode, setPendingMode] = useState<"edit" | "view" | null>(null);
   const [showRunsHistory, setShowRunsHistory] = useState(false);
   const [runsRefreshKey, setRunsRefreshKey] = useState(0);
+  const [crewRuns, setCrewRuns] = useState<any[]>([]);
+  const [selectedRun, setSelectedRun] = useState<any | null>(null);
   const [notification, setNotification] = useState<{
     message: string;
     type: "success" | "error" | "info";
@@ -109,27 +127,47 @@ export default function CrewPage() {
   // React Flow state
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
 
   // Keep track of last saved state for reverting
-  const [lastSavedNodes, setLastSavedNodes] = useState<Node[]>(initialNodes);
+  const [lastSavedNodes, setLastSavedNodes] = useState<Node[]>([START_NODE]);
   const [lastSavedEdges, setLastSavedEdges] = useState<Edge[]>(initialEdges);
   const [lastSavedTitle, setLastSavedTitle] = useState("");
 
+  // Wrap onNodesChange to detect position changes
+  const handleNodesChange = useCallback((changes: any[]) => {
+    // Check if any change is a position change
+    const hasPositionChange = changes.some(change => change.type === 'position' && change.dragging === false);
+    
+    if (hasPositionChange) {
+      setHasUnsavedChanges(true);
+    }
+    
+    // Apply the changes
+    onNodesChange(changes);
+  }, [onNodesChange]);
+
   const onConnect = useCallback(
     (params: Connection) => {
-      // Check if source node already has an outgoing connection
+      // Prevent connections TO the start node
+      if (params.target === 'start-node') {
+        showNotification("The START node cannot receive connections. It's the beginning of the flow.", "error");
+        return;
+      }
+      
+      // Check if source node already has an outgoing connection (all nodes including start node can only have ONE outgoing connection)
       const sourceHasConnection = edges.some(edge => edge.source === params.source);
       
       // Check if target node already has an incoming connection
       const targetHasConnection = edges.some(edge => edge.target === params.target);
       
       if (sourceHasConnection) {
-        showNotification("This node already has an outgoing connection. Each node can only connect to one other node.", "error");
+        showNotification("This node already has an outgoing connection. Each node can only connect to one other node for linear flow.", "error");
         return;
       }
       
       if (targetHasConnection) {
-        showNotification("The target node already has an incoming connection. Each node can only receive one connection.", "error");
+        showNotification("The target node already has an incoming connection. Each node can only receive one connection for linear flow.", "error");
         return;
       }
       
@@ -138,6 +176,140 @@ export default function CrewPage() {
     },
     [edges, setEdges]
   );
+
+  
+const queryClient = useQueryClient();
+
+// Helper function to convert nodes to TaskCreate format with linear order
+const convertNodesToTasks = (nodes: Node[], edges: Edge[]): TaskCreate[] => {
+  // Build a map of connections: nodeId -> connected nodeId
+  const connectionMap = new Map<string, string>();
+  edges.forEach(edge => {
+    connectionMap.set(edge.source, edge.target);
+  });
+  
+  // Traverse from START node to build ordered list
+  const orderedTasks: TaskCreate[] = [];
+  let currentNodeId = connectionMap.get('start-node');
+  let order = 1;  // Start at 1 so tasks are numbered 1, 2, 3...
+  
+  while (currentNodeId) {
+    const node = nodes.find(n => n.id === currentNodeId);
+    if (!node) break;
+    
+    const nodeData = node.data as NodeData;
+    orderedTasks.push({
+      key: node.id,
+      description: nodeData.description || "",
+      expected_output: nodeData.expectedOutput || "",
+      order: order,
+      agent_key: nodeData.taskType || "default",
+    });
+    
+    order++;
+    currentNodeId = connectionMap.get(currentNodeId);
+  }
+  
+  return orderedTasks;
+};
+
+// Create crew mutation
+const createCrewMutation = useMutation({
+  mutationFn: async (crewData: { name: string }) => {
+    const response = await createCrewCrewPost({ body: crewData });
+    return response.data;
+  },
+
+  onSuccess: async (crewData) => {
+    if (!crewData) {
+      showNotification("Crew created but no data returned", "error");
+      return;
+    }
+    
+    // Save tasks if any nodes exist
+    if (nodes.length > 0) {
+      try {
+        const tasks = convertNodesToTasks(nodes, edges);
+        await replaceAllTasksForCrewTaskCrewIdSavePut({
+          body: tasks,
+          path: { crew_id: crewData.id }
+        });
+      } catch (error) {
+        console.error("Error saving tasks:", error);
+        showNotification("Crew created but failed to save tasks", "error");
+        return;
+      }
+    }
+    
+    // Save node positions to localStorage
+    const nodePositions = nodes.reduce((acc, node) => {
+      acc[node.id] = node.position;
+      return acc;
+    }, {} as Record<string, { x: number; y: number }>);
+    localStorage.setItem(`crew_positions_${crewData.id}`, JSON.stringify(nodePositions));
+    
+    // Update last saved state
+    setLastSavedNodes(nodes);
+    setLastSavedEdges(edges);
+    setLastSavedTitle(title);
+    setHasUnsavedChanges(false);
+    
+    // Refresh crews list
+    queryClient.invalidateQueries({ queryKey: ['crews'] });
+    
+    // Navigate to the newly created crew
+    router.push(`/studio/crew?id=${crewData.id}&title=${encodeURIComponent(crewData.name)}`);
+    
+    showNotification("Crew created successfully!", "success");
+  },
+
+  onError: (error) => {
+    console.error("Error creating crew:", error);
+    showNotification("Failed to create crew. Please try again.", "error");
+  }
+});
+
+// Update crew mutation
+const updateCrewMutation = useMutation({
+  mutationFn: async (crewData: { id: string; name: string }) => {
+    // Update crew name
+    await updateCrewCrewPut({ body: crewData });
+    
+    // Update tasks
+    const tasks = convertNodesToTasks(nodes, edges);
+    await replaceAllTasksForCrewTaskCrewIdSavePut({
+      body: tasks,
+      path: { crew_id: crewData.id }
+    });
+    
+    // Save node positions to localStorage
+    const nodePositions = nodes.reduce((acc, node) => {
+      acc[node.id] = node.position;
+      return acc;
+    }, {} as Record<string, { x: number; y: number }>);
+    localStorage.setItem(`crew_positions_${crewData.id}`, JSON.stringify(nodePositions));
+    
+    return crewData;
+  },
+    
+  onSuccess: () => {
+    // Update last saved state
+    setLastSavedNodes(nodes);
+    setLastSavedEdges(edges);
+    setLastSavedTitle(title);
+    setHasUnsavedChanges(false);
+    
+    // Refresh crews list
+    queryClient.invalidateQueries({ queryKey: ['crews'] });
+    
+    showNotification("Crew updated successfully!", "success");
+  },
+  
+  onError: (error) => {
+    console.error("Error updating crew:", error);
+    showNotification("Failed to update crew. Please try again.", "error");
+  }
+});
 
   // Function to update node data from within the node component
   const handleNodeDataChange = useCallback((nodeId: string, field: string, value: string) => {
@@ -178,6 +350,11 @@ export default function CrewPage() {
 
   // Function to delete a node
   const handleDeleteNode = useCallback((nodeId: string) => {
+    // Prevent deletion of start node
+    if (nodeId === 'start-node') {
+      showNotification("The START node cannot be deleted.", "error");
+      return;
+    }
     setNodes((nds) => nds.filter((node) => node.id !== nodeId));
     setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
     setHasUnsavedChanges(true);
@@ -230,7 +407,7 @@ export default function CrewPage() {
             topic: "",
           },
           taskInput:
-            type === "canva design"
+            type === "orshot"
               ? { designTemplate: "" }
               : type === "scheduler"
               ? { numOfWeeks: 1 }
@@ -258,11 +435,7 @@ export default function CrewPage() {
   const { isAuthenticated, token } = useAuth();
 
   useEffect(() => {
-    // const token = localStorage.getItem("fsd_token");
-    // if (!token) router.push("/auth/login");
     if (!token) router.push("/auth/login");
-    console.log(token);
-    console.log(isAuthenticated);
 
     // Get card data from URL params
     const cardTitle = searchParams.get("title") || "Untitled";
@@ -279,34 +452,111 @@ export default function CrewPage() {
       if (savedMode === "view" || savedMode === "edit") {
         setMode(savedMode);
       }
-    }
-
-    // Load saved nodes and edges if editing existing card
-    if (cardId) {
-      const savedCards = localStorage.getItem("studio_cards");
-      if (savedCards) {
-        const cards = JSON.parse(savedCards);
-        const card = cards.find((c: any) => c.id === cardId);
-        if (card) {
-          if (card.nodes) {
-            // Re-attach onChange and onDelete handlers to loaded nodes
-            const nodesWithHandlers = card.nodes.map((node: Node) => ({
-              ...node,
-              data: {
-                ...node.data,
-                onChange: (field: string, value: string) => handleNodeDataChange(node.id, field, value),
-                onDelete: () => handleDeleteNode(node.id),
-              },
-            }));
-            setNodes(nodesWithHandlers);
-            setLastSavedNodes(nodesWithHandlers);
+      
+      // Load tasks from backend for existing crew
+      const loadCrewData = async () => {
+        try {
+          const response = await getCrewsCrewGet({ 
+            query: { crew_id: cardId }
+          });
+          
+          const crewData = response.data;
+          if (crewData && !Array.isArray(crewData) && crewData.tasks) {
+            // Store crew runs for display in runs history (using type assertion until SDK is regenerated)
+            const crewDataWithRuns = crewData as CrewRead & { crew_runs?: any[] };
+            if (crewDataWithRuns.crew_runs) {
+              setCrewRuns(crewDataWithRuns.crew_runs);
+            }
+            
+            // Sort tasks by order to ensure correct sequence
+            const sortedTasks = [...crewData.tasks].sort((a, b) => a.order - b.order);
+            
+            // Load saved node positions from localStorage
+            const savedPositionsStr = localStorage.getItem(`crew_positions_${cardId}`);
+            const savedPositions = savedPositionsStr ? JSON.parse(savedPositionsStr) as Record<string, { x: number; y: number }> : {};
+            
+            // Convert backend tasks to React Flow nodes
+            const loadedNodes = sortedTasks.map((task, index) => {
+              const nodeTypeConfig = nodeTypeConfigs.find((n) => n.type === task.agent_key as TaskType);
+              
+              // Use saved position if available, otherwise create straight horizontal line layout
+              // START node is at (50, 250), so first task starts at x=300
+              const defaultPosition = { 
+                x: 300 + (index * 300),  // Horizontal spacing of 300px between nodes
+                y: 250                    // Same vertical position as START node (straight line)
+              };
+              const position = savedPositions[task.key] || defaultPosition;
+              
+              return {
+                id: task.key,
+                type: task.agent_key as TaskType,
+                position: position,
+                data: {
+                  label: nodeTypeConfig?.label || task.agent_key,
+                  taskType: task.agent_key as TaskType,
+                  icon: nodeTypeConfig?.icon || "📝",
+                  description: task.description,
+                  expectedOutput: task.expected_output,
+                  crewInput: { topic: "" },
+                  onChange: (field: string, value: string) => handleNodeDataChange(task.key, field, value),
+                  onDelete: () => handleDeleteNode(task.key),
+                } as NodeData,
+                style: {
+                  background: nodeTypeConfig?.color || "#6b7280",
+                  color: "white",
+                  border: "2px solid #222",
+                  borderRadius: "8px",
+                  minWidth: "120px",
+                },
+              } as Node;
+            });
+            
+            // Reconstruct edges based on task order
+            const reconstructedEdges: Edge[] = [];
+            
+            // Connect START node to first task
+            if (sortedTasks.length > 0) {
+              reconstructedEdges.push({
+                id: `start-node-${sortedTasks[0].key}`,
+                source: 'start-node',
+                target: sortedTasks[0].key,
+              });
+            }
+            
+            // Connect tasks in sequence
+            for (let i = 0; i < sortedTasks.length - 1; i++) {
+              reconstructedEdges.push({
+                id: `${sortedTasks[i].key}-${sortedTasks[i + 1].key}`,
+                source: sortedTasks[i].key,
+                target: sortedTasks[i + 1].key,
+              });
+            }
+            
+            // Restore START node position if saved, otherwise use default
+            const startNodeWithPosition = {
+              ...START_NODE,
+              position: savedPositions['start-node'] || START_NODE.position,
+            };
+            
+            // Always include the start node at the beginning
+            setNodes([startNodeWithPosition, ...loadedNodes]);
+            setLastSavedNodes([startNodeWithPosition, ...loadedNodes]);
+            setEdges(reconstructedEdges);
+            setLastSavedEdges(reconstructedEdges);
+            
+            // Fit view after loading crew data
+            if (reactFlowInstance) {
+              setTimeout(() => {
+                reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+              }, 100);
+            }
           }
-          if (card.edges) {
-            setEdges(card.edges);
-            setLastSavedEdges(card.edges);
-          }
+        } catch (error) {
+          console.error("Error loading crew data:", error);
         }
-      }
+      };
+      
+      loadCrewData();
     }
 
     // If it's a new card (Untitled), start editing the title immediately
@@ -315,97 +565,149 @@ export default function CrewPage() {
     }
   }, [router, searchParams, setNodes, setEdges]);
 
-  const handleSave = () => {
-    // Save the card data back to localStorage or your backend
+  // Fit view when ReactFlow instance is ready and nodes are loaded
+  useEffect(() => {
+    if (reactFlowInstance && nodes.length > 1) { // More than just START node
+      setTimeout(() => {
+        reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+      }, 100);
+    }
+  }, [reactFlowInstance, nodes.length]);
+
+  const handleSave = async () => {
     const cardId = searchParams.get("id");
     
-    // Check for duplicate titles
-    const savedCards = localStorage.getItem("studio_cards");
-    const cards = savedCards ? JSON.parse(savedCards) : [];
-    const duplicateTitle = cards.find((card: any) => 
-      card.title.trim().toLowerCase() === title.trim().toLowerCase() && card.id !== cardId
-    );
-    
-    if (duplicateTitle) {
-      showNotification(`A crew with the title "${title}" already exists. Please choose a different title.`, "error");
+    // Validate title
+    if (!title || title.trim() === "") {
+      showNotification("Crew name cannot be empty", "error");
       return;
     }
     
-    const cardData = {
-      title,
-      description,
-      nodes,
-      edges,
-    };
-    
-    if (cardId) {
-      // Update existing card
-      if (savedCards) {
-        const updatedCards = cards.map((card: any) =>
-          card.id === cardId ? { ...card, ...cardData } : card
-        );
-        localStorage.setItem("studio_cards", JSON.stringify(updatedCards));
+    // Validate linear flow: Check if nodes form a single connected chain from START
+    const taskNodes = nodes.filter(n => n.id !== 'start-node');
+    if (taskNodes.length > 0) {
+      // Build connection map
+      const connectionMap = new Map<string, string>();
+      edges.forEach(edge => {
+        connectionMap.set(edge.source, edge.target);
+      });
+      
+      // Check if START node has a connection
+      if (!connectionMap.has('start-node')) {
+        showNotification("Please connect the START node to the first task in your flow.", "error");
+        return;
       }
-    } else {
-      // Save new card
-      const newCard = {
-        id: Date.now().toString(),
-        ...cardData,
-      };
-      cards.push(newCard);
-      localStorage.setItem("studio_cards", JSON.stringify(cards));
+      
+      // Traverse and count connected nodes
+      let currentNodeId = connectionMap.get('start-node');
+      let connectedCount = 0;
+      const visited = new Set<string>();
+      
+      while (currentNodeId && !visited.has(currentNodeId)) {
+        visited.add(currentNodeId);
+        connectedCount++;
+        currentNodeId = connectionMap.get(currentNodeId);
+      }
+      
+      // Check if all task nodes are connected in the chain
+      if (connectedCount !== taskNodes.length) {
+        showNotification(`Linear flow incomplete: ${connectedCount} of ${taskNodes.length} tasks are connected. Please connect all tasks in a single chain starting from START.`, "error");
+        return;
+      }
     }
-
-    // Update last saved state
-    setLastSavedNodes(nodes);
-    setLastSavedEdges(edges);
-    setLastSavedTitle(title);
     
-    // Reset unsaved changes flag
-    setHasUnsavedChanges(false);
-    
-    showNotification("Crew saved successfully!", "success");
+    // Check for duplicate crew names
+    try {
+      const response = await getCrewsCrewGet();
+      const allCrews = Array.isArray(response.data) ? response.data : response.data ? [response.data] : [];
+      
+      // Check if another crew with the same name exists (case-insensitive)
+      const duplicateCrew = allCrews.find((crew: CrewRead) => 
+        crew.name.trim().toLowerCase() === title.trim().toLowerCase() && crew.id !== cardId
+      );
+      
+      if (duplicateCrew) {
+        showNotification(`A crew with the name "${title}" already exists. Please choose a different name.`, "error");
+        return;
+      }
+      
+      // Proceed with create or update
+      if (cardId) {
+        // Update existing crew
+        updateCrewMutation.mutate({ id: cardId, name: title });
+      } else {
+        // Create new crew
+        createCrewMutation.mutate({ name: title });
+      }
+    } catch (error) {
+      console.error("Error checking for duplicate crews:", error);
+      showNotification("Failed to validate crew name. Please try again.", "error");
+    }
   };
 
   const handleCancel = () => {
     router.push("/studio");
   };
 
+  // Create crew run mutation
+  const createCrewRunMutation = useMutation({
+    mutationFn: async (crewId: string) => {
+      const response = await fetch(`${client.getConfig().baseUrl}/crew-run/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          crew_id: crewId,
+          output: null,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create crew run');
+      }
+      
+      return response.json();
+    },
+    onSuccess: async () => {
+      showNotification("Flow execution started! Run created successfully.", "success");
+      
+      // Refetch crew data to get updated crew_runs
+      const cardId = searchParams.get("id");
+      if (cardId) {
+        try {
+          const response = await getCrewsCrewGet({ 
+            query: { crew_id: cardId }
+          });
+          
+          const crewData = response.data;
+          if (crewData && !Array.isArray(crewData)) {
+            const crewDataWithRuns = crewData as CrewRead & { crew_runs?: any[] };
+            if (crewDataWithRuns.crew_runs) {
+              setCrewRuns(crewDataWithRuns.crew_runs);
+              // Force refresh of runs history display
+              setRunsRefreshKey(prev => prev + 1);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to refresh crew runs:", error);
+        }
+      }
+    },
+    onError: (error: Error) => {
+      showNotification(`Failed to create crew run: ${error.message}`, "error");
+    },
+  });
+
   const handleRun = () => {
-    const cardId = searchParams.get("id") || Date.now().toString();
+    const cardId = searchParams.get("id");
+    if (!cardId) {
+      showNotification("Cannot run flow: No crew ID found", "error");
+      return;
+    }
     
-    // Simulate run output based on nodes
-    const output = nodes.map(node => {
-      const nodeData = node.data as NodeData;
-      return `${nodeData.label}: ${nodeData.expectedOutput || 'Processing...'}`;
-    }).join('\n');
-    
-    // Create a new run record
-    const newRun = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      status: "completed",
-      duration: `${Math.floor(Math.random() * 5) + 1}m ${Math.floor(Math.random() * 60)}s`,
-      nodesExecuted: nodes.length,
-      output: output || "No output generated",
-    };
-    
-    // Save run to localStorage
-    const runsKey = `crew_runs_${cardId}`;
-    const existingRuns = localStorage.getItem(runsKey);
-    const runs = existingRuns ? JSON.parse(existingRuns) : [];
-    runs.unshift(newRun); // Add to beginning
-    localStorage.setItem(runsKey, JSON.stringify(runs));
-    
-    // Force refresh of runs history
-    setRunsRefreshKey(prev => prev + 1);
-    
-    // Show notification
-    showNotification("Flow execution started! Run completed successfully.", "success");
-    
-    // TODO: Implement actual run flow logic with backend
-    console.log("Running flow with nodes:", nodes);
-    console.log("Running flow with edges:", edges);
+    createCrewRunMutation.mutate(cardId);
   };
 
   const handleModeChange = (newMode: "edit" | "view") => {
@@ -420,6 +722,13 @@ export default function CrewPage() {
       const cardId = searchParams.get("id");
       if (cardId) {
         localStorage.setItem(`crew_mode_${cardId}`, newMode);
+      }
+      
+      // Fit view when switching modes
+      if (reactFlowInstance) {
+        setTimeout(() => {
+          reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+        }, 100);
       }
     }
   };
@@ -447,6 +756,14 @@ export default function CrewPage() {
       if (cardId) {
         localStorage.setItem(`crew_mode_${cardId}`, pendingMode);
       }
+      
+      // Fit view when switching modes
+      if (reactFlowInstance) {
+        setTimeout(() => {
+          reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+        }, 100);
+      }
+      
       setPendingMode(null);
     }
     setShowUnsavedWarning(false);
@@ -510,7 +827,19 @@ export default function CrewPage() {
             {/* Crew Run History Button - Only in view mode */}
             {mode === "view" && (
               <Button
-                onClick={() => setShowRunsHistory(!showRunsHistory)}
+                onClick={() => {
+                  setShowRunsHistory(!showRunsHistory);
+                  // Close run details when hiding runs history
+                  if (showRunsHistory) {
+                    setSelectedRun(null);
+                  }
+                  // Fit view after toggling runs history to adjust for sidebar visibility
+                  if (reactFlowInstance) {
+                    setTimeout(() => {
+                      reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+                    }, 100);
+                  }
+                }}
                 variant="default"
               >
                 {showRunsHistory ? "Hide" : ""} Crew Run History
@@ -619,23 +948,20 @@ export default function CrewPage() {
         <div className="mb-8 flex gap-4">
           {/* Node Palette Sidebar - Only show in edit mode */}
           {mode === "edit" && (
-            <div className="w-64 flex-shrink-0 bg-card border border-border rounded-lg p-4">
-              <h3 className="text-lg font-semibold mb-4">Node Types</h3>
+            <div className="w-64 flex-shrink-0 bg-[#1a1a1a] border-2 border-white rounded-lg p-4">
+              <h3 className="text-lg font-semibold mb-4 text-white">Node Types</h3>
               <div className="space-y-3">
                 {nodeTypeConfigs.map((nodeType) => (
                   <div
                     key={nodeType.type}
                     draggable
                     onDragStart={(e) => onDragStart(e, nodeType.type)}
-                    className="flex items-center gap-3 p-3 rounded-lg border-2 border-border cursor-move hover:border-primary transition-colors"
-                    style={{
-                      background: `${nodeType.color}20`,
-                    }}
+                    className="flex items-center gap-3 p-3 rounded-lg border-2 border-transparent hover:border-white cursor-move transition-colors bg-[#3a3a3a] hover:bg-[#2a2a2a]"
                   >
                     <span className="text-2xl">{nodeType.icon}</span>
                     <div>
-                      <div className="font-medium text-sm">{nodeType.label}</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="font-medium text-sm text-white">{nodeType.label}</div>
+                      <div className="text-xs text-gray-300">
                         Drag to canvas
                       </div>
                     </div>
@@ -647,111 +973,138 @@ export default function CrewPage() {
 
           {/* Runs History Sidebar - Only show in view mode when toggled */}
           {mode === "view" && showRunsHistory && (
-            <div key={runsRefreshKey} className="w-96 flex-shrink-0 bg-card border border-border rounded-lg p-4 overflow-y-auto max-h-[600px]">
+            <div key={runsRefreshKey} className="w-96 flex-shrink-0 bg-[#1a1a1a] border-2 border-white rounded-lg p-4 overflow-y-auto max-h-[600px]">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Past Runs</h3>
+                <h3 className="text-lg font-semibold text-white">Your Runs</h3>
               </div>
               <div className="space-y-3">
-                {(() => {
-                  const cardId = searchParams.get("id") || "";
-                  const runsKey = `crew_runs_${cardId}`;
-                  const runsData = localStorage.getItem(runsKey);
-                  const runs = runsData ? JSON.parse(runsData) : [];
-                  
-                  if (runs.length === 0) {
-                    return (
-                      <div className="text-center text-muted-foreground py-8">
-                        No runs yet. Click "Run Flow" to execute this crew.
-                      </div>
-                    );
-                  }
-                  
-                  return runs.map((run: any, index: number) => (
+                {crewRuns.length === 0 ? (
+                  <div className="text-center text-white py-8">
+                    No runs yet. Click "Run Flow" to execute this crew.
+                  </div>
+                ) : (
+                  crewRuns.map((run: any, index: number) => (
                     <div
                       key={run.id}
-                      className="p-4 border border-border rounded-lg hover:border-primary transition-colors cursor-pointer bg-card hover:bg-muted"
+                      className="p-4 border-2 border-transparent rounded-lg hover:border-white transition-colors cursor-pointer bg-[#3a3a3a] hover:bg-[#2a2a2a]"
                       onClick={() => {
-                        // Show run details in alert (you can replace this with a modal later)
-                        alert(`Run Details:\n\nStatus: ${run.status}\nDuration: ${run.duration}\nNodes Executed: ${run.nodesExecuted}\n\nOutput:\n${run.output}`);
+                        setSelectedRun(run);
                       }}
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
-                          <div className="font-semibold text-sm mb-1">
-                            Run #{runs.length - index}
+                          <div className="font-semibold text-sm mb-1 text-white">
+                            Run #{crewRuns.length - index}
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(run.timestamp).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })} at {new Date(run.timestamp).toLocaleTimeString('en-US', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                          <div className="text-xs text-gray-300">
+                            {run.id}
                           </div>
                         </div>
-                        <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                          run.status === "completed" 
-                            ? "bg-green-100 text-green-800" 
-                            : run.status === "failed"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}>
-                          {run.status.toUpperCase()}
-                        </span>
                       </div>
                       <div className="text-sm space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Duration:</span>
-                          <span className="font-medium">{run.duration}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Nodes Executed:</span>
-                          <span className="font-medium">{run.nodesExecuted}</span>
-                        </div>
                         {run.output && (
-                          <div className="mt-3 pt-3 border-t border-border">
-                            <div className="text-xs text-muted-foreground mb-1">Output Preview:</div>
-                            <div className="text-xs bg-muted p-2 rounded max-h-20 overflow-hidden">
-                              {run.output.substring(0, 100)}
-                              {run.output.length > 100 && '...'}
+                          <div className="mt-3 pt-3 border-t border-white">
+                            <div className="text-xs text-gray-300 mb-1">Output Preview:</div>
+                            <div className="text-xs bg-[#1a1a1a] text-white p-2 rounded max-h-20 overflow-hidden">
+                              {JSON.stringify(run.output).substring(0, 100)}
+                              {JSON.stringify(run.output).length > 100 && '...'}
                             </div>
                           </div>
                         )}
                       </div>
-                      <div className="mt-3 text-xs text-primary">
+                      <div className="mt-3 text-xs text-white">
                         Click to view full details →
                       </div>
                     </div>
-                  ));
-                })()}
+                  ))
+                )}
               </div>
             </div>
           )}
 
           {/* React Flow Canvas */}
-          <div className={`flex-1 h-[600px] border-2 border-border rounded-lg bg-card relative`}>
+          <div className="flex-1 flex flex-col gap-4">
+            {/* Selected Run Details Card - Only show when a run is selected */}
+            {selectedRun && mode === "view" && (
+              <div className="bg-[#1a1a1a] border-2 border-white rounded-lg p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-white mb-2">
+                      Run Details - #{crewRuns.findIndex(r => r.id === selectedRun.id) !== -1 ? crewRuns.length - crewRuns.findIndex(r => r.id === selectedRun.id) : 'N/A'}
+                    </h3>
+                    <p className="text-sm text-gray-300">ID: {selectedRun.id}</p>
+                  </div>
+                  <Button
+                    onClick={() => setSelectedRun(null)}
+                    variant="secondary"
+                    className="bg-white text-black hover:bg-gray-200"
+                  >
+                    Close
+                  </Button>
+                </div>
+                
+                {/* Output Section */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-white mb-3">Output</h4>
+                  <div className="bg-[#2a2a2a] border border-white rounded-lg p-4 max-h-60 overflow-y-auto">
+                    {selectedRun.output ? (
+                      <pre className="text-sm text-white whitespace-pre-wrap font-mono">
+                        {JSON.stringify(selectedRun.output, null, 2)}
+                      </pre>
+                    ) : (
+                      <p className="text-gray-300">No output available</p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Artifacts Section */}
+                <div>
+                  <h4 className="text-lg font-semibold text-white mb-3">Artifacts</h4>
+                  <div className="bg-[#2a2a2a] border border-white rounded-lg p-4">
+                    {selectedRun.artifacts && selectedRun.artifacts.length > 0 ? (
+                      <div className="space-y-2">
+                        {selectedRun.artifacts.map((artifact: any, idx: number) => (
+                          <div key={idx} className="flex items-center justify-between p-3 bg-[#3a3a3a] rounded">
+                            <div>
+                              <p className="text-white font-medium">{artifact.file_name || 'Unnamed artifact'}</p>
+                              <p className="text-xs text-gray-300">{artifact.type}</p>
+                            </div>
+                            <span className="text-xs text-gray-400">{artifact.id}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-300">No artifacts available</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Canvas */}
+            <div className={`h-[600px] border-2 border-border rounded-lg bg-card relative`}>
             <ReactFlow
               nodes={nodes}
               edges={edges}
               nodeTypes={nodeTypes}
-              onNodesChange={mode === "edit" ? onNodesChange : undefined}
+              onNodesChange={mode === "edit" ? handleNodesChange : undefined}
               onEdgesChange={mode === "edit" ? onEdgesChange : undefined}
               onConnect={mode === "edit" ? onConnect : undefined}
               onDrop={mode === "edit" ? onDrop : undefined}
               onDragOver={mode === "edit" ? onDragOver : undefined}
               onNodesDelete={mode === "edit" ? onNodesDelete : undefined}
-              deleteKeyCode={mode === "edit" ? "Delete" : undefined}
+              deleteKeyCode={mode === "edit" ? ["Delete", "Backspace"] : undefined}
               nodesDraggable={mode === "edit"}
               nodesConnectable={mode === "edit"}
               elementsSelectable={mode === "edit"}
+              onInit={setReactFlowInstance}
               fitView
             >
               <Controls />
               <MiniMap />
               <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
             </ReactFlow>
+            </div>
           </div>
         </div>
 

@@ -43,7 +43,7 @@ export default function StudioPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold mb-2">Studio Dashboard</h1>
-            <p className="text-muted-foreground">Manage your cards and projects</p>
+            <p className="text-muted-foreground">Manage your Crews</p>
           </div>
           <Button
             onClick={handleAddCard}
@@ -92,7 +92,7 @@ export default function StudioPage() {
                   </svg>
                 </Button>
               </div>
-              <p className="text-muted-foreground leading-relaxed line-clamp-3">description</p>
+              {/* <p className="text-muted-foreground leading-relaxed line-clamp-3">description</p> */}
               <div className="mt-4 text-sm text-primary opacity-0 group-hover:opacity-100 transition-opacity">
                 Click to edit →
               </div>
@@ -107,7 +107,7 @@ export default function StudioPage() {
               onClick={handleAddCard}
               className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
             >
-              + Create First Card
+              + Create First Crew
             </button>
           </div>
         )}
