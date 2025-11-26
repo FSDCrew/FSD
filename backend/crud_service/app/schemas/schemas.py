@@ -30,7 +30,6 @@ class Task(Base):
     __tablename__ = "tasks"
     id = Column(PostgresUUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
     key = Column(String, nullable=False)
-    agent_key = Column(String, nullable=False)
     order = Column(Integer, nullable=False)
     crew_id = Column(PostgresUUID(as_uuid=True), ForeignKey("crews.id", ondelete="CASCADE"), nullable=False)
     crew = relationship("Crew", back_populates="tasks")

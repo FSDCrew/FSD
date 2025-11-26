@@ -16,11 +16,10 @@ class TaskBase(BaseModel):
     order: int
     
 class TaskCreate(TaskBase):
-    agent_key: str | None = None
+    pass
 
 class TaskRead(TaskBase):
     id: UUID
-    agent_key: str
 
     model_config = ConfigDict(from_attributes=True)
     
