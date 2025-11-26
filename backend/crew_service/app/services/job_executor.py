@@ -103,7 +103,6 @@ class JobExecutor:
             # Build Flow from tasks
             FlowStateModel, FlowClass, _ = self.flow_service.build_flow(tasks)
             
-            logger.info(f"Running flow for crew_run {crew_run_id}")
             flow = FlowClass()
             result = await asyncio.to_thread(flow.kickoff, inputs=stored_inputs)
 
@@ -145,8 +144,6 @@ class JobExecutor:
                 client=self.crud_client,
                 body=output_body,
             )
-            
-            logger.info(f"Crew run {crew_run_id} completed successfully")
         except Exception as e:
             logger.error(f"Error executing crew run {crew_run_id}: {e}", exc_info=True)
             raise
@@ -178,10 +175,8 @@ class JobExecutor:
                         body=body,
                         visibility_timeout_seconds=timeout
                     )
-                    logger.debug(f"Heartbeat sent for queue_id {queue_id}")
                 except Exception as e:
                     logger.error(f"Failed to send heartbeat: {e}", exc_info=True)
         except asyncio.CancelledError:
-            logger.debug(f"Heartbeat loop cancelled for queue_id {queue_id}")
             raise
 

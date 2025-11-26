@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Type, cast
 
+from opentelemetry import baggage
 from pydantic import BaseModel, Field, create_model
 from crewai import Agent as CrewAIAgent, Task as CrewAITask, Crew, LLM, Process, TaskOutput
 from crewai.flow.flow import Flow, listen, start
@@ -87,7 +88,6 @@ def llm_judge_guardrail(result: TaskOutput | LiteAgentOutput) -> Tuple[bool, Any
         else:
             parsed = response
 
-        print(f"\nEvaluation Response: {parsed.valid} - Reason: {parsed.reason}")
         return parsed.valid, parsed.reason
 
     except Exception as e:
@@ -275,13 +275,8 @@ def build_task_step_function(
         raise ValueError(f"agent not found in tasks.yaml for task {task_key}")
 
     def step(self, previous_result: str):
-        print(f"\n{'=' * 60}")
-        print(f"Step {step_index + 1}: {task_key}")
-        print(f"{'=' * 60}")
-        print(f"Previous step: {previous_result}")
-
-        yaml_tasks = tasks_config.get("tasks", {})
-        task_yaml = yaml_tasks.get(task_key, {})
+        # tasks_config is already the tasks dict (not the full YAML structure)
+        task_yaml = tasks_config.get(task_key, {})
 
         # Collect inputs from state according to the declared reads
         task_inputs: Dict[str, Any] = {}
@@ -376,29 +371,40 @@ def build_dynamic_flow_class(
     model and wired with @start / @listen decorators based on task order.
     """
 
-    def initialize_flow(self, inputs: Optional[dict] = None) -> str:
+    def initialize_flow(self) -> str:
         """
         Entry point of the flow (marked with @start).
 
-        Copies provided inputs into state, generates a run_id, and checks that
-        all required context fields are present.
+        Inputs should be set on self.state by CrewAI Flow's kickoff method
+        via _initialize_state() before this method is called.
+        However, we also manually ensure inputs are set from baggage as a fallback.
+        Generates a run_id and checks that all required context fields are present.
         """
-        print("\n###### Initializing flow ######")
-
-        if inputs:
-            for field_name, value in inputs.items():
+        # Get inputs from baggage (set by CrewAI Flow's kickoff method)
+        inputs = cast(dict[str, Any], baggage.get_baggage("flow_inputs") or {})
+        
+        # Filter out 'id' if present (CrewAI Flow handles this separately)
+        filtered_inputs = {k: v for k, v in inputs.items() if k != "id"}
+        
+        # Manually set inputs on state if they're not already set
+        # This ensures inputs are available even if _initialize_state didn't work correctly
+        if filtered_inputs:
+            for field_name, value in filtered_inputs.items():
                 if hasattr(self.state, field_name):
-                    setattr(self.state, field_name, value)
+                    # Use object.__setattr__ to bypass Pydantic's immutability if needed
+                    try:
+                        setattr(self.state, field_name, value)
+                    except Exception as e:
+                        # If direct setattr fails, try using model_copy with update
+                        if hasattr(self.state, "model_copy"):
+                            self.state = self.state.model_copy(update={field_name: value})
+                else:
+                    pass
 
         run_id = getattr(self.state, "run_id", None)
         if not run_id:
             run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             setattr(self.state, "run_id", run_id)
-
-        flow_id = getattr(self.state, "flow_id", None)
-        print(f"Initializing Dynamic Flow")
-        print(f"Flow ID: {flow_id}")
-        print(f"Run ID: {run_id}")
 
         # Ensure all context fields used in this flow are present
         for field_name, field_spec in graph.state_field_specs.items():

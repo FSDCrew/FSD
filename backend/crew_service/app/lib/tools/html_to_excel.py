@@ -481,4 +481,4 @@ if __name__ == "__main__":
         </tbody>
         </table>
     """
-    print(html_to_excel_tool.func(html_str=html_str))
+    html_to_excel_tool.func(html_str=html_str)
