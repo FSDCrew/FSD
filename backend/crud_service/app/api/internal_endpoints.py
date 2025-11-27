@@ -40,6 +40,20 @@ async def get_crew_by_id(
     return await service.get_fully_loaded_crew_by_id(crew_id)
 
 
+@internal_router.get(
+    "/crew-run/{crew_run_id}",
+    status_code=200,
+    response_model=CrewRunRead,
+    dependencies=[Depends(require_internal_api_key)],
+)
+async def get_crew_run_by_id(
+    crew_run_id: UUID = Path(..., description="Crew Run ID to retrieve"),
+    service: InternalService = Depends(get_internal_service),
+):
+    """Get a single crew run by ID (internal use only)."""
+    return await service.get_crew_run_by_id(crew_run_id)
+
+
 @internal_router.post(
     "/crew-run/create",
     status_code=201,

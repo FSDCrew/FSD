@@ -1,12 +1,16 @@
 import logging
 import asyncio
-import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.crew_endpoints import crew_router
 from app.api.status_endpoints import status_router
 from app.services.worker import Worker
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,18 +25,14 @@ def init_worker(app: FastAPI):
     """Attach startup/shutdown handlers to manage the Worker lifecycle."""
 
     async def start_worker():
-        logger.info("Starting worker...")
         worker = Worker()
         app.state.worker = worker
         asyncio.create_task(worker.start())
-        logger.info("Worker started")
 
     async def stop_worker():
         worker: Worker | None = getattr(app.state, "worker", None)
         if worker:
-            logger.info("Stopping worker...")
             await worker.stop()
-            logger.info("Worker stopped")
 
     app.add_event_handler("startup", start_worker)
     app.add_event_handler("shutdown", stop_worker)

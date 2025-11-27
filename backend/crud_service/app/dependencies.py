@@ -128,9 +128,12 @@ async def get_queue_service(
     return QueueService(repository)
 
 
-async def get_internal_service(crew_service: CrewService = Depends(get_crew_service)) -> InternalService:
+async def get_internal_service(
+    crew_service: CrewService = Depends(get_crew_service),
+    crew_run_service: CrewRunService = Depends(get_crew_run_service)
+) -> InternalService:
     """Dependency to get InternalService instance."""
-    return InternalService(crew_service)
+    return InternalService(crew_service, crew_run_service)
 
 
 async def require_internal_api_key(
