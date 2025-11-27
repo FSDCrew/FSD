@@ -1,6 +1,9 @@
 state:
   fields:
     # --- Campaign Context Fields (always user-provided) ---
+    crew_run_id:
+      type: string
+      field_kind: context
     theme:
       type: string
       field_kind: context
@@ -15,6 +18,12 @@ state:
       field_kind: context
     end_date:
       type: date
+      field_kind: context
+    templateId:
+      type: integer
+      field_kind: context
+    orshot_schema:
+      type: list[OrshotSchemaField]
       field_kind: context
 
     # --- Dynamic Data Fields (produced or provided depending on workflow) ---
@@ -321,3 +330,116 @@ tasks:
       expected_output: >
         A properly structured HTML table string that strictly follows the sample schedule format,
         converted into an Excel file using the html_to_excel tool.
+      
+  orshot_render:
+    reads:
+      - field: crew_run_id
+        cardinality: required
+      - field: templateId
+        cardinality: required
+      - field: orshot_schema
+        cardinality: required
+      - field: theme                
+        cardinality: required
+      - field: brand_description    
+        cardinality: required
+      - field: target_audience_description
+        cardinality: required
+
+        # Optional Fields
+      - field: market_research
+        cardinality: optional
+      - field: content_strategy
+        cardinality: optional
+      - field: social_media_schedule
+        cardinality: optional
+      # TODO: Add copywriting and image generation later
+    writes:
+      - field: orshot_render_output
+        mode: replace
+    key: orshot_render
+    agent: orshot_template_mapper
+    output_file: output/preparing_marketing_campaign/orshot_render.png
+    name: Orshot Render Task
+    description: >
+      <important_rules>
+        1. **DATA INTEGRITY:** Do not make up information. Extract facts strictly from the <context>.
+        2. **STYLING:** You must convert natural language style descriptions (e.g. "blue background", "10px font") into CamelCase CSS properties using dot notation, and add in the `modifications` object.
+           - Example: "Blue text" -> "field.color": "#0000FF"
+           - Example: "Font size 20" -> "field.fontSize": "20px"
+        3. **PAYLOAD STRUCTURE:** You are building the input for the `orshot_render_tool`. It expects strictly: `{"templateId": ..., "modifications": {...}`.
+        4. **MODIFICATIONS OBJECT:** This object must contain:
+             - The **Content Value** for every field defined in the User Schema: {"field": "example text"}
+             - The **CSS Properties** inferred from the field descriptions (using dot notation): {"field.fontSize": "20px", "field.color": "#FF0000"}
+      </important_rules>
+
+      <context>
+        **1. Crew Run ID:**
+        - {crew_run_id}
+        **2. Configuration:**
+        - Template ID: {templateId}
+        - Schema: {orshot_schema}
+        
+        **3. Content Sources (In Order of Priority):**
+        - Priority A (Direct Copy): "{copywriting_drafts}"
+        - Priority B (Research/Strategy): "{social_media_schedule}", "{content_strategy}", "{marketing_research}"
+        - Priority C (Creative Core): Theme="{theme}", Brand="{brand_description}", Audience="{target_audience_description}"
+        
+        **4. Assets:**
+        - Available Images: "{generated_image_assets}"
+      </context>
+
+      <tools>
+        - name: orshot_render_tool
+          description: Sends a pre-constructed JSON payload to the Orshot API to generate a render.
+          input:
+            payload: string
+          examples:
+            - payload: >
+                {
+                  "templateId": 1201,
+                  "modifications": {
+                    "canvasBackgroundColor": "#FFFFFF",
+                    "catchphrase": "Cafes in paris",
+                    "catchphrase.fontSize": "24px",
+                    ...
+                  }
+                }
+      </tools>
+
+      <your_task>
+        Iterate through every field in the **Schema** and populate the `modifications` object:
+
+        **PART 1: TEXT FIELDS**
+        For each text field, determine the value using this **Fallback Chain**:
+           1. **CHECK PRIORITY A (Copywriting):** - If available, extract the specific headline/body text.
+           2. **CHECK PRIORITY B (Strategy/Schedule/Research):** - If (A) is missing, search the Schedule or Strategy for relevant topics/hooks.
+           3. **CHECK PRIORITY C (Fresh Generation):** - If (A) and (B) are missing, **GENERATE NEW TEXT** based on the Campaign Theme, Brand Voice, and Target Audience.
+           4. **MISSING CONTEXT** - If none of the above yield usable text, use a generic placeholder like "To Be Determined".
+           5. **REFINEMENT:** - Regardless of the source, **Rewrite/Summarize** the text to strictly match the length/format constraints defined in the Schema Description (e.g., "Max 3 words").
+
+        **PART 2: IMAGE FIELDS**
+        For each image field:
+           1. **CHECK ASSETS:** Look for a valid S3 URL in "Available Images".
+           2. **DECISION:** - If found -> Map the URL to the field.
+              - If NOT found -> Use your **Image Generation Tool** to create a new image based on the Schema Description + Campaign Theme. Map the result.
+
+        **PART 3: STYLING (CSS)**
+        For every field (Text or Image):
+           - Analyze the Schema Description for visual cues (e.g., "Blue background", "Bold font", "Opacity 50%").
+           - Convert these into **CamelCase CSS properties** with dot notation.
+           - Add them to the `modifications` object (e.g., `"headline.color": "#0000FF"`).
+
+        **PART 4: EXECUTION**
+        - Construct the final payload:
+          {
+            "templateId": {orshot_template_id},
+            "modifications": { ...your_fully_populated_map... }
+          }
+        - **CALL** the `orshot_render_tool` with this payload and {crew_run_id}.
+        - **OUTPUT ONLY** the S3 URL link returned by the tool.
+      </your_task>
+
+    expected_output: >
+      The S3 URL link of the rendered image returned by the Orshot API.
+      Output ONLY the URL string. Do NOT include any additional text or formatting.
