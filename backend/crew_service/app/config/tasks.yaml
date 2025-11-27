@@ -364,28 +364,22 @@ tasks:
     description: >
       <important_rules>
         1. **DATA INTEGRITY:** Do not make up information. Extract facts strictly from the <context>.
-        2. **STYLING:** You must convert natural language style descriptions (e.g. "blue background", "10px font") into CamelCase CSS properties using dot notation, and add in the `modifications` object.
-           - Example: "Blue text" -> "field.color": "#0000FF"
-           - Example: "Font size 20" -> "field.fontSize": "20px"
-        3. **PAYLOAD STRUCTURE:** You are building the input for the `orshot_render_tool`. It expects strictly: `{"templateId": ..., "modifications": {...}`.
-        4. **MODIFICATIONS OBJECT:** This object must contain:
-             - The **Content Value** for every field defined in the User Schema: {"field": "example text"}
-             - The **CSS Properties** inferred from the field descriptions (using dot notation): {"field.fontSize": "20px", "field.color": "#FF0000"}
+        2. **STYLING:** Convert natural language style descriptions into CamelCase CSS properties using dot notation in the `modifications` object (e.g. "field.fontSize": "20px").
+        3. **TOOL USAGE:** You must call `orshot_render_tool` with THREE specific arguments: `templateId` (int), `modifications` (dict), and `crew_run_id` (string). Do not pass a single JSON string.
       </important_rules>
 
       <context>
-        **1. Crew Run ID:**
-        - {crew_run_id}
-        **2. Configuration:**
+        **1. Configuration:**
+        - Crew Run ID: {crew_run_id}
         - Template ID: {templateId}
         - Schema: {orshot_schema}
         
-        **3. Content Sources (In Order of Priority):**
+        **2. Content Sources (In Order of Priority):**
         - Priority A (Direct Copy): "{copywriting_drafts}"
         - Priority B (Research/Strategy): "{social_media_schedule}", "{content_strategy}", "{marketing_research}"
         - Priority C (Creative Core): Theme="{theme}", Brand="{brand_description}", Audience="{target_audience_description}"
         
-        **4. Assets:**
+        **3. Assets:**
         - Available Images: "{generated_image_assets}"
       </context>
 
@@ -431,12 +425,11 @@ tasks:
            - Add them to the `modifications` object (e.g., `"headline.color": "#0000FF"`).
 
         **PART 4: EXECUTION**
-        - Construct the final payload:
-          {
-            "templateId": {orshot_template_id},
-            "modifications": { ...your_fully_populated_map... }
-          }
-        - **CALL** the `orshot_render_tool` with this payload and {crew_run_id}.
+        - **DO NOT** construct a JSON string.
+        - **CALL** the `orshot_render_tool` with these specific parameters:
+             - templateId: {templateId}
+             - modifications: { ...your_fully_populated_map... }
+             - crew_run_id: "{crew_run_id}"
         - **OUTPUT ONLY** the S3 URL link returned by the tool.
       </your_task>
 

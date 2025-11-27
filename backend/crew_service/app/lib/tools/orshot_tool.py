@@ -11,7 +11,6 @@ from app.api.crud_client.api.artifact import create_artifact_artifact_crew_run_i
 from app.api.crud_client.models.artifact_server_create import ArtifactServerCreate
 from app.api.crud_client.models.artifact_type import ArtifactType
 from app.api.crud_client.models.artifact_read import ArtifactRead
-# from app.api.crud_client.models.http_validation_error import HTTPValidationError
 from config import settings
 
 ORSHOT_API_KEY = os.getenv("ORSHOT_API_KEY")
@@ -46,9 +45,6 @@ class OrshotRenderTool(BaseTool):
             str: The URL of the final rendered image or an error message.
         """
         try:
-            # --- STEP 1: Call Orshot API ---
-            
-            # Construct payload from arguments
             orshot_payload = {
                 "templateId": templateId,
                 "modifications": modifications,
@@ -78,14 +74,11 @@ class OrshotRenderTool(BaseTool):
             if "data" in data and isinstance(data["data"], dict):
                 base64_content = data["data"].get("content")
             else:
-                # Fallback for other API versions
                 base64_content = data.get("result") or data.get("base64") or data.get("content")
             
             if not base64_content:
                 return f"Error: Could not find base64 data. Response keys: {list(data.keys())}"
 
-            # --- FIX 2: Strip Data URI Header ---
-            # CRUD service uses base64.b64decode which crashes on "data:image/..." headers
             if "," in base64_content:
                 base64_content = base64_content.split(",")[1]
 
