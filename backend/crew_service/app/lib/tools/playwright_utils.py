@@ -1,9 +1,10 @@
 import sys
 import traceback
+import asyncio
 from contextlib import suppress
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Coroutine, List, Optional, Tuple
 
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 
 from config import logger, settings
 
@@ -11,7 +12,7 @@ from config import logger, settings
 _playwright_browsers_checked = False
 
 
-def ensure_browsers_installed() -> None:
+async def ensure_browsers_installed() -> None:
     """Ensure Playwright browsers are installed. Installs them if missing.
     
     Raises:
@@ -23,9 +24,9 @@ def ensure_browsers_installed() -> None:
         return
     
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=settings.HEADLESS)
-            browser.close()
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=settings.HEADLESS)
+            await browser.close()
         _playwright_browsers_checked = True
     except Exception:
         logger.info("Playwright browsers not found. Installing Chromium...")
@@ -70,11 +71,11 @@ class BrowserConfig:
         self.slow_mo = slow_mo
 
 
-def fetch_page_with_playwright(
+async def fetch_page_with_playwright(
     url: str,
     timeout_ms: int = 9000,
     config: Optional[BrowserConfig] = None,
-    page_interaction: Optional[Callable[[Any], List[str]]] = None,
+    page_interaction: Optional[Callable[[Any], Coroutine[Any, Any, List[str]]]] = None,
 ) -> Optional[Tuple[str, List[str]]]:
     """Fetch a web page using Playwright with optional page interactions.
     
@@ -82,14 +83,14 @@ def fetch_page_with_playwright(
         url: The URL to fetch
         timeout_ms: Timeout in milliseconds for page load
         config: Browser configuration (uses defaults if None)
-        page_interaction: Optional function to interact with the page before extracting content.
-                         Should accept a page object and return a List[str] (e.g., media URLs)
+        page_interaction: Optional async function to interact with the page before extracting content.
+                         Should accept a page object and return a List[str] (e.g., media URLs).
     
     Returns:
         Tuple of (HTML content, interaction results) or None if fetch fails.
         Interaction results will be empty list if page_interaction is not provided.
     """
-    ensure_browsers_installed()
+    await ensure_browsers_installed()
     
     if config is None:
         config = BrowserConfig()
@@ -98,30 +99,31 @@ def fetch_page_with_playwright(
     interaction_results: List[str] = []
     
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=config.headless, slow_mo=config.slow_mo)
-            context = browser.new_context(
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=config.headless, slow_mo=config.slow_mo)
+            context = await browser.new_context(
                 user_agent=config.user_agent,
                 locale=config.locale,
                 viewport={"width": config.viewport_width, "height": config.viewport_height},
             )
-            page = context.new_page()
-            page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+            page = await context.new_page()
+            await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
             
             with suppress(Exception):
-                page.wait_for_load_state("networkidle", timeout=timeout_ms)
+                await page.wait_for_load_state("networkidle", timeout=timeout_ms)
 
             with suppress(Exception):
-                page.keyboard.press("Escape")
-                page.wait_for_timeout(300)
+                await page.keyboard.press("Escape")
+                await page.wait_for_timeout(300)
 
             if page_interaction:
                 try:
-                    interaction_results = page_interaction(page) or []
+                    # page_interaction should be async
+                    interaction_results = await page_interaction(page) or []
                 except Exception as e:
                     logger.warning(f"Page interaction failed: {e}")
             
-            html = page.content()
+            html = await page.content()
             return (html, interaction_results)
             
     except Exception as e:
@@ -131,8 +133,8 @@ def fetch_page_with_playwright(
     finally:
         with suppress(Exception):
             if context:
-                context.close()
+                await context.close()
         with suppress(Exception):
             if browser:
-                browser.close()
+                await browser.close()
 

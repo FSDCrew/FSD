@@ -1,7 +1,7 @@
 import sys
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Awaitable, Callable, Coroutine, Dict, List, Optional, Union
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
@@ -115,14 +115,14 @@ def _extract_from_dom(soup: BeautifulSoup) -> Dict[str, Any]:
 
     return {"username": username, "description": description, "photo_urls": imgs}
 
-def _create_instagram_carousel_interaction() -> Callable[[Any], List[str]]:
+def _create_instagram_carousel_interaction() -> Callable[[Any], Coroutine[Any, Any, List[str]]]:
     """Create a page interaction function for Instagram carousel navigation.
     
     Returns:
-        A function that can be passed to fetch_page_with_playwright to interact
+        An async function that can be passed to fetch_page_with_playwright to interact
         with Instagram carousels and collect media URLs.
     """
-    def _collect_media_now(page) -> List[str]:
+    async def _collect_media_now(page) -> List[str]:
         """Collect media URLs from the current carousel state."""
         js = """
         (sel) => {
@@ -142,15 +142,16 @@ def _create_instagram_carousel_interaction() -> Callable[[Any], List[str]]:
           return urls.filter(u => (seen.has(u) ? false : (seen.add(u), true)));
         }
         """
-        return page.evaluate(js, CONTENT_CSS)
+        return await page.evaluate(js, CONTENT_CSS)
 
-    def _click_through_carousel(page, max_clicks: int = 30, pause_ms: int = 300) -> List[str]:
+    async def _click_through_carousel(page, max_clicks: int = 30, pause_ms: int = 300) -> List[str]:
         """Click through Instagram carousel to collect all media URLs."""
         seen: List[str] = []
         seen_set: set[str] = set()
 
         # Collect initial media
-        for u in _collect_media_now(page):
+        initial_media = await _collect_media_now(page)
+        for u in initial_media:
             if u not in seen_set:
                 seen_set.add(u)
                 seen.append(u)
@@ -159,7 +160,7 @@ def _create_instagram_carousel_interaction() -> Callable[[Any], List[str]]:
         clicks = 0
         while clicks < max_clicks:
             btn = page.locator(CAROUSEL_NEXT_CSS).first
-            if btn.count() == 0:
+            if await btn.count() == 0:
                 break
 
             progressed = False
@@ -169,12 +170,13 @@ def _create_instagram_carousel_interaction() -> Callable[[Any], List[str]]:
             ]
             for attempt in attempts:
                 try:
-                    attempt()
+                    await attempt()
                 except Exception:
                     pass
-                page.wait_for_timeout(pause_ms)
+                await page.wait_for_timeout(pause_ms)
                 new = []
-                for u in _collect_media_now(page):
+                new_media = await _collect_media_now(page)
+                for u in new_media:
                     if u not in seen_set:
                         seen_set.add(u)
                         new.append(u)
@@ -189,7 +191,7 @@ def _create_instagram_carousel_interaction() -> Callable[[Any], List[str]]:
     
     return _click_through_carousel
 
-def _get_html(url: str) -> Optional[tuple[str, List[str]]]:
+async def _get_html(url: str) -> Optional[tuple[str, List[str]]]:
     """Fetch HTML content from URL, trying Playwright first, then falling back to requests.
     
     Args:
@@ -202,7 +204,7 @@ def _get_html(url: str) -> Optional[tuple[str, List[str]]]:
     try:
         config = BrowserConfig(headless=settings.HEADLESS)
         carousel_interaction = _create_instagram_carousel_interaction()
-        result = fetch_page_with_playwright(
+        result = await fetch_page_with_playwright(
             url,
             timeout_ms=PLAYWRIGHT_TIMEOUT_MS,
             config=config,
@@ -218,11 +220,11 @@ def _get_html(url: str) -> Optional[tuple[str, List[str]]]:
         return (html, [])
     return None
 
-def _scrape_one(url: str, sleep_seconds: float = DEFAULT_SLEEP_SECONDS) -> Dict[str, Any]:
+async def _scrape_one(url: str, sleep_seconds: float = DEFAULT_SLEEP_SECONDS) -> Dict[str, Any]:
     out = {"post_url": url, "username": None, "description": None, "photo_urls": [], "error": None}
     try:
         canon = _canonical_ig_url(url)
-        pack = _get_html(canon)
+        pack = await _get_html(canon)
         if not pack:
             out["error"] = "fetch_failed"
             return out
@@ -300,6 +302,8 @@ def open_instagram_posts(urls: Union[str, List[str]]) -> List[Dict[str, Any]]:
             "error": Optional[str]
         }
     """
+    import asyncio
+    
     urls = _coerce_urls(urls)
     if not urls:
         return [{
@@ -310,9 +314,30 @@ def open_instagram_posts(urls: Union[str, List[str]]) -> List[Dict[str, Any]]:
             "error": "invalid_input",
         }]
 
+    # Run async code in the existing event loop
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If loop is running, we need to use a different approach
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    _scrape_all_async(urls)
+                )
+                return future.result()
+        else:
+            return loop.run_until_complete(_scrape_all_async(urls))
+    except RuntimeError:
+        # No event loop, create a new one
+        return asyncio.run(_scrape_all_async(urls))
+
+
+async def _scrape_all_async(urls: List[str]) -> List[Dict[str, Any]]:
+    """Async helper to scrape all URLs."""
     results: List[Dict[str, Any]] = []
     for u in urls:
-        results.append(_scrape_one(u))
+        results.append(await _scrape_one(u))
     return results
 
 if __name__ == "__main__":
