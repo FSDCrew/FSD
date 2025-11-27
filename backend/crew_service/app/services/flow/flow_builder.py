@@ -6,7 +6,6 @@ from opentelemetry import baggage
 from pydantic import BaseModel, Field, create_model
 from crewai import Agent as CrewAIAgent, Task as CrewAITask, Crew, LLM, Process, TaskOutput
 from crewai.flow.flow import Flow, listen, start
-from crewai.lite_agent_output import LiteAgentOutput
 
 from app.api.crud_client.models.task_read import TaskRead
 from app.models.models import FlowDependencyGraph
@@ -23,6 +22,7 @@ from config import logger, tasks_config, agents_config, state_fields_config
 # ============================================================================
 
 general_llm = LLM(
+    # model="openai/gpt-4.1-mini",
     model="openai/gpt-4o-mini",
     # model="openai/gpt-5-nano",
     temperature=0.3,
@@ -52,7 +52,7 @@ judge_llm = LLM(
 )
 
 
-def llm_judge_guardrail(result: TaskOutput | LiteAgentOutput) -> Tuple[bool, Any]:
+def llm_judge_guardrail(result: TaskOutput) -> Tuple[bool, Any]:
     """
     Use a separate LLM as a judge to validate a task's output.
     
@@ -64,8 +64,6 @@ def llm_judge_guardrail(result: TaskOutput | LiteAgentOutput) -> Tuple[bool, Any
     but the actual return value is a TaskOutputFormat instance.
     """
     try:
-        if not isinstance(result, TaskOutput):
-            raise ValueError(f"Invalid result type: {type(result)}")
         evaluation_prompt = (
             "<task_expected_output>\n"
             f"{result.expected_output}\n"
