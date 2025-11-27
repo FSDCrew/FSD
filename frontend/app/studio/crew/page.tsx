@@ -26,7 +26,7 @@ import {
   type Edge,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { createCrewCrewPost, updateCrewCrewPut, getCrewsCrewGet, replaceAllTasksForCrewTaskCrewIdSavePut, type CrewRead, type TaskCreate } from "@/lib/api/crud";
+import { createCrewCrewPost, updateCrewCrewPut, getCrewByIdCrewCrewIdGet, getAllCrewsCrewGet, replaceAllTasksForCrewTaskCrewIdSavePut, type CrewRead, type TaskCreate } from "@/lib/api/crud";
 import { client } from "@/lib/api/crud/client.gen";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -128,22 +128,16 @@ export default function CrewPage() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
-
   // Keep track of last saved state for reverting
   const [lastSavedNodes, setLastSavedNodes] = useState<Node[]>([START_NODE]);
   const [lastSavedEdges, setLastSavedEdges] = useState<Edge[]>(initialEdges);
   const [lastSavedTitle, setLastSavedTitle] = useState("");
-
   // Wrap onNodesChange to detect position changes
   const handleNodesChange = useCallback((changes: any[]) => {
-    // Check if any change is a position change
     const hasPositionChange = changes.some(change => change.type === 'position' && change.dragging === false);
-    
     if (hasPositionChange) {
       setHasUnsavedChanges(true);
     }
-    
-    // Apply the changes
     onNodesChange(changes);
   }, [onNodesChange]);
 
@@ -154,23 +148,18 @@ export default function CrewPage() {
         showNotification("The START node cannot receive connections. It's the beginning of the flow.", "error");
         return;
       }
-      
       // Check if source node already has an outgoing connection (all nodes including start node can only have ONE outgoing connection)
       const sourceHasConnection = edges.some(edge => edge.source === params.source);
-      
       // Check if target node already has an incoming connection
       const targetHasConnection = edges.some(edge => edge.target === params.target);
-      
       if (sourceHasConnection) {
         showNotification("This node already has an outgoing connection. Each node can only connect to one other node for linear flow.", "error");
         return;
       }
-      
       if (targetHasConnection) {
         showNotification("The target node already has an incoming connection. Each node can only receive one connection for linear flow.", "error");
         return;
       }
-      
       setEdges((eds) => addEdge(params, eds));
       setHasUnsavedChanges(true);
     },
@@ -180,23 +169,18 @@ export default function CrewPage() {
   
 const queryClient = useQueryClient();
 
-// Helper function to convert nodes to TaskCreate format with linear order
+//convert nodes to TaskCreate format with linear order
 const convertNodesToTasks = (nodes: Node[], edges: Edge[]): TaskCreate[] => {
-  // Build a map of connections: nodeId -> connected nodeId
   const connectionMap = new Map<string, string>();
   edges.forEach(edge => {
     connectionMap.set(edge.source, edge.target);
   });
-  
-  // Traverse from START node to build ordered list
   const orderedTasks: TaskCreate[] = [];
   let currentNodeId = connectionMap.get('start-node');
-  let order = 1;  // Start at 1 so tasks are numbered 1, 2, 3...
-  
+  let order = 1; 
   while (currentNodeId) {
     const node = nodes.find(n => n.id === currentNodeId);
     if (!node) break;
-    
     const nodeData = node.data as NodeData;
     orderedTasks.push({
       key: node.id,
@@ -205,15 +189,12 @@ const convertNodesToTasks = (nodes: Node[], edges: Edge[]): TaskCreate[] => {
       order: order,
       agent_key: nodeData.taskType || "default",
     });
-    
     order++;
     currentNodeId = connectionMap.get(currentNodeId);
   }
-  
   return orderedTasks;
 };
 
-// Create crew mutation
 const createCrewMutation = useMutation({
   mutationFn: async (crewData: { name: string }) => {
     const response = await createCrewCrewPost({ body: crewData });
@@ -225,8 +206,6 @@ const createCrewMutation = useMutation({
       showNotification("Crew created but no data returned", "error");
       return;
     }
-    
-    // Save tasks if any nodes exist
     if (nodes.length > 0) {
       try {
         const tasks = convertNodesToTasks(nodes, edges);
@@ -240,26 +219,20 @@ const createCrewMutation = useMutation({
         return;
       }
     }
-    
     // Save node positions to localStorage
     const nodePositions = nodes.reduce((acc, node) => {
       acc[node.id] = node.position;
       return acc;
     }, {} as Record<string, { x: number; y: number }>);
     localStorage.setItem(`crew_positions_${crewData.id}`, JSON.stringify(nodePositions));
-    
-    // Update last saved state
     setLastSavedNodes(nodes);
     setLastSavedEdges(edges);
     setLastSavedTitle(title);
     setHasUnsavedChanges(false);
     
-    // Refresh crews list
+    
     queryClient.invalidateQueries({ queryKey: ['crews'] });
-    
-    // Navigate to the newly created crew
     router.push(`/studio/crew?id=${crewData.id}&title=${encodeURIComponent(crewData.name)}`);
-    
     showNotification("Crew created successfully!", "success");
   },
 
@@ -269,13 +242,12 @@ const createCrewMutation = useMutation({
   }
 });
 
-// Update crew mutation
+
 const updateCrewMutation = useMutation({
   mutationFn: async (crewData: { id: string; name: string }) => {
-    // Update crew name
+    
     await updateCrewCrewPut({ body: crewData });
     
-    // Update tasks
     const tasks = convertNodesToTasks(nodes, edges);
     await replaceAllTasksForCrewTaskCrewIdSavePut({
       body: tasks,
@@ -293,15 +265,11 @@ const updateCrewMutation = useMutation({
   },
     
   onSuccess: () => {
-    // Update last saved state
     setLastSavedNodes(nodes);
     setLastSavedEdges(edges);
     setLastSavedTitle(title);
     setHasUnsavedChanges(false);
-    
-    // Refresh crews list
     queryClient.invalidateQueries({ queryKey: ['crews'] });
-    
     showNotification("Crew updated successfully!", "success");
   },
   
@@ -318,7 +286,6 @@ const updateCrewMutation = useMutation({
         if (node.id === nodeId) {
           const currentData = node.data as NodeData;
           
-          // Handle nested field updates (e.g., "crewInput.topic")
           if (field.includes('.')) {
             const [parent, child] = field.split('.');
             return {
@@ -333,7 +300,6 @@ const updateCrewMutation = useMutation({
             };
           }
           
-          // Handle simple field updates
           return {
             ...node,
             data: {
@@ -348,9 +314,8 @@ const updateCrewMutation = useMutation({
     setHasUnsavedChanges(true);
   }, [setNodes]);
 
-  // Function to delete a node
+  
   const handleDeleteNode = useCallback((nodeId: string) => {
-    // Prevent deletion of start node
     if (nodeId === 'start-node') {
       showNotification("The START node cannot be deleted.", "error");
       return;
@@ -359,8 +324,6 @@ const updateCrewMutation = useMutation({
     setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
     setHasUnsavedChanges(true);
   }, [setNodes, setEdges]);
-
-  // Handle keyboard delete
   const onNodesDelete = useCallback((deleted: Node[]) => {
     deleted.forEach((node) => handleDeleteNode(node.id));
   }, [handleDeleteNode]);
@@ -437,7 +400,6 @@ const updateCrewMutation = useMutation({
   useEffect(() => {
     if (!token) router.push("/auth/login");
 
-    // Get card data from URL params
     const cardTitle = searchParams.get("title") || "Untitled";
     const cardDescription = searchParams.get("description") || "";
     const cardId = searchParams.get("id");
@@ -446,28 +408,20 @@ const updateCrewMutation = useMutation({
     setDescription(cardDescription);
     setLastSavedTitle(cardTitle);
 
-    // Load saved mode for this specific card
     if (cardId) {
       const savedMode = localStorage.getItem(`crew_mode_${cardId}`);
       if (savedMode === "view" || savedMode === "edit") {
         setMode(savedMode);
       }
       
-      // Load tasks from backend for existing crew
       const loadCrewData = async () => {
         try {
-          // Use direct fetch to GET /crew/{id} which returns a single crew object
-          const response = await fetch(`${client.getConfig().baseUrl}/crew/${cardId}`, {
-            credentials: 'include',
+          const response = await getCrewByIdCrewCrewIdGet({
+            path: { crew_id: cardId }
           });
           
-          if (!response.ok) {
-            throw new Error('Failed to load crew data');
-          }
-          
-          const crewData = await response.json();
+          const crewData = response.data;
           if (crewData && crewData.tasks) {
-            // Store crew runs for display in runs history (using type assertion until SDK is regenerated)
             const crewDataWithRuns = crewData as CrewRead & { crew_runs?: any[] };
             if (crewDataWithRuns.crew_runs) {
               setCrewRuns(crewDataWithRuns.crew_runs);
@@ -484,11 +438,9 @@ const updateCrewMutation = useMutation({
             const loadedNodes = sortedTasks.map((task, index) => {
               const nodeTypeConfig = nodeTypeConfigs.find((n) => n.type === task.agent_key as TaskType);
               
-              // Use saved position if available, otherwise create straight horizontal line layout
-              // START node is at (50, 250), so first task starts at x=300
               const defaultPosition = { 
-                x: 300 + (index * 300),  // Horizontal spacing of 300px between nodes
-                y: 250                    // Same vertical position as START node (straight line)
+                x: 300 + (index * 300), 
+                y: 250                    
               };
               const position = savedPositions[task.key] || defaultPosition;
               
@@ -518,8 +470,6 @@ const updateCrewMutation = useMutation({
             
             // Reconstruct edges based on task order
             const reconstructedEdges: Edge[] = [];
-            
-            // Connect START node to first task
             if (sortedTasks.length > 0) {
               reconstructedEdges.push({
                 id: `start-node-${sortedTasks[0].key}`,
@@ -527,8 +477,6 @@ const updateCrewMutation = useMutation({
                 target: sortedTasks[0].key,
               });
             }
-            
-            // Connect tasks in sequence
             for (let i = 0; i < sortedTasks.length - 1; i++) {
               reconstructedEdges.push({
                 id: `${sortedTasks[i].key}-${sortedTasks[i + 1].key}`,
@@ -536,14 +484,10 @@ const updateCrewMutation = useMutation({
                 target: sortedTasks[i + 1].key,
               });
             }
-            
-            // Restore START node position if saved, otherwise use default
             const startNodeWithPosition = {
               ...START_NODE,
               position: savedPositions['start-node'] || START_NODE.position,
             };
-            
-            // Always include the start node at the beginning
             setNodes([startNodeWithPosition, ...loadedNodes]);
             setLastSavedNodes([startNodeWithPosition, ...loadedNodes]);
             setEdges(reconstructedEdges);
@@ -564,7 +508,6 @@ const updateCrewMutation = useMutation({
       loadCrewData();
     }
 
-    // If it's a new card (Untitled), start editing the title immediately
     if (cardTitle === "Untitled") {
       setIsEditingTitle(true);
     }
@@ -572,7 +515,7 @@ const updateCrewMutation = useMutation({
 
   // Fit view when ReactFlow instance is ready and nodes are loaded
   useEffect(() => {
-    if (reactFlowInstance && nodes.length > 1) { // More than just START node
+    if (reactFlowInstance && nodes.length > 1) { 
       setTimeout(() => {
         reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
       }, 100);
@@ -582,7 +525,6 @@ const updateCrewMutation = useMutation({
   const handleSave = async () => {
     const cardId = searchParams.get("id");
     
-    // Validate title
     if (!title || title.trim() === "") {
       showNotification("Crew name cannot be empty", "error");
       return;
@@ -591,19 +533,15 @@ const updateCrewMutation = useMutation({
     // Validate linear flow: Check if nodes form a single connected chain from START
     const taskNodes = nodes.filter(n => n.id !== 'start-node');
     if (taskNodes.length > 0) {
-      // Build connection map
       const connectionMap = new Map<string, string>();
       edges.forEach(edge => {
         connectionMap.set(edge.source, edge.target);
       });
       
-      // Check if START node has a connection
       if (!connectionMap.has('start-node')) {
         showNotification("Please connect the START node to the first task in your flow.", "error");
         return;
       }
-      
-      // Traverse and count connected nodes
       let currentNodeId = connectionMap.get('start-node');
       let connectedCount = 0;
       const visited = new Set<string>();
@@ -613,20 +551,15 @@ const updateCrewMutation = useMutation({
         connectedCount++;
         currentNodeId = connectionMap.get(currentNodeId);
       }
-      
-      // Check if all task nodes are connected in the chain
       if (connectedCount !== taskNodes.length) {
         showNotification(`Linear flow incomplete: ${connectedCount} of ${taskNodes.length} tasks are connected. Please connect all tasks in a single chain starting from START.`, "error");
         return;
       }
     }
-    
-    // Check for duplicate crew names
     try {
-      const response = await getCrewsCrewGet();
+      const response = await getAllCrewsCrewGet();
       const allCrews = Array.isArray(response.data) ? response.data : response.data ? [response.data] : [];
       
-      // Check if another crew with the same name exists (case-insensitive)
       const duplicateCrew = allCrews.find((crew: CrewRead) => 
         crew.name.trim().toLowerCase() === title.trim().toLowerCase() && crew.id !== cardId
       );
@@ -636,12 +569,9 @@ const updateCrewMutation = useMutation({
         return;
       }
       
-      // Proceed with create or update
       if (cardId) {
-        // Update existing crew
         updateCrewMutation.mutate({ id: cardId, name: title });
       } else {
-        // Create new crew
         createCrewMutation.mutate({ name: title });
       }
     } catch (error) {
@@ -654,7 +584,6 @@ const updateCrewMutation = useMutation({
     router.push("/studio");
   };
 
-  // Create crew run mutation
   const createCrewRunMutation = useMutation({
     mutationFn: async (crewId: string) => {
       const response = await fetch(`${client.getConfig().baseUrl}/crew-run/`, {
@@ -682,12 +611,12 @@ const updateCrewMutation = useMutation({
       const cardId = searchParams.get("id");
       if (cardId) {
         try {
-          const response = await getCrewsCrewGet({ 
-            query: { crew_id: cardId }
+          const response = await getCrewByIdCrewCrewIdGet({ 
+            path: { crew_id: cardId }
           });
           
           const crewData = response.data;
-          if (crewData && !Array.isArray(crewData)) {
+          if (crewData) {
             const crewDataWithRuns = crewData as CrewRead & { crew_runs?: any[] };
             if (crewDataWithRuns.crew_runs) {
               setCrewRuns(crewDataWithRuns.crew_runs);
@@ -739,7 +668,6 @@ const updateCrewMutation = useMutation({
   };
 
   const confirmModeChange = () => {
-    // Revert to last saved state
     const revertedNodes = lastSavedNodes.map((node: Node) => ({
       ...node,
       data: {
@@ -781,7 +709,7 @@ const updateCrewMutation = useMutation({
 
   const showNotification = (message: string, type: "success" | "error" | "info" = "info") => {
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 4000); // Auto-hide after 4 seconds
+    setTimeout(() => setNotification(null), 4000); 
   };
 
   const checkDuplicateTitle = (newTitle: string) => {
@@ -834,7 +762,6 @@ const updateCrewMutation = useMutation({
               <Button
                 onClick={() => {
                   setShowRunsHistory(!showRunsHistory);
-                  // Close run details when hiding runs history
                   if (showRunsHistory) {
                     setSelectedRun(null);
                   }
