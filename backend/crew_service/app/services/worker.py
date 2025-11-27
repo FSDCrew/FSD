@@ -51,8 +51,22 @@ class Worker:
         self._running = False
         
         if self.running_jobs:
-            for job_id, (task, lease_token) in self.running_jobs.items():
+            # Create a copy of items to avoid RuntimeError if dictionary changes during iteration
+            jobs_to_stop = list(self.running_jobs.items())
+            for job_id, (task, lease_token) in jobs_to_stop:
                 task.cancel()
+            
+            # Wait for all tasks to finish (including threads) before marking as failed
+            logger.info(f"Waiting for {len(jobs_to_stop)} job(s) to finish...")
+            for job_id, (task, lease_token) in jobs_to_stop:
+                try:
+                    await asyncio.wait_for(task, timeout=10.0)
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    logger.warning(f"Job {job_id} did not finish within timeout")
+                except Exception as e:
+                    logger.debug(f"Error waiting for job {job_id}: {e}")
+                
+                # Mark as failed after waiting
                 try:
                     body = UpdateStatusRequest(
                         lease_token=lease_token,
@@ -65,6 +79,12 @@ class Worker:
                     )
                 except Exception as e:
                     logger.error(f"Failed to mark job {job_id} as FAILED: {e}")
+        
+        try:
+            async_client = self.crud_client.get_async_httpx_client()
+            await async_client.aclose()
+        except Exception as e:
+            logger.debug(f"Error closing HTTP client: {e}")
     
     async def _poll_and_process(self):
         """Poll the queue and process a job if available."""
