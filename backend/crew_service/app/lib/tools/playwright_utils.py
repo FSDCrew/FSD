@@ -1,8 +1,7 @@
 import sys
 import traceback
-import asyncio
 from contextlib import suppress
-from typing import Any, Awaitable, Callable, Coroutine, List, Optional, Tuple
+from typing import Any, Callable, Coroutine, List, Optional, Tuple
 
 from playwright.async_api import async_playwright
 

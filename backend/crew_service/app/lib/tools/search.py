@@ -1,8 +1,9 @@
 import json
 from typing import Any, Dict, List, Optional
 
-from crewai_tools import BrightDataSearchTool, ScrapeWebsiteTool
 from crewai.tools import tool
+from crewai_tools.tools.brightdata_tool.brightdata_serp import BrightDataSearchTool
+from crewai_tools.tools.scrape_website_tool.scrape_website_tool import ScrapeWebsiteTool
 
 
 def _extract_organic_results(raw_result: Any) -> List[Dict[str, Any]]:
