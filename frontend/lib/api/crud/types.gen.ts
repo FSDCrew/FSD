@@ -5,31 +5,91 @@ export type ClientOptions = {
 };
 
 /**
- * Agent
+ * ArtifactRead
  */
-export type Agent = {
+export type ArtifactRead = {
+    type: ArtifactType;
     /**
-     * Key
+     * File Name
      */
-    key: string;
+    file_name: string | null;
     /**
-     * Role
+     * Id
      */
-    role: string;
+    id: string;
     /**
-     * Goal
+     * Crew Run Id
      */
-    goal: string;
-    /**
-     * Backstory
-     */
-    backstory: string;
+    crew_run_id: string;
 };
 
 /**
- * CrewBase
+ * ArtifactServerCreate
  */
-export type CrewBase = {
+export type ArtifactServerCreate = {
+    type: ArtifactType;
+    /**
+     * File Name
+     */
+    file_name: string | null;
+    /**
+     * File Content Base64
+     */
+    file_content_base64: string;
+};
+
+/**
+ * ArtifactType
+ */
+export type ArtifactType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'OTHER';
+
+/**
+ * Body_create_crew_run_internal_internal_crew_run_create_post
+ */
+export type BodyCreateCrewRunInternalInternalCrewRunCreatePost = {
+    /**
+     * Crew run data to create
+     */
+    crew_run_data: CrewRunCreate;
+    /**
+     * User Token
+     *
+     * User's JWT token for authentication
+     */
+    user_token: string;
+};
+
+/**
+ * ClaimJobResponse
+ */
+export type ClaimJobResponse = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Crew Run Id
+     */
+    crew_run_id: string;
+    /**
+     * Crew Id
+     */
+    crew_id: string;
+    status: QueueStatus;
+    /**
+     * Lease Token
+     */
+    lease_token: string;
+    /**
+     * Visible At
+     */
+    visible_at: string;
+};
+
+/**
+ * CrewCreate
+ */
+export type CrewCreate = {
     /**
      * Name
      */
@@ -57,9 +117,54 @@ export type CrewRead = {
      */
     tasks: Array<TaskRead>;
     /**
-     * Agents
+     * Crew Runs
      */
-    agents: Array<Agent>;
+    crew_runs?: Array<CrewRunRead> | null;
+};
+
+/**
+ * CrewRunCreate
+ */
+export type CrewRunCreate = {
+    /**
+     * Output
+     */
+    output?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Crew Id
+     */
+    crew_id: string;
+};
+
+/**
+ * CrewRunRead
+ */
+export type CrewRunRead = {
+    /**
+     * Output
+     */
+    output?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Crew Id
+     */
+    crew_id: string;
+    /**
+     * Artifacts
+     */
+    artifacts?: Array<ArtifactRead> | null;
+    queue_status?: QueueStatus | null;
+    /**
+     * Retry Count
+     */
+    retry_count?: number | null;
 };
 
 /**
@@ -87,6 +192,21 @@ export type HttpValidationError = {
 };
 
 /**
+ * HeartbeatRequest
+ */
+export type HeartbeatRequest = {
+    /**
+     * Lease Token
+     */
+    lease_token: string;
+};
+
+/**
+ * QueueStatus
+ */
+export type QueueStatus = 'QUEUED' | 'CLAIMED' | 'COMPLETED' | 'FAILED';
+
+/**
  * TaskCreate
  */
 export type TaskCreate = {
@@ -94,14 +214,6 @@ export type TaskCreate = {
      * Key
      */
     key: string;
-    /**
-     * Description
-     */
-    description: string;
-    /**
-     * Expected Output
-     */
-    expected_output: string;
     /**
      * Order
      */
@@ -120,14 +232,6 @@ export type TaskRead = {
      * Key
      */
     key: string;
-    /**
-     * Description
-     */
-    description: string;
-    /**
-     * Expected Output
-     */
-    expected_output: string;
     /**
      * Order
      */
@@ -151,14 +255,6 @@ export type TaskUpdate = {
      */
     key: string;
     /**
-     * Description
-     */
-    description?: string | null;
-    /**
-     * Expected Output
-     */
-    expected_output?: string | null;
-    /**
      * Order
      */
     order: number;
@@ -166,6 +262,25 @@ export type TaskUpdate = {
      * Id
      */
     id: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Expected Output
+     */
+    expected_output?: string | null;
+};
+
+/**
+ * UpdateStatusRequest
+ */
+export type UpdateStatusRequest = {
+    /**
+     * Lease Token
+     */
+    lease_token: string;
+    status: QueueStatus;
 };
 
 /**
@@ -230,42 +345,88 @@ export type SystemCheckStatusHealthGetResponses = {
     200: unknown;
 };
 
-export type GetCrewsCrewGetData = {
+export type DeleteCrewCrewCrewIdDeleteData = {
     body?: never;
-    path?: never;
-    query?: {
+    path: {
         /**
          * Crew Id
-         *
-         * Optional Crew ID to filter
          */
-        crew_id?: string | null;
+        crew_id: string;
     };
-    url: '/crew/';
+    query?: never;
+    url: '/crew/{crew_id}';
 };
 
-export type GetCrewsCrewGetErrors = {
+export type DeleteCrewCrewCrewIdDeleteErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type GetCrewsCrewGetError = GetCrewsCrewGetErrors[keyof GetCrewsCrewGetErrors];
+export type DeleteCrewCrewCrewIdDeleteError = DeleteCrewCrewCrewIdDeleteErrors[keyof DeleteCrewCrewCrewIdDeleteErrors];
 
-export type GetCrewsCrewGetResponses = {
+export type DeleteCrewCrewCrewIdDeleteResponses = {
     /**
-     * Response Get Crews Crew  Get
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteCrewCrewCrewIdDeleteResponse = DeleteCrewCrewCrewIdDeleteResponses[keyof DeleteCrewCrewCrewIdDeleteResponses];
+
+export type GetCrewByIdCrewCrewIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Crew Id
+         *
+         * Crew ID to retrieve
+         */
+        crew_id: string;
+    };
+    query?: never;
+    url: '/crew/{crew_id}';
+};
+
+export type GetCrewByIdCrewCrewIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetCrewByIdCrewCrewIdGetError = GetCrewByIdCrewCrewIdGetErrors[keyof GetCrewByIdCrewCrewIdGetErrors];
+
+export type GetCrewByIdCrewCrewIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: CrewRead;
+};
+
+export type GetCrewByIdCrewCrewIdGetResponse = GetCrewByIdCrewCrewIdGetResponses[keyof GetCrewByIdCrewCrewIdGetResponses];
+
+export type GetAllCrewsCrewGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/crew/';
+};
+
+export type GetAllCrewsCrewGetResponses = {
+    /**
+     * Response Get All Crews Crew  Get
      *
      * Successful Response
      */
-    200: CrewRead | Array<CrewRead>;
+    200: Array<CrewRead>;
 };
 
-export type GetCrewsCrewGetResponse = GetCrewsCrewGetResponses[keyof GetCrewsCrewGetResponses];
+export type GetAllCrewsCrewGetResponse = GetAllCrewsCrewGetResponses[keyof GetAllCrewsCrewGetResponses];
 
 export type CreateCrewCrewPostData = {
-    body: CrewBase;
+    body: CrewCreate;
     path?: never;
     query?: never;
     url: '/crew/';
@@ -448,3 +609,330 @@ export type GetUserByIdUserGetResponses = {
 };
 
 export type GetUserByIdUserGetResponse = GetUserByIdUserGetResponses[keyof GetUserByIdUserGetResponses];
+
+export type CreateArtifactArtifactCrewRunIdPostData = {
+    body: ArtifactServerCreate;
+    path: {
+        /**
+         * Crew Run Id
+         *
+         * Crew Run ID to associate the artifact with
+         */
+        crew_run_id: string;
+    };
+    query?: never;
+    url: '/artifact/{crew_run_id}';
+};
+
+export type CreateArtifactArtifactCrewRunIdPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateArtifactArtifactCrewRunIdPostError = CreateArtifactArtifactCrewRunIdPostErrors[keyof CreateArtifactArtifactCrewRunIdPostErrors];
+
+export type CreateArtifactArtifactCrewRunIdPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: ArtifactRead;
+};
+
+export type CreateArtifactArtifactCrewRunIdPostResponse = CreateArtifactArtifactCrewRunIdPostResponses[keyof CreateArtifactArtifactCrewRunIdPostResponses];
+
+export type GetArtifactArtifactArtifactIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Artifact Id
+         *
+         * Artifact ID to retrieve
+         */
+        artifact_id: string;
+    };
+    query?: never;
+    url: '/artifact/{artifact_id}';
+};
+
+export type GetArtifactArtifactArtifactIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetArtifactArtifactArtifactIdGetError = GetArtifactArtifactArtifactIdGetErrors[keyof GetArtifactArtifactArtifactIdGetErrors];
+
+export type GetArtifactArtifactArtifactIdGetResponses = {
+    /**
+     * Response Get Artifact Artifact  Artifact Id  Get
+     *
+     * Successful Response
+     */
+    200: string;
+};
+
+export type GetArtifactArtifactArtifactIdGetResponse = GetArtifactArtifactArtifactIdGetResponses[keyof GetArtifactArtifactArtifactIdGetResponses];
+
+export type GetCrewRunCrewRunCrewRunIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Crew Run Id
+         *
+         * Crew Run ID to retrieve
+         */
+        crew_run_id: string;
+    };
+    query?: never;
+    url: '/crew-run/{crew_run_id}';
+};
+
+export type GetCrewRunCrewRunCrewRunIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetCrewRunCrewRunCrewRunIdGetError = GetCrewRunCrewRunCrewRunIdGetErrors[keyof GetCrewRunCrewRunCrewRunIdGetErrors];
+
+export type GetCrewRunCrewRunCrewRunIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: CrewRunRead;
+};
+
+export type GetCrewRunCrewRunCrewRunIdGetResponse = GetCrewRunCrewRunCrewRunIdGetResponses[keyof GetCrewRunCrewRunCrewRunIdGetResponses];
+
+export type GetCrewByIdInternalCrewCrewIdGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Internal-Api-Key
+         */
+        'X-Internal-Api-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Crew Id
+         *
+         * Crew ID to retrieve
+         */
+        crew_id: string;
+    };
+    query?: never;
+    url: '/internal/crew/{crew_id}';
+};
+
+export type GetCrewByIdInternalCrewCrewIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetCrewByIdInternalCrewCrewIdGetError = GetCrewByIdInternalCrewCrewIdGetErrors[keyof GetCrewByIdInternalCrewCrewIdGetErrors];
+
+export type GetCrewByIdInternalCrewCrewIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: CrewRead;
+};
+
+export type GetCrewByIdInternalCrewCrewIdGetResponse = GetCrewByIdInternalCrewCrewIdGetResponses[keyof GetCrewByIdInternalCrewCrewIdGetResponses];
+
+export type CreateCrewRunInternalInternalCrewRunCreatePostData = {
+    body: BodyCreateCrewRunInternalInternalCrewRunCreatePost;
+    headers?: {
+        /**
+         * X-Internal-Api-Key
+         */
+        'X-Internal-Api-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/internal/crew-run/create';
+};
+
+export type CreateCrewRunInternalInternalCrewRunCreatePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateCrewRunInternalInternalCrewRunCreatePostError = CreateCrewRunInternalInternalCrewRunCreatePostErrors[keyof CreateCrewRunInternalInternalCrewRunCreatePostErrors];
+
+export type CreateCrewRunInternalInternalCrewRunCreatePostResponses = {
+    /**
+     * Successful Response
+     */
+    201: CrewRunRead;
+};
+
+export type CreateCrewRunInternalInternalCrewRunCreatePostResponse = CreateCrewRunInternalInternalCrewRunCreatePostResponses[keyof CreateCrewRunInternalInternalCrewRunCreatePostResponses];
+
+export type UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutData = {
+    /**
+     * Output
+     *
+     * Output data to update
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    headers?: {
+        /**
+         * X-Internal-Api-Key
+         */
+        'X-Internal-Api-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Crew Run Id
+         *
+         * Crew Run ID to update
+         */
+        crew_run_id: string;
+    };
+    query?: never;
+    url: '/internal/crew-run/{crew_run_id}/output';
+};
+
+export type UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutError = UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutErrors[keyof UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutErrors];
+
+export type UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: CrewRunRead;
+};
+
+export type UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutResponse = UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutResponses[keyof UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutResponses];
+
+export type ClaimNextJobInternalInternalQueueClaimPostData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Internal-Api-Key
+         */
+        'X-Internal-Api-Key'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Visibility Timeout Seconds
+         */
+        visibility_timeout_seconds?: number;
+    };
+    url: '/internal/queue/claim';
+};
+
+export type ClaimNextJobInternalInternalQueueClaimPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ClaimNextJobInternalInternalQueueClaimPostError = ClaimNextJobInternalInternalQueueClaimPostErrors[keyof ClaimNextJobInternalInternalQueueClaimPostErrors];
+
+export type ClaimNextJobInternalInternalQueueClaimPostResponses = {
+    /**
+     * Response Claim Next Job Internal Internal Queue Claim Post
+     *
+     * Successful Response
+     */
+    200: ClaimJobResponse | null;
+};
+
+export type ClaimNextJobInternalInternalQueueClaimPostResponse = ClaimNextJobInternalInternalQueueClaimPostResponses[keyof ClaimNextJobInternalInternalQueueClaimPostResponses];
+
+export type UpdateQueueStatusInternalInternalQueueQueueIdStatusPutData = {
+    body: UpdateStatusRequest;
+    headers?: {
+        /**
+         * X-Internal-Api-Key
+         */
+        'X-Internal-Api-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Queue Id
+         */
+        queue_id: string;
+    };
+    query?: never;
+    url: '/internal/queue/{queue_id}/status';
+};
+
+export type UpdateQueueStatusInternalInternalQueueQueueIdStatusPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateQueueStatusInternalInternalQueueQueueIdStatusPutError = UpdateQueueStatusInternalInternalQueueQueueIdStatusPutErrors[keyof UpdateQueueStatusInternalInternalQueueQueueIdStatusPutErrors];
+
+export type UpdateQueueStatusInternalInternalQueueQueueIdStatusPutResponses = {
+    /**
+     * Response Update Queue Status Internal Internal Queue  Queue Id  Status Put
+     *
+     * Successful Response
+     */
+    200: ClaimJobResponse | null;
+};
+
+export type UpdateQueueStatusInternalInternalQueueQueueIdStatusPutResponse = UpdateQueueStatusInternalInternalQueueQueueIdStatusPutResponses[keyof UpdateQueueStatusInternalInternalQueueQueueIdStatusPutResponses];
+
+export type HeartbeatInternalInternalQueueQueueIdHeartbeatPostData = {
+    body: HeartbeatRequest;
+    headers?: {
+        /**
+         * X-Internal-Api-Key
+         */
+        'X-Internal-Api-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Queue Id
+         */
+        queue_id: string;
+    };
+    query?: {
+        /**
+         * Visibility Timeout Seconds
+         */
+        visibility_timeout_seconds?: number;
+    };
+    url: '/internal/queue/{queue_id}/heartbeat';
+};
+
+export type HeartbeatInternalInternalQueueQueueIdHeartbeatPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type HeartbeatInternalInternalQueueQueueIdHeartbeatPostError = HeartbeatInternalInternalQueueQueueIdHeartbeatPostErrors[keyof HeartbeatInternalInternalQueueQueueIdHeartbeatPostErrors];
+
+export type HeartbeatInternalInternalQueueQueueIdHeartbeatPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};

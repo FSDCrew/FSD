@@ -3,7 +3,7 @@
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 
-interface CanvaDesignNodeData extends Record<string, unknown> {
+interface OrshotNodeData extends Record<string, unknown> {
   label: string;
   expectedOutput?: string;
   crewInput?: {
@@ -15,8 +15,8 @@ interface CanvaDesignNodeData extends Record<string, unknown> {
   onDelete?: () => void;
 }
 
-const CanvaDesignNode = memo(({ data, isConnectable, id }: NodeProps) => {
-  const nodeData = data as CanvaDesignNodeData;
+const OrshotNode = memo(({ data, isConnectable, id }: NodeProps) => {
+  const nodeData = data as OrshotNodeData;
   
   return (
     <>
@@ -44,16 +44,32 @@ const CanvaDesignNode = memo(({ data, isConnectable, id }: NodeProps) => {
             background: "transparent",
             border: "none",
             cursor: "pointer",
-            fontSize: "14px",
-            padding: "0",
-            lineHeight: "1",
+            padding: "2px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
           title="Delete node"
         >
-          🗑️
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ color: "white", opacity: 0.8 }}
+          >
+            <path d="M3 6h18" />
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+          </svg>
         </button>
         <div style={{ fontSize: "12px", fontWeight: "600", marginBottom: "8px", textAlign: "center" }}>
-          Canva Design
+          Orshot
         </div>
         <div style={{ marginBottom: "8px" }}>
           <label style={{ fontSize: "10px", display: "block", marginBottom: "2px" }}>Expected Output:</label>
@@ -132,6 +148,6 @@ const CanvaDesignNode = memo(({ data, isConnectable, id }: NodeProps) => {
   );
 });
 
-CanvaDesignNode.displayName = "CanvaDesignNode";
+OrshotNode.displayName = "OrshotNode";
 
-export default CanvaDesignNode;
+export default OrshotNode;
