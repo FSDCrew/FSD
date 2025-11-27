@@ -1,20 +1,25 @@
-import json
-import os
+import sys
 import time
-from typing import Any, Dict, List, Optional, Union
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
 from bs4 import BeautifulSoup
 from crewai.tools import tool
-from contextlib import suppress
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+
+# Add project root to path when running as script
+if __name__ == "__main__":
+    project_root = Path(__file__).parent.parent.parent.parent
+    sys.path.insert(0, str(project_root))
+
+from app.lib.tools.playwright_utils import fetch_page_with_playwright, BrowserConfig
+from config import settings
 
 # -------------------- Config --------------------
 DEFAULT_SLEEP_SECONDS = 0.5
 REQUEST_TIMEOUT = 20
 PLAYWRIGHT_TIMEOUT_MS = 9000
-HEADLESS = os.getenv("HEADLESS", "True") == "True"
 
 # --- Instagram UI selectors (conservative) ---
 CAPTION_CSS_STRICT = (
@@ -31,6 +36,7 @@ CAROUSEL_NEXT_CSS = "button[aria-label='Next']"
 CONTENT_CSS = "ul._acay"
 
 # -------------------- Helpers --------------------
+
 def _canonical_ig_url(u: str) -> str:
     parts = urlsplit(u.strip())
     path = parts.path
@@ -109,9 +115,15 @@ def _extract_from_dom(soup: BeautifulSoup) -> Dict[str, Any]:
 
     return {"username": username, "description": description, "photo_urls": imgs}
 
-def _playwright_fetch(url: str, timeout_ms: int = PLAYWRIGHT_TIMEOUT_MS, headless: bool = HEADLESS) -> Optional[tuple[str, List[str]]]:
-    browser = context = page = None
+def _create_instagram_carousel_interaction() -> Callable[[Any], List[str]]:
+    """Create a page interaction function for Instagram carousel navigation.
+    
+    Returns:
+        A function that can be passed to fetch_page_with_playwright to interact
+        with Instagram carousels and collect media URLs.
+    """
     def _collect_media_now(page) -> List[str]:
+        """Collect media URLs from the current carousel state."""
         js = """
         (sel) => {
           const ul = document.querySelector(sel);
@@ -132,14 +144,18 @@ def _playwright_fetch(url: str, timeout_ms: int = PLAYWRIGHT_TIMEOUT_MS, headles
         """
         return page.evaluate(js, CONTENT_CSS)
 
-    def _click_through_carousel(page, max_clicks: int = 25, pause_ms: int = 350) -> List[str]:
+    def _click_through_carousel(page, max_clicks: int = 30, pause_ms: int = 300) -> List[str]:
+        """Click through Instagram carousel to collect all media URLs."""
         seen: List[str] = []
         seen_set: set[str] = set()
 
+        # Collect initial media
         for u in _collect_media_now(page):
             if u not in seen_set:
-                seen_set.add(u); seen.append(u)
+                seen_set.add(u)
+                seen.append(u)
 
+        # Click through carousel
         clicks = 0
         while clicks < max_clicks:
             btn = page.locator(CAROUSEL_NEXT_CSS).first
@@ -160,7 +176,8 @@ def _playwright_fetch(url: str, timeout_ms: int = PLAYWRIGHT_TIMEOUT_MS, headles
                 new = []
                 for u in _collect_media_now(page):
                     if u not in seen_set:
-                        seen_set.add(u); new.append(u)
+                        seen_set.add(u)
+                        new.append(u)
                 if new:
                     seen.extend(new)
                     progressed = True
@@ -169,52 +186,36 @@ def _playwright_fetch(url: str, timeout_ms: int = PLAYWRIGHT_TIMEOUT_MS, headles
                 break
             clicks += 1
         return seen
-
-    browser = context = page = None
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=headless, slow_mo=50)
-            context = browser.new_context(
-                user_agent=("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                            "AppleWebKit/537.36 (KHTML, like Gecko) "
-                            "Chrome/122.0.0.0 Safari/537.36"),
-                locale="en-US",
-                viewport={"width": 1360, "height": 900},
-            )
-            page = context.new_page()
-            page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-            with suppress(Exception):
-                page.wait_for_load_state("networkidle", timeout=timeout_ms)
-
-            with suppress(Exception):
-                page.keyboard.press("Escape")
-                page.wait_for_timeout(300)
-
-            walked = _click_through_carousel(page, max_clicks=30, pause_ms=300)
-            html = page.content()
-            return (html, walked)
-    except Exception:
-        return None
-    finally:
-        with suppress(Exception):
-            if context: context.close()
-        with suppress(Exception):
-            if browser: browser.close()
+    
+    return _click_through_carousel
 
 def _get_html(url: str) -> Optional[tuple[str, List[str]]]:
-    try:
-        pw = _playwright_fetch(url)
-    except Exception:
-        pw = None
+    """Fetch HTML content from URL, trying Playwright first, then falling back to requests.
+    
+    Args:
+        url: URL to fetch
         
-    if pw:
-        return pw
+    Returns:
+        Tuple of (HTML content, media URLs) or None if fetch fails
+    """
 
+    try:
+        config = BrowserConfig(headless=settings.HEADLESS)
+        carousel_interaction = _create_instagram_carousel_interaction()
+        result = fetch_page_with_playwright(
+            url,
+            timeout_ms=PLAYWRIGHT_TIMEOUT_MS,
+            config=config,
+            page_interaction=carousel_interaction,
+        )
+        if result:
+            return result
+    except Exception as e:
+        pass
 
     html = _requests_fetch(url)
     if html:
         return (html, [])
-
     return None
 
 def _scrape_one(url: str, sleep_seconds: float = DEFAULT_SLEEP_SECONDS) -> Dict[str, Any]:
@@ -313,3 +314,6 @@ def open_instagram_posts(urls: Union[str, List[str]]) -> List[Dict[str, Any]]:
     for u in urls:
         results.append(_scrape_one(u))
     return results
+
+if __name__ == "__main__":
+    print(open_instagram_posts.func("https://www.instagram.com/p/DPdB40zk7Xr/"))

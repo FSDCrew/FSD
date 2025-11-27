@@ -96,7 +96,6 @@ class SocialMediaSchedule(BaseModel):
         }
 
 
-# Type registry for custom types
 CUSTOM_TYPE_REGISTRY: Dict[str, Type[BaseModel]] = {
     "MarketingResearch": MarketingResearch,
     "ContentStrategy": ContentStrategy,
