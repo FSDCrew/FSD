@@ -220,6 +220,8 @@ def infer_initial_inputs(
 def build_flow_state_model(graph: FlowDependencyGraph) -> Type[BaseModel]:
     """
     Build the Pydantic FlowState model from the dependency graph's field specs.
+    
+    Only includes fields that are read or written by tasks in the current flow.
 
     The resulting model is used as the state type for the dynamic Flow class.
     """
@@ -231,7 +233,20 @@ def build_flow_state_model(graph: FlowDependencyGraph) -> Type[BaseModel]:
     )
     field_definitions["run_id"] = (Optional[str], None)
 
+    used_fields: set[str] = set()
+    
+    for read_specs in graph.task_read_specs.values():
+        for read_spec in read_specs:
+            used_fields.add(read_spec["field"])
+    
+    for write_specs in graph.task_write_specs.values():
+        for write_spec in write_specs:
+            used_fields.add(write_spec["field"])
+    
     for field_name, field_spec in graph.state_field_specs.items():
+        if field_name not in used_fields:
+            continue
+        
         field_type_str = field_spec.get("type", "string")
         python_type = resolve_python_type(field_type_str)
 
