@@ -15,6 +15,14 @@ class CrewRunCreateRequest(BaseModel):
     inputs: Optional[Dict[str, Any]] = None
     
     model_config = ConfigDict(extra="ignore")
+    
+    
+class TaskInfo(BaseModel):
+    """Task information exposed to the frontend."""
+    key: str
+    name: str
+    task_description: str
+
 
 
 # ============================================================================

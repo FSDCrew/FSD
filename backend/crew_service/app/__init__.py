@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.crew_endpoints import crew_router
 from app.api.status_endpoints import status_router
+from app.api.tasks_endpoints import tasks_router
 from app.services.worker import Worker
 
 logging.basicConfig(
@@ -19,6 +20,7 @@ def init_routers(app: FastAPI):
     """Register all API routers."""
     app.include_router(status_router)
     app.include_router(crew_router)
+    app.include_router(tasks_router)
 
 
 def init_worker(app: FastAPI):
