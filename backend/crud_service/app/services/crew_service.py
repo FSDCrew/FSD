@@ -9,6 +9,10 @@ class CrewService:
     def __init__(self, repository: CrewRepository):
         self.repository = repository
     
+    def _convert_db_crew_to_read(self, db_crew) -> CrewRead:
+        """Convert DB Crew model to CrewRead."""
+        return CrewRead.model_validate(db_crew)
+    
     def is_crew_owner(self, crew_owner_id: UUID, current_user_id: UUID) -> bool:
         """Check if the current user is the owner of the crew."""
         if crew_owner_id == current_user_id:
@@ -20,7 +24,7 @@ class CrewService:
         crew = await self.repository.get_fully_loaded_crew_by_id(crew_id, user_id)
         if crew is None:
             raise HTTPException(status_code=404, detail="Crew not found")
-        return CrewRead.model_validate(crew)
+        return self._convert_db_crew_to_read(crew)
         
     async def get_fully_loaded_crew_by_id_internal(self, crew_id: UUID) -> CrewRead:
         """Get a fully loaded crew by ID for internal services without ownership validation."""
@@ -32,7 +36,7 @@ class CrewService:
                 detail=f"Crew with ID {crew_id} not found."
             )
         
-        return CrewRead.model_validate(db_crew)
+        return self._convert_db_crew_to_read(db_crew)
     
     async def get_fully_loaded_crew_by_id(self, crew_id: UUID, user_id: UUID) -> CrewRead | None:
         """Get a crew by ID."""
@@ -45,7 +49,7 @@ class CrewService:
                 detail=f"Crew with ID {crew_id} not found."
             )
 
-        return CrewRead.model_validate(db_crew)
+        return self._convert_db_crew_to_read(db_crew)
 
     async def get_all_fully_loaded_crews(self, user_id: UUID) -> list[CrewRead]:
         """Get crews, optionally filtered by crew_id."""
@@ -54,7 +58,7 @@ class CrewService:
         if not db_crews:
             return []
 
-        return [CrewRead.model_validate(db_crew) for db_crew in db_crews]
+        return [self._convert_db_crew_to_read(db_crew) for db_crew in db_crews]
     
     async def create_crew(self, crew: CrewCreate, user_id: UUID) -> CrewRead:
         """Create a new crew."""
@@ -77,7 +81,7 @@ class CrewService:
         if db_crew is None:
             return None
 
-        return CrewRead.model_validate(db_crew)
+        return self._convert_db_crew_to_read(db_crew)
 
     async def delete_crew(self, crew_id: UUID, user_id: UUID) -> CrewRead | None:
         """Delete an existing crew."""

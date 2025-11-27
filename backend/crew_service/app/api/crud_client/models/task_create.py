@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="TaskCreate")
 
@@ -17,24 +15,16 @@ class TaskCreate:
     Attributes:
         key (str):
         order (int):
-        agent_key (None | str | Unset):
     """
 
     key: str
     order: int
-    agent_key: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         key = self.key
 
         order = self.order
-
-        agent_key: None | str | Unset
-        if isinstance(self.agent_key, Unset):
-            agent_key = UNSET
-        else:
-            agent_key = self.agent_key
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -44,8 +34,6 @@ class TaskCreate:
                 "order": order,
             }
         )
-        if agent_key is not UNSET:
-            field_dict["agent_key"] = agent_key
 
         return field_dict
 
@@ -56,19 +44,9 @@ class TaskCreate:
 
         order = d.pop("order")
 
-        def _parse_agent_key(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        agent_key = _parse_agent_key(d.pop("agent_key", UNSET))
-
         task_create = cls(
             key=key,
             order=order,
-            agent_key=agent_key,
         )
 
         task_create.additional_properties = d

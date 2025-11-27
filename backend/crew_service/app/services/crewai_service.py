@@ -13,7 +13,7 @@ class CrewAIService:
     
     def build_crew(self, tasks: List[TaskRead]) -> Crew:
         """Build a CrewAI crew from TaskRead objects."""
-        agent_keys_in_tasks = {task.agent_key for task in tasks if task.agent_key}
+        agent_keys_in_tasks = {task['agent_key'] for task in tasks if 'agent_key' in task and task['agent_key']}    
         crewai_agents = self._build_agents_map(agent_keys_in_tasks)
         crewai_tasks = self._build_tasks(tasks, crewai_agents)
         
@@ -55,9 +55,10 @@ class CrewAIService:
         crewai_tasks: List[CrewAITask] = []
         
         for task_read in sorted_tasks:
-            agent = agents_map.get(task_read.agent_key) if task_read.agent_key else None
+            agent_key = task_read['agent_key'] if 'agent_key' in task_read else None
+            agent = agents_map.get(agent_key) if agent_key else None
             if not agent:
-                logger.warning(f"Agent key '{task_read.agent_key}' not found in agents_map")
+                logger.warning(f"Agent key '{agent_key}' not found in agents_map")
                 continue
             
             task = self._create_task(task_read, agent)
@@ -70,7 +71,7 @@ class CrewAIService:
         """Create a CrewAI Task from TaskRead object using tasks_config."""
         task_config = tasks_config.get(task_read.key) if task_read.key else None
         if not task_config:
-            logger.warning(f"Task key '{task_read.key}' not found in tasks_config")
+            logger.warning(f"Task key '{task_read.key}' not found in tasks")
             return None
         
         task = CrewAITask(

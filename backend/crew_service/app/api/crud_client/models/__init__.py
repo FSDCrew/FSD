@@ -11,6 +11,9 @@ from .crew_create import CrewCreate
 from .crew_read import CrewRead
 from .crew_run_create import CrewRunCreate
 from .crew_run_create_output_type_0 import CrewRunCreateOutputType0
+from .crew_run_metadata import CrewRunMetadata
+from .crew_run_metadata_inputs import CrewRunMetadataInputs
+from .crew_run_metadata_task_nodes_type_0_item import CrewRunMetadataTaskNodesType0Item
 from .crew_run_read import CrewRunRead
 from .crew_run_read_output_type_0 import CrewRunReadOutputType0
 from .crew_update import CrewUpdate
@@ -37,6 +40,9 @@ __all__ = (
     "CrewRead",
     "CrewRunCreate",
     "CrewRunCreateOutputType0",
+    "CrewRunMetadata",
+    "CrewRunMetadataInputs",
+    "CrewRunMetadataTaskNodesType0Item",
     "CrewRunRead",
     "CrewRunReadOutputType0",
     "CrewUpdate",

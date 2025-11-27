@@ -2,7 +2,7 @@ import logging
 import yaml
 from pathlib import Path
 from pydantic_settings import BaseSettings
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ def load_agents_config() -> Dict[str, Dict[str, Any]]:
         return {}
 
 
-def load_tasks_config() -> Dict[str, Dict[str, Any]]:
+def load_tasks_and_state_fields_config() -> Dict[str, Dict[str, Any]]:
     """Load tasks configuration from YAML file."""
     tasks_config_path = Path(__file__).parent / "app" / "config" / "tasks.yaml"
     try:
@@ -74,4 +74,7 @@ def load_tasks_config() -> Dict[str, Dict[str, Any]]:
 
 
 agents_config: Dict[str, Dict[str, Any]] = load_agents_config()
-tasks_config: Dict[str, Dict[str, Any]] = load_tasks_config()
+tasks_and_state_fields_config: Dict[str, Dict[str, Any]] = load_tasks_and_state_fields_config()
+
+tasks_config: Dict[str, Dict[str, Any]] = tasks_and_state_fields_config.get("tasks", {})
+state_fields_config: Dict[str, Dict[str, Any]] = tasks_and_state_fields_config.get("state", {}).get("fields", {})

@@ -35,7 +35,6 @@ class TaskRepository:
         """Create a new task in the database."""
         db_task = TaskDB(
             key=task.key,
-            agent_key=task.agent_key or "",
             order=task.order or 0,
             crew_id=crew_id
         )
@@ -76,7 +75,6 @@ class TaskRepository:
         for task in tasks:
             db_task = TaskDB(
                 key=task.key,
-                agent_key=task.agent_key or "",
                 order=task.order or 0,
                 crew_id=crew_id
             )

@@ -37,7 +37,6 @@ class Worker:
     async def start(self):
         """Start the worker polling the db queue from CrudService and executing jobs."""
         self._running = True
-        logger.info("Worker started")
         
         while self._running:
             try:
@@ -50,11 +49,8 @@ class Worker:
     async def stop(self):
         """Stop the worker. Cancels all running tasks and marks them as failed."""
         self._running = False
-        logger.info("Worker stopping...")
         
         if self.running_jobs:
-            logger.info(f"Stopping {len(self.running_jobs)} running jobs and marking them as failed...")
-            
             for job_id, (task, lease_token) in self.running_jobs.items():
                 task.cancel()
                 try:
@@ -67,11 +63,8 @@ class Worker:
                         client=self.crud_client,
                         body=body
                     )
-                    logger.info(f"Marked job {job_id} as FAILED due to shutdown")
                 except Exception as e:
                     logger.error(f"Failed to mark job {job_id} as FAILED: {e}")
-        
-        logger.info("Worker stopped")
     
     async def _poll_and_process(self):
         """Poll the queue and process a job if available."""
@@ -94,7 +87,6 @@ class Worker:
             
             if isinstance(result, ClaimJobResponse):
                 job = result
-                logger.info(f"Claimed job: {job.id} for crew_run: {job.crew_run_id}")
                 
                 task = asyncio.create_task(
                     self._execute_job(job)
@@ -111,8 +103,6 @@ class Worker:
     async def _execute_job(self, job: ClaimJobResponse):
         """Execute a claimed job."""
         try:
-            logger.info(f"Starting execution of job {job.id} for crew_run {job.crew_run_id}")
-            
             await self.job_executor.execute(
                 crew_run_id=job.crew_run_id,
                 crew_id=job.crew_id,
@@ -129,8 +119,6 @@ class Worker:
                 client=self.crud_client,
                 body=body
             )
-            
-            logger.info(f"Job {job.id} completed successfully")
         except Exception as e:
             logger.error(f"Job {job.id} failed: {e}", exc_info=True)
             
