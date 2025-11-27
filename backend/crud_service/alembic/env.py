@@ -20,6 +20,7 @@ if url and "${" in url:
     db_password = os.getenv("DB_PASSWORD")
     db_host = os.getenv("DB_HOST", "localhost")
     db_port = os.getenv("DB_PORT", "5432")
+    db_name = os.getenv("DB_NAME", "crud")
     
     if not db_user or not db_password:
         raise ValueError(
@@ -27,7 +28,7 @@ if url and "${" in url:
             "Make sure your .env file is configured or environment variables are exported."
         )
     
-    url = f"postgresql+psycopg://{db_user}:{db_password}@{db_host}:{db_port}/crud"
+    url = f"postgresql+psycopg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
     config.set_main_option("sqlalchemy.url", url)
     
 # Interpret the config file for Python logging.
