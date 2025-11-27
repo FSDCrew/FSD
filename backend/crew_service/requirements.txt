@@ -10,3 +10,5 @@ crewai-tools
 python-dotenv
 
 httpx
+
+orshot
