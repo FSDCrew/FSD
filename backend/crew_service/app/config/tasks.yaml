@@ -54,6 +54,9 @@ tasks:
     agent: market_researcher
     output_file: output/preparing_marketing_campaign/market_research.md
     name: Marketing Research Task
+    task_description: >
+      Conducts theme-aligned market research using required web-scraping and search tools to identify competitors, trends, and relevant Instagram content, 
+      then produces a structured report.
     description: >
       <important_rules>
         1. You must not make up any information. Only include information that you are confident about.
@@ -180,6 +183,8 @@ tasks:
     agent: content_strategist
     output_file: output/preparing_marketing_campaign/content_strategy.md
     name: Content Strategy Task
+    task_description: >
+      Generates a high-level Instagram content strategy defining campaign phases, tone, objectives, messages, and recommended content types.
     crew_inputs: theme, BRAND_DESCRIPTION, sample
     description: >
       <important_rules>
@@ -238,6 +243,8 @@ tasks:
     agent: scheduler
     output_file: output/preparing_marketing_campaign/social_media_schedule.md
     name: Social Media Schedule Task
+    task_description: >
+      Builds a weekly Instagram posting schedule based on content strategy and research, producing a structured excel file for the campaign.
     description: >
       <important_rules>
         1. You must not make up any information. Only include information that you are confident about.
