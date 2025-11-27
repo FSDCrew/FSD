@@ -34,7 +34,6 @@ tools:
     description: Converts an HTML table string into an Excel (.xlsx) file with row/col spans preserved as merged cells.
     input:
       html_str: string
-      output_path: string
       examples:
         - html_str: """
           <table>
@@ -43,10 +42,9 @@ tools:
           """, output_path: "./social_media_schedule.xlsx"
 
   - name: markdown_to_word_doc
-    description: Convert Markdown to a Word (.docx) file with GitHub-flavored Markdown features preserved. Automatically removes common leading indentation so pasted/triple-quoted Markdown isn’t treated as a code block.
+    description: Convert Markdown to a Word (.docx) file with GitHub-flavored Markdown features preserved. Automatically removes common leading indentation so pasted/triple-quoted Markdown isn't treated as a code block.
     input:
       markdown: string
-      output_path: string
     examples:
       - markdown: "# Title\n\n- [x] done\n- [ ] todo\n"
       - markdown: |
@@ -54,3 +52,13 @@ tools:
           | A | B |
           | - | - |
           | 1 | 2 |
+
+  - name: calculate_num_weeks
+    description: Calculates the number of weeks between a start date and an end date (inclusive, rounded up). Supports multiple date formats including ISO (YYYY-MM-DD), DD-MMM-YYYY, DD/MM/YYYY, and DD-MM-YYYY.
+    input:
+      start_date: string
+      end_date: string
+    examples:
+      - start_date: "01-Nov-2024", end_date: "30-Nov-2024"
+      - start_date: "2024-01-01", end_date: "2024-01-07"
+      - start_date: "01/11/2024", end_date: "30/11/2024"

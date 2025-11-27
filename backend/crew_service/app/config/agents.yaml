@@ -40,3 +40,4 @@ scheduler:
     and growth.
   tools:
     - html_table_to_excel
+    - calculate_num_weeks

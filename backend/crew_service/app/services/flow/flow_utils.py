@@ -6,6 +6,7 @@ import yaml
 
 from app.models.models import CUSTOM_TYPE_REGISTRY
 from app.lib.tools.html_table_to_excel import html_table_to_excel_tool
+from app.lib.tools.dates import calculate_num_weeks
 from app.lib.tools.markdown_to_word import markdown_to_word_doc
 from app.lib.tools.open_instagram_posts import open_instagram_posts
 from app.lib.tools.search import open_pages, search_internet, search_instagram
@@ -23,6 +24,7 @@ TOOL_MAP = {
     "open_instagram_posts": open_instagram_posts,
     "markdown_to_word_doc": markdown_to_word_doc,
     "html_table_to_excel": html_table_to_excel_tool,
+    "calculate_num_weeks": calculate_num_weeks,
 }
 
 # ============================================================================
