@@ -82,4 +82,4 @@ class CrewRepository:
         result = await self.session.execute(stmt)
         deleted_crew = result.scalars().first()
         await self.session.commit()
-        return deleted_crew
+        return None

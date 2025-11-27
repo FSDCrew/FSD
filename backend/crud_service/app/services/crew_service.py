@@ -95,5 +95,5 @@ class CrewService:
                 detail=f"Crew with ID {crew_id} not found."
             )
 
-        return self._convert_db_crew_to_read(deleted_crew)
+        return None
     
