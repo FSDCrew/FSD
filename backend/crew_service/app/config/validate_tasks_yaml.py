@@ -170,23 +170,28 @@ def validate_tasks_block(data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         raise ValidationError("Missing top-level key: 'tasks'.")
     tasks = ensure_dict(data["tasks"], "tasks")
 
+    required_task_fields = ("key", "task_description", "name", "description", "expected_output")
+
     for task_name, task_def in tasks.items():
         if not isinstance(task_name, str) or not task_name.strip():
             raise ValidationError(f"Task key must be a non-empty string, got: {task_name!r}")
         task_def = ensure_dict(task_def, f"tasks.{task_name}")
 
-        # Each task must have a 'key' field
-        if "key" not in task_def:
-            raise ValidationError(f"Task 'tasks.{task_name}' is missing required key 'key'.")
-        key_value = task_def["key"]
-        if not isinstance(key_value, str) or not key_value.strip():
-            raise ValidationError(f"'key' for task 'tasks.{task_name}' must be a non-empty string.")
-
-        # Optionally enforce key == task_name
-        if key_value != task_name:
-            raise ValidationError(
-                f"'key' for task 'tasks.{task_name}' must match task name; got key={key_value!r}."
-            )
+        for field in required_task_fields:
+            if field not in task_def:
+                raise ValidationError(
+                    f"Task 'tasks.{task_name}' is missing required key '{field}'."
+                )
+            field_value = task_def[field]
+            if not isinstance(field_value, str) or not field_value.strip():
+                raise ValidationError(
+                    f"'{field}' for task 'tasks.{task_name}' must be a non-empty string."
+                )
+            
+            if field == "key" and field_value != task_name:
+                raise ValidationError(
+                    f"'key' for task 'tasks.{task_name}' must match task name; got key={field_value!r}."
+                )
 
     return tasks  # mapping: task_name -> task_def
 
