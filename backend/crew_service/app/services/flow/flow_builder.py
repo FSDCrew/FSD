@@ -15,7 +15,7 @@ from app.services.flow.flow_utils import (
     interpolate_task_description,
     resolve_tools_for_agent,
 )
-from config import tasks_config, agents_config, state_fields_config
+from config import logger, tasks_config, agents_config, state_fields_config
 
 
 # ============================================================================
@@ -23,8 +23,9 @@ from config import tasks_config, agents_config, state_fields_config
 # ============================================================================
 
 general_llm = LLM(
-    model="openai/gpt-4.1-mini",
-    temperature=0.7,
+    model="openai/gpt-4o-mini",
+    # model="openai/gpt-5-nano",
+    temperature=0.3,
     seed=42,
 )
 
@@ -54,14 +55,17 @@ judge_llm = LLM(
 def llm_judge_guardrail(result: TaskOutput | LiteAgentOutput) -> Tuple[bool, Any]:
     """
     Use a separate LLM as a judge to validate a task's output.
-
+    
     Returns:
-        (is_valid, reason) as a tuple that CrewAI's guardrail expects.
+        (is_valid, output_format) as a tuple where output_format is a TaskOutputFormat
+        instance containing the standardized task output.
+        
+    Note: Return type annotation must be Tuple[bool, Any] to satisfy CrewAI's validation,
+    but the actual return value is a TaskOutputFormat instance.
     """
     try:
         if not isinstance(result, TaskOutput):
             raise ValueError(f"Invalid result type: {type(result)}")
-        
         evaluation_prompt = (
             "<task_expected_output>\n"
             f"{result.expected_output}\n"
@@ -87,8 +91,8 @@ def llm_judge_guardrail(result: TaskOutput | LiteAgentOutput) -> Tuple[bool, Any
             parsed = GuardrailResponseFormat.model_validate(response)
         else:
             parsed = response
-
-        return parsed.valid, parsed.reason
+        
+        return parsed.valid, result.raw
 
     except Exception as e:
         raise Exception(f"Evaluation error: {str(e)}")
@@ -327,6 +331,7 @@ def build_task_step_function(
             raise ValueError(f"Agent {agent_key} not found")
 
         crew_task_kwargs = {
+            "name": task_yaml.get("name", "Task"),
             "description": formatted_description,
             "expected_output": task_yaml.get("expected_output", ""),
             "agent": agent,
@@ -346,6 +351,7 @@ def build_task_step_function(
             process=Process.sequential,
             verbose=True,
             function_calling_llm=function_calling_llm,
+            output_log_file="crew_logs.json"
         )
 
         result = crew.kickoff(inputs=task_inputs)
