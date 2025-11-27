@@ -89,7 +89,9 @@ def llm_judge_guardrail(result: TaskOutput) -> Tuple[bool, Any]:
             parsed = GuardrailResponseFormat.model_validate(response)
         else:
             parsed = response
-        
+        if not parsed.valid:
+            logger.error(f"Guardrail validation failed: {parsed.reason}")
+            return parsed.valid, parsed.reason
         return parsed.valid, result.raw
 
     except Exception as e:
