@@ -30,7 +30,7 @@ tools:
       examples:
         - ["https://example.com/blog/post1", "https://newswebsite.com/article/123"]
 
-  - name: html_to_excel
+  - name: html_table_to_excel
     description: Converts an HTML table string into an Excel (.xlsx) file with row/col spans preserved as merged cells.
     input:
       html_str: string

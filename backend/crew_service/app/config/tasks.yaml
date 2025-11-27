@@ -286,11 +286,11 @@ tasks:
             <td>Description</td>
             <td>Notes</td>
         5. The table MUST match the structure of the sample schedule shown in <sample_schedule>.
-        6. The HTML must be compatible with the html_to_excel tool (no nested tables, no missing <tr>, no invalid spans).
+        6. The HTML must be compatible with the html_table_to_excel tool (no nested tables, no missing <tr>, no invalid spans).
       </table_format_requirements>
 
       <tools>
-        - name: html_to_excel
+        - name: html_table_to_excel
           description: Converts an HTML table string into an Excel (.xlsx) file with row/col spans preserved as merged cells.
           input:
             html_str: string

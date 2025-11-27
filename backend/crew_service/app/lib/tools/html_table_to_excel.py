@@ -122,8 +122,8 @@ def _parse_html_table_with_spans(html: str):
     
     return grid, merges
 
-@tool("HTML to Excel Converter (with spans)")
-def html_to_excel_tool(
+@tool("HTML Table to Excel Converter")
+def html_table_to_excel_tool(
     html_str: str,
     # output_path: str | None = None
 ) -> str:
@@ -131,8 +131,8 @@ def html_to_excel_tool(
     Converts an HTML table string into an Excel (.xlsx) file with row/col spans preserved as merged cells.
     Only the first <table> is processed.
     """
-    # output_path = output_path or "./output/html_to_excel.xlsx"
-    output_path = "./output/html_to_excel.xlsx"
+    # output_path = output_path or "./output/html_table_to_excel.xlsx"
+    output_path = "./output/html_table_to_excel.xlsx"
     try:
         grid, merges = _parse_html_table_with_spans(html_str)
 
@@ -481,4 +481,4 @@ if __name__ == "__main__":
         </tbody>
         </table>
     """
-    html_to_excel_tool.func(html_str=html_str)
+    html_table_to_excel_tool.func(html_str=html_str)

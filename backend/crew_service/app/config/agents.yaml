@@ -39,4 +39,4 @@ scheduler:
     Your expertise in aligning content with brand voice and audience interests has consistently driven engagement
     and growth.
   tools:
-    - html_to_excel
+    - html_table_to_excel
