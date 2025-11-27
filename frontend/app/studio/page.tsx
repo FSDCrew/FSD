@@ -92,7 +92,6 @@ export default function StudioPage() {
                   </svg>
                 </Button>
               </div>
-              {/* <p className="text-muted-foreground leading-relaxed line-clamp-3">description</p> */}
               <div className="mt-4 text-sm text-primary opacity-0 group-hover:opacity-100 transition-opacity">
                 Click to edit →
               </div>

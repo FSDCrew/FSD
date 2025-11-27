@@ -456,12 +456,17 @@ const updateCrewMutation = useMutation({
       // Load tasks from backend for existing crew
       const loadCrewData = async () => {
         try {
-          const response = await getCrewsCrewGet({ 
-            query: { crew_id: cardId }
+          // Use direct fetch to GET /crew/{id} which returns a single crew object
+          const response = await fetch(`${client.getConfig().baseUrl}/crew/${cardId}`, {
+            credentials: 'include',
           });
           
-          const crewData = response.data;
-          if (crewData && !Array.isArray(crewData) && crewData.tasks) {
+          if (!response.ok) {
+            throw new Error('Failed to load crew data');
+          }
+          
+          const crewData = await response.json();
+          if (crewData && crewData.tasks) {
             // Store crew runs for display in runs history (using type assertion until SDK is regenerated)
             const crewDataWithRuns = crewData as CrewRead & { crew_runs?: any[] };
             if (crewDataWithRuns.crew_runs) {
