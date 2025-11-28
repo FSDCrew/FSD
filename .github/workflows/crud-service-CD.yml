@@ -38,8 +38,8 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install --upgrade pip
-          cd ${{ env.DOCKER_BUILD_CONTEXT }}
-          pip install .
+          cd ${{ env.ALEMBIC_CONTEXT }}
+          pip install -e .
 
       - name: Run Migrations
         env:
