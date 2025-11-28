@@ -300,18 +300,17 @@ def build_task_step_function(
                         f"{field_name} must contain at least one item for task {task_key}"
                     )
 
-            if value is not None:
-                step_inputs[field_name] = value
+            step_inputs[field_name] = value
 
         crew_run_id = getattr(self.state, "crew_run_id", None)
         if crew_run_id is not None:
             step_inputs["crew_run_id"] = crew_run_id
-
+        
         description_template = task_yaml.get("description", "")
         formatted_description = interpolate_task_description(
             description_template, step_inputs
         )
-
+        
         agent = crew_agents.get(agent_key)
         if not agent:
             raise ValueError(f"Agent {agent_key} not found")

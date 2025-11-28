@@ -1,7 +1,5 @@
-from pathlib import Path
 from typing import Any, Dict, List, Type
 
-import yaml
 
 from app.models.models import CUSTOM_TYPE_REGISTRY
 from app.lib.tools.html_to_excel import html_to_excel_tool
@@ -109,6 +107,6 @@ def interpolate_task_description(
     for field_name, value in state_values.items():
         placeholder = f"{{{field_name}}}"
         if placeholder in result:
-            result = result.replace(placeholder, "" if value is None else str(value))
+            result = result.replace(placeholder, "NOT PROVIDED BY USER" if value is None else str(value))
     return result
 
