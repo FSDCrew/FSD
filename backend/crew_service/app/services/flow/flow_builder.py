@@ -379,45 +379,43 @@ def build_dynamic_flow_class(
     def initialize_flow(self) -> str:
         """
         Entry point of the flow (marked with @start).
-
-        Inputs should be set on self.state by CrewAI Flow's kickoff method
-        via _initialize_state() before this method is called.
-        However, we also manually ensure inputs are set from baggage as a fallback.
-        Generates a run_id and checks that all required context fields are present.
         """
-        # Get inputs from baggage (set by CrewAI Flow's kickoff method)
+        # 1. Get inputs from baggage (Standard Logic)
         inputs = cast(dict[str, Any], baggage.get_baggage("flow_inputs") or {})
-        
-        # Filter out 'id' if present (CrewAI Flow handles this separately)
         filtered_inputs = {k: v for k, v in inputs.items() if k != "id"}
         
-        # Manually set inputs on state if they're not already set
-        # This ensures inputs are available even if _initialize_state didn't work correctly
         if filtered_inputs:
             for field_name, value in filtered_inputs.items():
                 if hasattr(self.state, field_name):
-                    # Use object.__setattr__ to bypass Pydantic's immutability if needed
                     try:
                         setattr(self.state, field_name, value)
                     except Exception as e:
-                        # If direct setattr fails, try using model_copy with update
                         if hasattr(self.state, "model_copy"):
                             self.state = self.state.model_copy(update={field_name: value})
-                else:
-                    pass
 
+        # 2. Generate Run ID (Standard Logic)
         run_id = getattr(self.state, "run_id", None)
         if not run_id:
             run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             setattr(self.state, "run_id", run_id)
 
-        # Ensure all context fields used in this flow are present
+        # 3. SMART VALIDATION (The Fix)
+        # Only validate context fields that are READ by the active tasks
+        active_task_keys = {t.key for t in flow_tasks}
+
         for field_name, field_spec in graph.state_field_specs.items():
+            # Only care about context fields
             if field_spec.get("field_kind") != "context":
                 continue
-            value = getattr(self.state, field_name, None)
-            if not value:
-                raise ValueError(f"{field_name} is required")
+            
+            # Check if this field is actually read by any task in this flow
+            readers = graph.field_readers.get(field_name, [])
+            is_used_by_active_tasks = any(reader in active_task_keys for reader in readers)
+            
+            if is_used_by_active_tasks:
+                value = getattr(self.state, field_name, None)
+                if not value:
+                    raise ValueError(f"{field_name} is required for the current tasks")
 
         return "Flow initialized"
 
