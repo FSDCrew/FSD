@@ -1,6 +1,6 @@
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import Any, Dict, List, Optional, Type
 
 
@@ -88,6 +88,13 @@ class SocialMediaSchedule(BaseModel):
             }
         }
 
+class AllowedTemplateId(IntEnum):
+    """
+    Registry of supported Orshot Templates.
+    The frontend uses this to render a dropdown.
+    """
+    IG_POST = 1201
+
 class OrshotDataType(str, Enum):
     TEXT = "TEXT"
     IMAGE = "IMAGE"
@@ -104,11 +111,12 @@ class OrshotSchemaField(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
 # Type registry for custom types
-CUSTOM_TYPE_REGISTRY: Dict[str, Type[BaseModel]] = {
+CUSTOM_TYPE_REGISTRY: Dict[str, Type[BaseModel] | Type[IntEnum]] = {
     "MarketingResearch": MarketingResearch,
     "ContentStrategy": ContentStrategy,
     "SocialMediaSchedule": SocialMediaSchedule,
     "OrshotSchemaField": OrshotSchemaField,
+    "AllowedTemplateId": AllowedTemplateId,
 }
 
 

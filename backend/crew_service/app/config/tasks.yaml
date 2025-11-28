@@ -17,7 +17,7 @@ state:
       type: date
       field_kind: context
     templateId:
-      type: int
+      type: list[AllowedTemplateId]
       field_kind: context
     orshot_schema:
       type: list[OrshotSchemaField]
@@ -415,6 +415,7 @@ tasks:
         1. **DATA INTEGRITY:** Do not make up information. Extract facts strictly from the <context>.
         2. **STYLING:** Convert natural language style descriptions into CamelCase CSS properties using dot notation in the `modifications` object (e.g. "field.fontSize": "20px").
         3. **TOOL USAGE:** You must call `orshot_render_tool` with THREE specific arguments: `templateId` (int), `modifications` (dict), and `crew_run_id` (string). Do not pass a single JSON string.
+        4. **OPTIONAL INPUTS:** If certain inputs are optional and not present, it would be NOT PROVIDED BY USER. Ignore this field and do not attempt to extract data from it.
       </important_rules>
 
       <context>
@@ -424,12 +425,12 @@ tasks:
         - Schema: {orshot_schema}
         
         **2. Content Sources (In Order of Priority):**
-        - Priority A (Direct Copy): "{copywriting_drafts}"
+
         - Priority B (Research/Strategy): "{social_media_schedule}", "{content_strategy}", "{marketing_research}"
         - Priority C (Creative Core): Theme="{theme}", Brand="{brand_description}", Audience="{target_audience_description}"
         
         **3. Assets:**
-        - Available Images: "{generated_image_assets}"
+        - Available Images: "{image_assets}"
       </context>
 
       <tools>
@@ -455,7 +456,7 @@ tasks:
 
         **PART 1: TEXT FIELDS**
         For each text field, determine the value using this **Fallback Chain**:
-           1. **CHECK PRIORITY A (Copywriting):** - If available, extract the specific headline/body text.
+
            2. **CHECK PRIORITY B (Strategy/Schedule/Research):** - If (A) is missing, search the Schedule or Strategy for relevant topics/hooks.
            3. **CHECK PRIORITY C (Fresh Generation):** - If (A) and (B) are missing, **GENERATE NEW TEXT** based on the Campaign Theme, Brand Voice, and Target Audience.
            4. **MISSING CONTEXT** - If none of the above yield usable text, use a generic placeholder like "To Be Determined".
