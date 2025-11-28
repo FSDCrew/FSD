@@ -18,7 +18,6 @@ TOOL_MAP = {
     "search_internet": search_internet,
     "search_instagram": search_instagram,
     "open_pages": open_pages,
-    "open_instagram_post_page": open_instagram_posts,
     "open_instagram_posts": open_instagram_posts,
     "markdown_to_word_doc": markdown_to_word_doc,
     "html_table_to_excel": html_table_to_excel_tool,

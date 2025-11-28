@@ -81,7 +81,7 @@ tasks:
       </context>
 
       <tools>
-        - name: open_instagram_post_page
+        - name: open_instagram_posts
           description: Opens and extracts poster's username, caption and image URLs from one or more Instagram post pages.
           input:
             urls: string | list[string]

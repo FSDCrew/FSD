@@ -12,7 +12,7 @@ market_researcher:
     - search_internet
     - search_instagram
     - open_pages
-    - open_instagram_post_page
+    - open_instagram_posts
     - markdown_to_word_doc
 
 content_strategist:
