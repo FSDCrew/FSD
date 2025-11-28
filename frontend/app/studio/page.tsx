@@ -5,12 +5,21 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
-import { CrewRead, getCrewsCrewGet, syncUserUserSyncPost } from "@/lib/api/crud";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { CrewRead, getAllCrewsCrewGet, syncUserUserSyncPost } from "@/lib/api/crud";
+import { client } from "@/lib/api/crud/client.gen";
 
 export default function StudioPage() {
   const router = useRouter();
   const { isAuthenticated, token } = useAuth();
+  const queryClient = useQueryClient();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [crewToDelete, setCrewToDelete] = useState<CrewRead | null>(null);
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
+  
   const { data: user } = useQuery({
     queryKey: ['user'],
     queryFn: () => syncUserUserSyncPost(),
@@ -19,7 +28,10 @@ export default function StudioPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['crews'],
-    queryFn: () => getCrewsCrewGet({ responseStyle: 'data' }),
+    queryFn: async () => {
+      const response = await getAllCrewsCrewGet();
+      return response.data;
+    },
   })
   const crews = Array.isArray(data) ? data : data ? [data] : [];
 
@@ -32,8 +44,47 @@ export default function StudioPage() {
     router.push(`/studio/crew?id=${crew.id}&title=${encodeURIComponent(crew.name)}`);
   };
 
-  const handleDeleteCard = (id: string) => {
-    // TODO: Implement delete logic
+  const deleteMutation = useMutation({
+    mutationFn: async (crewId: string) => {
+      const response = await fetch(`${client.getConfig().baseUrl}/crew/${crewId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete crew');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crews'] });
+      showNotification("Crew deleted successfully", "success");
+      setShowDeleteConfirm(false);
+      setCrewToDelete(null);
+    },
+    onError: (error: Error) => {
+      showNotification(`Failed to delete crew: ${error.message}`, "error");
+    },
+  });
+
+  const handleDeleteCard = (crew: CrewRead) => {
+    setCrewToDelete(crew);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (crewToDelete) {
+      deleteMutation.mutate(crewToDelete.id);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setCrewToDelete(null);
+  };
+
+  const showNotification = (message: string, type: "success" | "error" | "info" = "info") => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 4000);
   };  
 
   return (
@@ -68,7 +119,7 @@ export default function StudioPage() {
                 <Button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDeleteCard(crew.id);
+                    handleDeleteCard(crew);
                   }}
                   variant="ghost"
                   size="icon-sm"
@@ -108,6 +159,63 @@ export default function StudioPage() {
             >
               + Create First Crew
             </button>
+          </div>
+        )}
+
+        {/* Notification */}
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirm && crewToDelete && (
+          <div className="fixed inset-0 bg-background/10 backdrop-blur-sm flex items-center justify-center z-50">
+            {/* blur bg --> fixed inset-0 bg-background/10 backdrop-blur-sm flex items-center justify-center z-50
+            grey bg --> fixed inset-0 bg-black/50 flex items-center justify-center z-50 */}
+            <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
+              <h3 className="text-xl font-semibold mb-4">Delete Crew</h3>
+              <p className="text-muted-foreground mb-6">
+                Are you sure you want to delete <strong>{crewToDelete.name}</strong>? This action cannot be undone.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <Button
+                  onClick={cancelDelete}
+                  variant="secondary"
+                  disabled={deleteMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={confirmDelete}
+                  variant="destructive"
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notification Toast */}
+        {notification && (
+          <div 
+            className={`fixed top-20 right-6 z-[60] px-6 py-4 rounded-lg shadow-lg border-2 animate-in slide-in-from-top-5 duration-300 ${
+              notification.type === "success" 
+                ? "bg-green-50 border-green-500 text-green-800" 
+                : notification.type === "error"
+                ? "bg-red-50 border-red-500 text-red-800"
+                : "bg-blue-50 border-blue-500 text-blue-800"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">
+                {notification.type === "success" ? "✅" : notification.type === "error" ? "❌" : "ℹ️"}
+              </span>
+              <span className="font-medium">{notification.message}</span>
+              <button 
+                onClick={() => setNotification(null)}
+                className="ml-4 text-xl hover:opacity-70"
+              >
+                ✕
+              </button>
+            </div>
           </div>
         )}
       </main>
