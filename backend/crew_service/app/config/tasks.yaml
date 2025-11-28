@@ -22,6 +22,9 @@ state:
     orshot_schema:
       type: list[OrshotSchemaField]
       field_kind: context
+    image_assets:
+      type: list[string]
+      field_kind: data
 
     # --- Dynamic Data Fields (produced or provided depending on workflow) ---
     discovery_datasets:
@@ -451,6 +454,8 @@ tasks:
     agent: image_generator_agent
     output_file: output/preparing_marketing_campaign/generated_image_assets.txt
     name: Image Generation Task
+    task_description: >
+      Create images used to create orshot renders.
     description: >
       <important_rules>
         1. You must not make up any information. Only include information that you are confident about.
@@ -507,6 +512,8 @@ tasks:
     agent: orshot_template_mapper
     output_file: output/preparing_marketing_campaign/orshot_render.png
     name: Orshot Render Task
+    task_description: >
+      Render an instagram post or story using the Orshot.
     description: >
       <important_rules>
         1. **DATA INTEGRITY:** Do not make up information. Extract facts strictly from the <context>.
