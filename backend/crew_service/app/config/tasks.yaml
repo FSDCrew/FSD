@@ -1,9 +1,9 @@
 state:
   fields:
     # --- Campaign Context Fields (always user-provided) ---
-    crew_run_id:
-      type: string
-      field_kind: context
+    # crew_run_id:
+    #   type: string
+    #   field_kind: context
     theme:
       type: string
       field_kind: context
@@ -41,6 +41,10 @@ state:
 
     social_media_schedule:
       type: SocialMediaSchedule
+      field_kind: data
+
+    image_assets:
+      type: list[string]
       field_kind: data
 
 tasks:
@@ -330,15 +334,63 @@ tasks:
       expected_output: >
         A properly structured HTML table string that strictly follows the sample schedule format,
         converted into an Excel file using the html_to_excel tool.
-      
+  
+  image_generator:
+    reads:
+      - field: theme
+        cardinality: required
+      - field: brand_description
+        cardinality: required
+      - field: target_audience_description
+        cardinality: required
+      - field: content_strategy
+        cardinality: at_least_one
+        min_items: 1
+      - field: marketing_research
+        cardinality: at_least_one
+        min_items: 1
+    writes:
+      - field: image_assets
+        mode: append
+    key: image_generator
+    agent: image_generator_agent
+    output_file: output/preparing_marketing_campaign/generated_image_assets.txt
+    name: Image Generation Task
+    description: >
+      <important_rules>
+        1. You must not make up any information. Only include information that you are confident about.
+        2. You must not include any information that is not related to the topic or the brand.
+      </important_rules>
+
+      <context>
+        1. You are to create high-quality images for a marketing campaign to be executed on instagram.
+        2. The brand you are creating images for is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
+        3. The target audience is described as <TARGET_AUDIENCE_DESCRIPTION>{target_audience_description}</TARGET_AUDIENCE_DESCRIPTION>.
+        4. The content strategy is as follows:
+          <content_strategy>
+            {content_strategy}
+          </content_strategy>
+      </context>
+
+      <your_task>
+        Based on the context, you are to create high-quality images that align with the content strategy.
+          1. Analyze the content strategy to identify key themes, concepts, and visual styles needed for the campaign.
+          2. For each identified image requirement, generate a detailed prompt that captures the desired aesthetics, mood, and elements.
+          3. Use the generate_image_s3 tool to create each image based on the prompts.
+          4. Collect and output the S3 links of all generated images.
+      </your_task>
+
+    expected_output: >
+      A list of S3 links of the generated images, one per line.      
+
   orshot_render:
     reads:
       - field: crew_run_id
         cardinality: required
       - field: templateId
         cardinality: required
-      - field: orshot_schema
-        cardinality: required
+      # - field: orshot_schema
+      #   cardinality: required
       - field: theme                
         cardinality: required
       - field: brand_description    
@@ -347,16 +399,18 @@ tasks:
         cardinality: required
 
         # Optional Fields
-      - field: market_research
+      - field: marketing_research
         cardinality: optional
       - field: content_strategy
         cardinality: optional
       - field: social_media_schedule
         cardinality: optional
-      # TODO: Add copywriting and image generation later
+      # TODO: Add copywriting later
+      - field: image_assets
+        cardinality: optional
     writes:
-      - field: orshot_render_output
-        mode: replace
+      - field: image_assets
+        mode: append
     key: orshot_render
     agent: orshot_template_mapper
     output_file: output/preparing_marketing_campaign/orshot_render.png
