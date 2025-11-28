@@ -81,6 +81,8 @@ class JobExecutor:
             ):
                 stored_inputs = crew_run_result.run_metadata.inputs.to_dict()
             
+            stored_inputs['crew_run_id'] = str(crew_run_id)
+
             try:
                 crew_result = await get_crew_by_id_func.asyncio(
                     crew_id=crew_id,
