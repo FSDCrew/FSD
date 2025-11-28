@@ -29,6 +29,7 @@ const CustomNode = memo(({ data, isConnectable }: NodeProps) => {
         <div style={{ fontSize: "24px", marginBottom: "4px" }}>{nodeData.icon}</div>
         <div style={{ fontSize: "12px", fontWeight: "600" }}>{nodeData.label}</div>
       </div>
+      
       <Handle
         type="source"
         position={Position.Right}
