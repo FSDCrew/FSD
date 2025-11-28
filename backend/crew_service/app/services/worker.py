@@ -64,7 +64,7 @@ class Worker:
                 except (asyncio.TimeoutError, asyncio.CancelledError):
                     logger.warning(f"Job {job_id} did not finish within timeout")
                 except Exception as e:
-                    logger.debug(f"Error waiting for job {job_id}: {e}")
+                    logger.error(f"Error waiting for job {job_id}: {e}")
                 
                 # Mark as failed after waiting
                 try:
@@ -84,7 +84,7 @@ class Worker:
             async_client = self.crud_client.get_async_httpx_client()
             await async_client.aclose()
         except Exception as e:
-            logger.debug(f"Error closing HTTP client: {e}")
+            logger.error(f"Error closing HTTP client: {e}")
     
     async def _poll_and_process(self):
         """Poll the queue and process a job if available."""
