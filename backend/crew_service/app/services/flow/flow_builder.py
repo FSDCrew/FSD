@@ -312,6 +312,15 @@ def build_task_step_function(
             field_name = read_spec["field"]
             cardinality = read_spec["cardinality"]
 
+            field_spec = graph.state_field_specs.get(field_name)
+            if field_spec:
+                field_kind = field_spec.get("field_kind")
+                if field_kind == "context" and cardinality.strip().lower() == "optional":
+                    raise ValueError(
+                        f"Context field '{field_name}' cannot be optional for task {task_key}. "
+                        "Context fields must be required inputs."
+                    )
+
             value = getattr(self.state, field_name, None)
 
             if cardinality == "required" and value is None:
