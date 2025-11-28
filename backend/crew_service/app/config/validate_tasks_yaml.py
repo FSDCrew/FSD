@@ -126,6 +126,8 @@ def ensure_list(obj: Any, path: str) -> Any:
 # ---------- Core checks ----------
 
 ALLOWED_FIELD_KINDS = {"context", "data"}
+ALLOWED_CARDINALITIES = {"required", "optional", "at_least_one"}
+DEFAULT_CARDINALITY = "required"
 
 
 def validate_state_fields(data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
@@ -221,6 +223,29 @@ def validate_task_io(tasks: Dict[str, Dict[str, Any]], fields: Dict[str, Dict[st
                     raise ValidationError(
                         f"{entry_path} references unknown field '{field_name}'. "
                         "Field must exist in state.fields."
+                    )
+
+                raw_cardinality = entry.get("cardinality")
+                if raw_cardinality is None:
+                    raise ValidationError(
+                        f"{entry_path} is missing required key 'cardinality'."
+                    )
+                if not isinstance(raw_cardinality, str) or not raw_cardinality.strip():
+                    raise ValidationError(
+                        f"'cardinality' in {entry_path} must be a non-empty string."
+                    )
+                cardinality = raw_cardinality.strip().lower()
+                if cardinality not in ALLOWED_CARDINALITIES:
+                    raise ValidationError(
+                        f"Invalid cardinality={raw_cardinality!r} in {entry_path}. "
+                        f"Allowed values: {sorted(ALLOWED_CARDINALITIES)}"
+                    )
+
+                field_kind = fields[field_name].get("field_kind")
+                if field_kind == "context" and cardinality == "optional":
+                    raise ValidationError(
+                        f"{entry_path} cannot mark context field '{field_name}' as optional. "
+                        "Context fields must be required inputs."
                     )
 
         # --- validate writes ---

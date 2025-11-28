@@ -22,10 +22,15 @@ from config import logger, tasks_config, agents_config, state_fields_config
 # ============================================================================
 
 general_llm = LLM(
-    # model="openai/gpt-4.1-mini",
-    model="openai/gpt-4o-mini",
+    model="openai/gpt-4.1-mini",
+    # model="openai/gpt-4o-mini",
+    temperature=0.7,
+    
+    # model="openai/gpt-5-mini",
     # model="openai/gpt-5-nano",
-    temperature=0.3,
+    # reasoning_effort="none",
+    stop=None,
+
     seed=42,
 )
 
@@ -197,7 +202,8 @@ def infer_initial_inputs(
             for read_spec in graph.task_read_specs.get(task_key, []):
                 if read_spec["field"] != field_name:
                     continue
-                if read_spec.get("cardinality", "required") == "required" or read_spec.get("cardinality", "required") == "at_least_one":
+                cardinality = read_spec["cardinality"]
+                if cardinality == "required" or cardinality == "at_least_one":
                     is_required_somewhere = True
                     break
             if is_required_somewhere:
@@ -304,7 +310,7 @@ def build_task_step_function(
 
         for read_spec in read_specs:
             field_name = read_spec["field"]
-            cardinality = read_spec.get("cardinality", "required")
+            cardinality = read_spec["cardinality"]
 
             value = getattr(self.state, field_name, None)
 
@@ -402,7 +408,9 @@ def build_dynamic_flow_class(
         """
         # 1. Get inputs from baggage (Standard Logic)
         inputs = cast(dict[str, Any], baggage.get_baggage("flow_inputs") or {})
-        filtered_inputs = {k: v for k, v in inputs.items() if k != "id"}
+        
+        # Filter out 'id' if present (CrewAI Flow handles this separately)
+        filtered_inputs = {k: v for k, v in inputs.items() if k != "id"} # TODO: Add crew_run_id as state
         
         if filtered_inputs:
             for field_name, value in filtered_inputs.items():
