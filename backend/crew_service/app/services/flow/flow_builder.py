@@ -230,6 +230,7 @@ def build_flow_state_model(graph: FlowDependencyGraph) -> Type[BaseModel]:
         Field(default_factory=lambda: uuid.uuid4().hex[:8]),
     )
     field_definitions["run_id"] = (Optional[str], None)
+    field_definitions["crew_run_id"] = (Optional[str], None)
 
     for field_name, field_spec in graph.state_field_specs.items():
         field_type_str = field_spec.get("type", "string")
@@ -279,7 +280,7 @@ def build_task_step_function(
         task_yaml = tasks_config.get(task_key, {})
 
         # Collect inputs from state according to the declared reads
-        task_inputs: Dict[str, Any] = {}
+        step_inputs: Dict[str, Any] = {}
         read_specs = graph.task_read_specs.get(task_key, [])
 
         for read_spec in read_specs:
@@ -300,11 +301,15 @@ def build_task_step_function(
                     )
 
             if value is not None:
-                task_inputs[field_name] = value
+                step_inputs[field_name] = value
+
+        crew_run_id = getattr(self.state, "crew_run_id", None)
+        if crew_run_id is not None:
+            step_inputs["crew_run_id"] = crew_run_id
 
         description_template = task_yaml.get("description", "")
         formatted_description = interpolate_task_description(
-            description_template, task_inputs
+            description_template, step_inputs
         )
 
         agent = crew_agents.get(agent_key)
@@ -333,7 +338,7 @@ def build_task_step_function(
             function_calling_llm=function_calling_llm,
         )
 
-        result = crew.kickoff(inputs=task_inputs)
+        result = crew.kickoff(inputs=step_inputs)
 
         # Write outputs back into state according to the declared writes
         write_specs = graph.task_write_specs.get(task_key, [])
