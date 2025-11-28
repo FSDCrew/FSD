@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     
     BRIGHT_DATA_API_KEY: str
     BRIGHT_DATA_ZONE: str
+
+    ORSHOT_API_KEY: str
+    ORSHOT_API_URL: str = "https://api.orshot.com/v1/studio/render"
     
     class Config:
         env_file = ".env"

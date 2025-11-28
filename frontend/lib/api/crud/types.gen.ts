@@ -132,10 +132,29 @@ export type CrewRunCreate = {
     output?: {
         [key: string]: unknown;
     } | null;
+    run_metadata?: CrewRunMetadata | null;
     /**
      * Crew Id
      */
     crew_id: string;
+};
+
+/**
+ * CrewRunMetadata
+ */
+export type CrewRunMetadata = {
+    /**
+     * Inputs
+     */
+    inputs: {
+        [key: string]: unknown;
+    };
+    /**
+     * Task Nodes
+     */
+    task_nodes?: Array<{
+        [key: string]: unknown;
+    }> | null;
 };
 
 /**
@@ -148,6 +167,7 @@ export type CrewRunRead = {
     output?: {
         [key: string]: unknown;
     } | null;
+    run_metadata?: CrewRunMetadata | null;
     /**
      * Id
      */
@@ -218,10 +238,6 @@ export type TaskCreate = {
      * Order
      */
     order: number;
-    /**
-     * Agent Key
-     */
-    agent_key?: string | null;
 };
 
 /**
@@ -240,10 +256,6 @@ export type TaskRead = {
      * Id
      */
     id: string;
-    /**
-     * Agent Key
-     */
-    agent_key: string;
 };
 
 /**
@@ -745,6 +757,44 @@ export type GetCrewByIdInternalCrewCrewIdGetResponses = {
 };
 
 export type GetCrewByIdInternalCrewCrewIdGetResponse = GetCrewByIdInternalCrewCrewIdGetResponses[keyof GetCrewByIdInternalCrewCrewIdGetResponses];
+
+export type GetCrewRunByIdInternalCrewRunCrewRunIdGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Internal-Api-Key
+         */
+        'X-Internal-Api-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Crew Run Id
+         *
+         * Crew Run ID to retrieve
+         */
+        crew_run_id: string;
+    };
+    query?: never;
+    url: '/internal/crew-run/{crew_run_id}';
+};
+
+export type GetCrewRunByIdInternalCrewRunCrewRunIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetCrewRunByIdInternalCrewRunCrewRunIdGetError = GetCrewRunByIdInternalCrewRunCrewRunIdGetErrors[keyof GetCrewRunByIdInternalCrewRunCrewRunIdGetErrors];
+
+export type GetCrewRunByIdInternalCrewRunCrewRunIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: CrewRunRead;
+};
+
+export type GetCrewRunByIdInternalCrewRunCrewRunIdGetResponse = GetCrewRunByIdInternalCrewRunCrewRunIdGetResponses[keyof GetCrewRunByIdInternalCrewRunCrewRunIdGetResponses];
 
 export type CreateCrewRunInternalInternalCrewRunCreatePostData = {
     body: BodyCreateCrewRunInternalInternalCrewRunCreatePost;

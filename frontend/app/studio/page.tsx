@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { CrewRead, getCrewsCrewGet, syncUserUserSyncPost } from "@/lib/api/crud";
+import { CrewRead, getAllCrewsCrewGet, syncUserUserSyncPost } from "@/lib/api/crud";
 
 export default function StudioPage() {
   const router = useRouter();
@@ -19,7 +19,7 @@ export default function StudioPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['crews'],
-    queryFn: () => getCrewsCrewGet({ responseStyle: 'data' }),
+    queryFn: () => getAllCrewsCrewGet({ responseStyle: 'data' }),
   })
   const crews = Array.isArray(data) ? data : data ? [data] : [];
 
