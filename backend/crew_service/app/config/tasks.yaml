@@ -1,9 +1,6 @@
 state:
   fields:
     # --- Campaign Context Fields (always user-provided) ---
-    # crew_run_id:
-    #   type: string
-    #   field_kind: context
     theme:
       type: string
       field_kind: context
@@ -20,7 +17,7 @@ state:
       type: date
       field_kind: context
     templateId:
-      type: integer
+      type: int
       field_kind: context
     orshot_schema:
       type: list[OrshotSchemaField]
@@ -385,12 +382,10 @@ tasks:
 
   orshot_render:
     reads:
-      - field: crew_run_id
-        cardinality: required
       - field: templateId
         cardinality: required
-      # - field: orshot_schema
-      #   cardinality: required
+      - field: orshot_schema
+        cardinality: required
       - field: theme                
         cardinality: required
       - field: brand_description    
