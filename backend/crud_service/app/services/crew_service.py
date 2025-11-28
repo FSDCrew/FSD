@@ -87,13 +87,6 @@ class CrewService:
         """Delete an existing crew."""
         existing_crew = await self.validate_crew(crew_id, user_id)
         self.is_crew_owner(UUID(str(existing_crew.user_id)), user_id)
-        deleted_crew = await self.repository.delete_crew(crew_id)
-
-        if deleted_crew is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Crew with ID {crew_id} not found."
-            )
-
+        await self.repository.delete_crew(crew_id)
         return None
     

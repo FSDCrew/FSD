@@ -253,7 +253,8 @@ def build_flow_state_model(graph: FlowDependencyGraph) -> Type[BaseModel]:
     for write_specs in graph.task_write_specs.values():
         for write_spec in write_specs:
             used_fields.add(write_spec["field"])
-    
+        field_definitions["crew_run_id"] = (Optional[str], None)
+
     for field_name, field_spec in graph.state_field_specs.items():
         if field_name not in used_fields:
             continue
@@ -417,9 +418,7 @@ def build_dynamic_flow_class(
         """
         # 1. Get inputs from baggage (Standard Logic)
         inputs = cast(dict[str, Any], baggage.get_baggage("flow_inputs") or {})
-        
-        # Filter out 'id' if present (CrewAI Flow handles this separately)
-        filtered_inputs = {k: v for k, v in inputs.items() if k != "id"} # TODO: Add crew_run_id as state
+        filtered_inputs = {k: v for k, v in inputs.items() if k != "id"}
         
         if filtered_inputs:
             for field_name, value in filtered_inputs.items():

@@ -9,8 +9,8 @@ Amplify.configure({
         oauth: {
           domain: process.env.NEXT_PUBLIC_COGNITO_DOMAIN!,
           scopes: ["email", "openid"],
-          redirectSignIn: ["http://localhost:3000/studio", "https://main.d1hfq20su6zuqk.amplifyapp.com/studio"],
-          redirectSignOut: ["http://localhost:3000/", "https://main.d1hfq20su6zuqk.amplifyapp.com/"],
+          redirectSignIn: ["http://localhost:3000/studio", "https://www.campaign.ongspace.com/studio"],
+          redirectSignOut: ["http://localhost:3000/", "https://www.campaign.ongspace.com/"],
           responseType: "code",
         },
       },

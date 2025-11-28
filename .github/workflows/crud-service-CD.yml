@@ -6,17 +6,55 @@ on:
       - main
     paths:
       - 'backend/crud_service/**'
+  workflow_dispatch:
       
 env:
   # --- AWS Configuration ---
   AWS_REGION: ap-southeast-1
   ECR_REPOSITORY: prod/crud-service
   ASG_NAME: crud-service-asg
-  
+
+  # --- File Paths ---
   DOCKER_BUILD_CONTEXT: ./backend/crud_service
-  MIGRATION_SCRIPT_PATH: backend/crud_service/scripts/db_migrate_apply.sh
+  ALEMBIC_CONTEXT: ./backend/crud_service
+  MIGRATION_SCRIPT_EXECUTION_PATH: ./scripts/db_migrate_apply.sh
 
 jobs:
+  migrate:
+    name: Run Database Migrations
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13' 
+          cache: 'pip'
+          
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          cd ${{ env.DOCKER_BUILD_CONTEXT }}
+          pip install .
+
+      - name: Run Migrations
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          ENVIRONMENT: production
+        run: |
+          echo "Starting database migration..."
+          cd ${{ env.ALEMBIC_CONTEXT }}
+          ${{ env.MIGRATION_SCRIPT_EXECUTION_PATH }} ${{ env.ENVIRONMENT }}
+          echo "Database migration complete."
+
   deploy:
     name: Build, Push to ECR, and Deploy
     runs-on: ubuntu-latest

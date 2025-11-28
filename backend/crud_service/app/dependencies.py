@@ -1,7 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends, Header, Request, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from typing import Optional
+from typing import Optional, cast
+from uuid import UUID
 
 from app.db.connection import get_session
 from app.repositories.crew_repository import CrewRepository
@@ -94,8 +95,8 @@ async def get_artifact_service(repository: ArtifactRepository = Depends(get_arti
     """Dependency to get ArtifactService instance with repository injected."""
     s3_client = boto3.client(
         's3',
-        aws_access_key_id=settings.S3_ACCESS_KEY,
-        aws_secret_access_key=settings.S3_SECRET_KEY,
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         region_name=settings.S3_REGION
     )
     return ArtifactService(repository, s3_client)
@@ -158,3 +159,26 @@ async def require_internal_api_key(
         )
 
     internal_service.validate_api_key(api_key)
+
+async def get_crew_run_owner_id(
+    crew_run_id: UUID,
+    _auth: None = Depends(require_internal_api_key),
+    crew_run_repo: CrewRunRepository = Depends(get_crew_run_repository),
+    crew_repo: CrewRepository = Depends(get_crew_repository)
+) -> UUID:
+    """
+    Acts like 'get_current_user' but for System-to-System calls.
+    """
+    crew_run = await crew_run_repo.get_crew_run_by_id_internal(crew_run_id)
+    if not crew_run:
+        raise HTTPException(status_code=404, detail=f"Crew Run {crew_run_id} not found")
+        
+    # --- FIX HERE: Cast the column to a UUID to satisfy Pylance ---
+    crew_id_value = cast(UUID, crew_run.crew_id)
+    
+    crew = await crew_repo.get_fully_loaded_crew_by_id_internal(crew_id_value)
+    if not crew:
+        raise HTTPException(status_code=404, detail=f"Crew {crew_id_value} not found")
+    
+    # Same cast here if Pylance complains about user_id
+    return cast(UUID, crew.user_id)

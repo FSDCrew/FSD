@@ -73,13 +73,11 @@ class CrewRepository:
         return db_crew
     
     async def delete_crew(self, crew_id: UUID) -> CrewDB | None:
-        """Delete a crew from the database and return the deleted row, using a single DELETE ... RETURNING."""
+        """Delete a crew from the database and return None"""
         stmt = (
             delete(CrewDB)
             .where(CrewDB.id == crew_id)
-            .returning(CrewDB)
         )
-        result = await self.session.execute(stmt)
-        deleted_crew = result.scalars().first()
+        await self.session.execute(stmt)
         await self.session.commit()
         return None
