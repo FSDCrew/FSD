@@ -80,24 +80,30 @@ class FlowService:
     
     def validate_inputs(self, inputs: Dict[str, Any], tasks: List["TaskRead"]) -> None:
         """
-        Validate that input values match their expected types from the state schema.
+        Validate that input values match their expected types from the state schema
+        and that all required inputs are provided.
         
         Args:
             inputs: Dictionary of input field names to values
             tasks: List of TaskRead objects to build dependency graph from
             
         Raises:
-            ValueError: If any input type doesn't match the expected type
+            ValueError: If any input type doesn't match the expected type, if required
+                       inputs are missing, or if required inputs are None
         """
-        if not inputs:
-            return
-        
-        # Build dependency graph to access state field specs
         graph = build_flow_dependency_graph(tasks)
+        required_inputs = infer_initial_inputs(graph, tasks)
+        required_field_names = set(required_inputs["all"])
         
-        # Validate each input field
+        if required_field_names:
+            provided_field_names = set(inputs.keys()) if inputs else set()
+            missing_fields = required_field_names - provided_field_names
+            if missing_fields:
+                raise ValueError(
+                    f"Missing required input fields: {sorted(missing_fields)}"
+                )
+        
         for field_name, value in inputs.items():
-            # Check if field exists in state schema
             field_spec = graph.state_field_specs.get(field_name)
             if not field_spec:
                 raise ValueError(
@@ -107,11 +113,13 @@ class FlowService:
             
             expected_type_str = field_spec.get("type", "string")
             
-            # Skip validation if value is None (optional fields)
             if value is None:
+                if field_name in required_field_names:
+                    raise ValueError(
+                        f"Required input field '{field_name}' cannot be None"
+                    )
                 continue
             
-            # Validate the type
             try:
                 validate_value_type(value, expected_type_str, field_name)
             except ValueError as e:
