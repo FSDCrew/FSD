@@ -1,0 +1,28 @@
+name: Task YAML Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend/crew_service/app/config/tasks.yaml' 
+      - 'backend/crew_service/app/config/agents.yaml'
+      - 'backend/crew_service/app/config/validate_tasks_yaml.py'
+
+jobs:
+  validate_yaml_schema:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python and Dependencies
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pyyaml
+
+      - name: Run Task/Agent Validation Script
+        run: |
+          cd backend/crew_service/app/config
+          python validate_tasks_yaml.py tasks.yaml

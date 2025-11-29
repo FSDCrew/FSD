@@ -81,6 +81,8 @@ class JobExecutor:
             ):
                 stored_inputs = crew_run_result.run_metadata.inputs.to_dict()
             
+            stored_inputs['crew_run_id'] = str(crew_run_id)
+
             try:
                 crew_result = await get_crew_by_id_func.asyncio(
                     crew_id=crew_id,
@@ -104,7 +106,19 @@ class JobExecutor:
             FlowStateModel, FlowClass, _ = self.flow_service.build_flow(tasks)
             
             flow = FlowClass()
-            result = await asyncio.to_thread(flow.kickoff, inputs=stored_inputs)
+            
+            # Create a task from the thread execution so we can track and wait for it
+            flow_task = asyncio.create_task(asyncio.to_thread(flow.kickoff, inputs=stored_inputs))
+            try:
+                result = await asyncio.shield(flow_task)
+            except asyncio.CancelledError:
+                logger.info("Flow execution cancelled, waiting for thread to finish...")
+                try:
+                    if not flow_task.done():
+                        await asyncio.wait_for(flow_task, timeout=5.0)
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    logger.warning("Thread did not finish within timeout, proceeding with shutdown")
+                raise
 
             # Extract final output from flow state or result
             # Convert result to serializable format
@@ -144,6 +158,9 @@ class JobExecutor:
                 client=self.crud_client,
                 body=output_body,
             )
+        except asyncio.CancelledError:
+            logger.info(f"Crew run {crew_run_id} execution cancelled")
+            raise
         except Exception as e:
             logger.error(f"Error executing crew run {crew_run_id}: {e}", exc_info=True)
             raise

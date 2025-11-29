@@ -6,7 +6,6 @@ from opentelemetry import baggage
 from pydantic import BaseModel, Field, create_model
 from crewai import Agent as CrewAIAgent, Task as CrewAITask, Crew, LLM, Process, TaskOutput
 from crewai.flow.flow import Flow, listen, start
-from crewai.lite_agent_output import LiteAgentOutput
 
 from app.api.crud_client.models.task_read import TaskRead
 from app.models.models import FlowDependencyGraph
@@ -15,7 +14,7 @@ from app.services.flow.flow_utils import (
     interpolate_task_description,
     resolve_tools_for_agent,
 )
-from config import tasks_config, agents_config, state_fields_config
+from config import logger, tasks_config, agents_config, state_fields_config
 
 
 # ============================================================================
@@ -24,7 +23,14 @@ from config import tasks_config, agents_config, state_fields_config
 
 general_llm = LLM(
     model="openai/gpt-4.1-mini",
+    # model="openai/gpt-4o-mini",
     temperature=0.7,
+    
+    # model="openai/gpt-5-mini",
+    # model="openai/gpt-5-nano",
+    # reasoning_effort="none",
+    stop=None,
+
     seed=42,
 )
 
@@ -51,17 +57,18 @@ judge_llm = LLM(
 )
 
 
-def llm_judge_guardrail(result: TaskOutput | LiteAgentOutput) -> Tuple[bool, Any]:
+def llm_judge_guardrail(result: TaskOutput) -> Tuple[bool, Any]:
     """
     Use a separate LLM as a judge to validate a task's output.
-
+    
     Returns:
-        (is_valid, reason) as a tuple that CrewAI's guardrail expects.
+        (is_valid, output_format) as a tuple where output_format is a TaskOutputFormat
+        instance containing the standardized task output.
+        
+    Note: Return type annotation must be Tuple[bool, Any] to satisfy CrewAI's validation,
+    but the actual return value is a TaskOutputFormat instance.
     """
     try:
-        if not isinstance(result, TaskOutput):
-            raise ValueError(f"Invalid result type: {type(result)}")
-        
         evaluation_prompt = (
             "<task_expected_output>\n"
             f"{result.expected_output}\n"
@@ -87,8 +94,10 @@ def llm_judge_guardrail(result: TaskOutput | LiteAgentOutput) -> Tuple[bool, Any
             parsed = GuardrailResponseFormat.model_validate(response)
         else:
             parsed = response
-
-        return parsed.valid, parsed.reason
+        if not parsed.valid:
+            logger.error(f"Guardrail validation failed: {parsed.reason}")
+            return parsed.valid, parsed.reason
+        return parsed.valid, result.raw
 
     except Exception as e:
         raise Exception(f"Evaluation error: {str(e)}")
@@ -193,7 +202,8 @@ def infer_initial_inputs(
             for read_spec in graph.task_read_specs.get(task_key, []):
                 if read_spec["field"] != field_name:
                     continue
-                if read_spec.get("cardinality", "required") == "required" or read_spec.get("cardinality", "required") == "at_least_one":
+                cardinality = read_spec["cardinality"]
+                if cardinality == "required" or cardinality == "at_least_one":
                     is_required_somewhere = True
                     break
             if is_required_somewhere:
@@ -220,6 +230,8 @@ def infer_initial_inputs(
 def build_flow_state_model(graph: FlowDependencyGraph) -> Type[BaseModel]:
     """
     Build the Pydantic FlowState model from the dependency graph's field specs.
+    
+    Only includes fields that are read or written by tasks in the current flow.
 
     The resulting model is used as the state type for the dynamic Flow class.
     """
@@ -230,8 +242,23 @@ def build_flow_state_model(graph: FlowDependencyGraph) -> Type[BaseModel]:
         Field(default_factory=lambda: uuid.uuid4().hex[:8]),
     )
     field_definitions["run_id"] = (Optional[str], None)
+    field_definitions["crew_run_id"] = (Optional[str], None)
+
+    used_fields: set[str] = set()
+    
+    for read_specs in graph.task_read_specs.values():
+        for read_spec in read_specs:
+            used_fields.add(read_spec["field"])
+    
+    for write_specs in graph.task_write_specs.values():
+        for write_spec in write_specs:
+            used_fields.add(write_spec["field"])
+        field_definitions["crew_run_id"] = (Optional[str], None)
 
     for field_name, field_spec in graph.state_field_specs.items():
+        if field_name not in used_fields:
+            continue
+        
         field_type_str = field_spec.get("type", "string")
         python_type = resolve_python_type(field_type_str)
 
@@ -279,12 +306,21 @@ def build_task_step_function(
         task_yaml = tasks_config.get(task_key, {})
 
         # Collect inputs from state according to the declared reads
-        task_inputs: Dict[str, Any] = {}
+        step_inputs: Dict[str, Any] = {}
         read_specs = graph.task_read_specs.get(task_key, [])
 
         for read_spec in read_specs:
             field_name = read_spec["field"]
-            cardinality = read_spec.get("cardinality", "required")
+            cardinality = read_spec["cardinality"]
+
+            field_spec = graph.state_field_specs.get(field_name)
+            if field_spec:
+                field_kind = field_spec.get("field_kind")
+                if field_kind == "context" and cardinality.strip().lower() == "optional":
+                    raise ValueError(
+                        f"Context field '{field_name}' cannot be optional for task {task_key}. "
+                        "Context fields must be required inputs."
+                    )
 
             value = getattr(self.state, field_name, None)
 
@@ -299,19 +335,23 @@ def build_task_step_function(
                         f"{field_name} must contain at least one item for task {task_key}"
                     )
 
-            if value is not None:
-                task_inputs[field_name] = value
+            step_inputs[field_name] = value
 
+        crew_run_id = getattr(self.state, "crew_run_id", None)
+        if crew_run_id is not None:
+            step_inputs["crew_run_id"] = crew_run_id
+        
         description_template = task_yaml.get("description", "")
         formatted_description = interpolate_task_description(
-            description_template, task_inputs
+            description_template, step_inputs
         )
-
+        
         agent = crew_agents.get(agent_key)
         if not agent:
             raise ValueError(f"Agent {agent_key} not found")
 
         crew_task_kwargs = {
+            "name": task_yaml.get("name", "Task"),
             "description": formatted_description,
             "expected_output": task_yaml.get("expected_output", ""),
             "agent": agent,
@@ -331,9 +371,10 @@ def build_task_step_function(
             process=Process.sequential,
             verbose=True,
             function_calling_llm=function_calling_llm,
+            output_log_file="crew_logs.json"
         )
 
-        result = crew.kickoff(inputs=task_inputs)
+        result = crew.kickoff(inputs=step_inputs)
 
         # Write outputs back into state according to the declared writes
         write_specs = graph.task_write_specs.get(task_key, [])
@@ -374,45 +415,43 @@ def build_dynamic_flow_class(
     def initialize_flow(self) -> str:
         """
         Entry point of the flow (marked with @start).
-
-        Inputs should be set on self.state by CrewAI Flow's kickoff method
-        via _initialize_state() before this method is called.
-        However, we also manually ensure inputs are set from baggage as a fallback.
-        Generates a run_id and checks that all required context fields are present.
         """
-        # Get inputs from baggage (set by CrewAI Flow's kickoff method)
+        # 1. Get inputs from baggage (Standard Logic)
         inputs = cast(dict[str, Any], baggage.get_baggage("flow_inputs") or {})
-        
-        # Filter out 'id' if present (CrewAI Flow handles this separately)
         filtered_inputs = {k: v for k, v in inputs.items() if k != "id"}
         
-        # Manually set inputs on state if they're not already set
-        # This ensures inputs are available even if _initialize_state didn't work correctly
         if filtered_inputs:
             for field_name, value in filtered_inputs.items():
                 if hasattr(self.state, field_name):
-                    # Use object.__setattr__ to bypass Pydantic's immutability if needed
                     try:
                         setattr(self.state, field_name, value)
                     except Exception as e:
-                        # If direct setattr fails, try using model_copy with update
                         if hasattr(self.state, "model_copy"):
                             self.state = self.state.model_copy(update={field_name: value})
-                else:
-                    pass
 
+        # 2. Generate Run ID (Standard Logic)
         run_id = getattr(self.state, "run_id", None)
         if not run_id:
             run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             setattr(self.state, "run_id", run_id)
 
-        # Ensure all context fields used in this flow are present
+        # 3. SMART VALIDATION (The Fix)
+        # Only validate context fields that are READ by the active tasks
+        active_task_keys = {t.key for t in flow_tasks}
+
         for field_name, field_spec in graph.state_field_specs.items():
+            # Only care about context fields
             if field_spec.get("field_kind") != "context":
                 continue
-            value = getattr(self.state, field_name, None)
-            if not value:
-                raise ValueError(f"{field_name} is required")
+            
+            # Check if this field is actually read by any task in this flow
+            readers = graph.field_readers.get(field_name, [])
+            is_used_by_active_tasks = any(reader in active_task_keys for reader in readers)
+            
+            if is_used_by_active_tasks:
+                value = getattr(self.state, field_name, None)
+                if not value:
+                    raise ValueError(f"{field_name} is required for the current tasks")
 
         return "Flow initialized"
 

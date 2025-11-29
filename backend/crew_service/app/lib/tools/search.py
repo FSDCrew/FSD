@@ -1,6 +1,33 @@
-from crewai_tools import BrightDataSearchTool,ScrapeWebsiteTool
+import json
+from typing import Any, Dict, List, Optional
+
 from crewai.tools import tool
-    
+from crewai_tools.tools.brightdata_tool.brightdata_serp import BrightDataSearchTool
+from crewai_tools.tools.scrape_website_tool.scrape_website_tool import ScrapeWebsiteTool
+
+
+def _extract_organic_results(raw_result: Any) -> List[Dict[str, Any]]:
+    """Parse the Bright Data response and return only organic results."""
+
+    def _to_dict(payload: Any) -> Optional[Dict[str, Any]]:
+        if isinstance(payload, dict):
+            return payload
+        if isinstance(payload, str):
+            try:
+                parsed = json.loads(payload)
+            except json.JSONDecodeError:
+                return None
+            return _to_dict(parsed)
+        return None
+
+    payload = _to_dict(raw_result)
+    if not payload:
+        return []
+
+    organic_results = payload.get("organic")
+    return organic_results if isinstance(organic_results, list) else []
+
+
 @tool("search internet")
 def search_internet(query: str):
     """
@@ -14,7 +41,7 @@ def search_internet(query: str):
         query=query,
         country="SG",
     )
-    return tool.run()
+    return _extract_organic_results(tool.run())
 
 @tool("search instagram")
 def search_instagram(query: str):
@@ -29,7 +56,7 @@ def search_instagram(query: str):
         query=f"site:instagram.com/p/ {query}",
         country="SG",
     )
-    return tool.run()
+    return _extract_organic_results(tool.run())
 
 @tool("open pages")
 def open_pages(website_urls: list[str]):

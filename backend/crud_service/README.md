@@ -1,90 +1,153 @@
 # CRUD Service
 
-A FastAPI-based CRUD service for managing crews, tasks, and related entities. This service provides RESTful APIs for creating, reading, updating, and managing crew configurations and their associated tasks.
+FastAPI backend that persists crew definitions, tasks, and run history, exposes authenticated APIs for the UI, and provides an internal queue-backed contract that the Crew Service/worker uses to execute automations. It also stores artifacts in S3 and handles IAM-authenticated user access via Cognito.
 
 ## Features
 
-- **Crew Management**: Create, read, and update crew configurations
-- **Task Management**: Create, update, and manage tasks associated with crews
-- **Database Migrations**: Alembic-based database schema management
-- **CORS Support**: Configured for cross-origin requests
+- **Crew + task management** – CRUD APIs for crews, nested tasks, required inputs, and ownership rules enforced via Cognito JWTs.
+- **Run queue + metadata** – Persists crew run inputs/outputs, tracks queue leases, and exposes internal endpoints for the worker (claim, heartbeat, mark complete/fail).
+- **Artifact storage** – Base64 upload + presigned URL retrieval backed by S3 for large file outputs.
+- **Internal API surface** – Locked-down routes (X-Internal-Api-Key/Bearer) that power the Crew Service without exposing sensitive operations to end users.
+- **Database migrations** – Alembic-managed Postgres schema with helper scripts for generating and applying revisions per environment.
+
+## Repository Layout
+
+| Path | Purpose |
+| --- | --- |
+| `app/__init__.py` | FastAPI factory, router registration, S3 client bootstrap, DB health check. |
+| `app/api/` | Route handlers for crews, users, tasks, artifacts, crew runs, internal queue, and status endpoints. |
+| `app/services/` | Business logic for CRUD, queue, artifact/S3 operations, Cognito auth, etc. |
+| `app/db/` | SQLAlchemy async engine/session helpers. |
+| `app/models` & `schemas` | Pydantic models shared across routes and services. |
+| `alembic/` | Migration environment + generated revisions. |
+| `scripts/` | Local DB bootstrap, alembic helpers, uvicorn launcher, and crew client generator. |
+| `tests/` | Pytest suite (currently artifact endpoint coverage). |
 
 ## Tech Stack
 
-- **FastAPI**: Modern, fast web framework for building APIs
-- **SQLAlchemy**: SQL toolkit and ORM
-- **Alembic**: Database migration tool
-- **PostgreSQL**: Database
-- **Pydantic**: Data validation using Python type annotations
-- **uv**: Fast Python package installer and resolver
+- **FastAPI + Uvicorn** serving async REST APIs
+- **SQLAlchemy (async)** ORM/data access, **Alembic** migrations, **PostgreSQL** storage
+- **AWS S3 (boto3)** for artifact persistence
+- **Cognito / JWKS** validation for user auth
+- **uv** for dependency and virtualenv management
+
+## Prerequisites
+
+- Python 3.11+
+- [uv](https://github.com/astral-sh/uv) installed globally
+- Docker (for `scripts/start_local_db.sh` convenience script)
+- Access to AWS credentials/S3 bucket + Cognito user pool configured for your app
+- Crew Service running (internal client + downstream orchestrator)
+
+## Configuration
+
+Create `backend/crud_service/.env` and populate the following (see `config.py`):
+
+| Variable | Description |
+| --- | --- |
+| `INTERNAL_CREW_API_KEY` | Shared secret that the Crew Service/worker passes via `Authorization` or `X-Internal-Api-Key`. |
+| `CREW_SERVICE_URL` | Used by `scripts/generate_crew_client.sh` (default `http://localhost:8001`). |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Postgres connection pieces. `CRUD_DATABASE_URL` is derived automatically. |
+| `COGNITO_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_APP_CLIENT_ID` | Used to build the JWKS URL for verifying JWTs. |
+| `S3_BUCKET_NAME`, `S3_REGION` | Artifact storage target. |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Optional – set if you are not using an IAM role. (Legacy code also looks for `S3_ACCESS_KEY`/`S3_SECRET_KEY`; define both sets if needed.) |
+
+> **Tip:** Keep a `.env.example` in sync with the values above so onboarding remains painless.
 
 ## Setup
 
-### 1. Environment Setup
-Create a virtual environment
+1. **Create a venv & install deps**
+   ```bash
+   cd backend/crud_service
+   uv venv
+   source .venv/bin/activate          # macOS/Linux
+   # .venv\Scripts\activate          # Windows
+   uv sync
+   ```
+2. **Start Postgres (Docker)**
+   ```bash
+   ./scripts/start_local_db.sh
+   ```
+   Creates a `postgres-crew-crud` container with database `crud`, user `crew`, password `postgres`, data persisted under `.data/postgresql/crud`.
+3. **Apply migrations**
+   ```bash
+   ./scripts/db_migrate_apply.sh local
+   ```
+
+## Running the API Locally
+
+```bash
+./scripts/local_run_dev.sh
 ```
-uv venv
-```
-Activate virtual environment
-```
-source .venv/bin/activate  # macos
-.venv\Scripts\activate uv sync # windows
-```
-Install Dependencies
-```
-uv sync
-```
-
-### 2. Database Initialization
-
-#### Start Local Database
-
-Start a local PostgreSQL database using Docker by using `./scripts/start_local_db.sh`
-
-This script will:
-- Start a PostgreSQL container named `postgres-crew-crud`
-- Create a database named `crud`
-- Set up user `crew` with password `postgres`
-- Expose the database on port `5432`
-
-#### Apply Database Migrations
-
-Apply all existing migrations to initialize the database schema:
-
-```
-./scripts/db_migrate_apply.sh local
-```
-
-### 3. Configuration
-
-### Development Mode
-
-Run `./scripts/local_run_dev.sh`
-## API Documentation
-
-Once the service is running, interactive API documentation is available at:
-
+- Serves FastAPI at `http://localhost:8000`
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
+- Health check: `GET /status/health`
+
+### Key API Groups
+
+- `/crew` – CRUD endpoints scoped to the authenticated user.
+- `/task` – Manage tasks nested under crews.
+- `/crew-run` – Fetch historic runs + outputs.
+- `/artifact` – Upload artifacts via Base64 payload and retrieve presigned URLs.
+- `/internal/*` – Crew Service integrations (create runs, claim queue jobs, update status, heartbeat, fetch crew metadata). These require `INTERNAL_CREW_API_KEY`.
 
 ## Database Migrations
 
-### Creating a New Migration
+- **Create a migration**
+  ```bash
+  ./scripts/db_migrate.sh "add_queue_index"
+  ```
+- **Apply migrations**
+  ```bash
+  ./scripts/db_migrate_apply.sh local      # or develop|staging|production
+  ```
+- **Downgrade manually**
+  ```bash
+  alembic downgrade -1
+  ```
 
-Generate a new migration file:
+Alembic respects the `ENVIRONMENT` variable exported inside the helper scripts.
 
-`./scripts/db_migrate.sh <migration_name>` will create a new migration file in `alembic/versions/` that you can edit before applying.
+## Generating the Crew Client
 
-### Applying Migrations
+The CRUD service depends on a generated client for calling the Crew Service (e.g., internal automation). Regenerate it after the Crew Service OpenAPI changes:
 
-Apply all pending migrations:
-
-`./scripts/db_migrate_apply.sh local` to apply migrations in `/alembic/versions` to your db
-
-### Downgrading Migrations
-
-To downgrade by one migration:
-
+```bash
+./scripts/generate_crew_client.sh
 ```
-alembic downgrade -1
+
+Outputs to `app/api/crew_client/` using `openapi-python-client==2.11.0`.
+
+## Authentication Flow
+
+- End-user requests must carry `Authorization: Bearer <JWT>` from Cognito or a compatible `*.idToken` cookie. `app.dependencies.get_token_from_request` checks both.
+- Internal automation (Crew Service worker) authenticates via `X-Internal-Api-Key` or Bearer token matching `INTERNAL_CREW_API_KEY`.
+- On startup the app performs a DB connectivity check and instantiates an S3 client using the configured region/credentials.
+
+## Worker Handshake
+
+External workers interact solely with `/internal`:
+
+1. `POST /internal/crew-run/create` – Validate the end-user token and enqueue metadata.
+2. `POST /internal/queue/claim` – Atomically claim the next job; returns queue + crew run IDs and lease token.
+3. `POST /internal/queue/{id}/heartbeat` – Extend lease while a flow runs.
+4. `PUT /internal/queue/{id}/status` – Mark `COMPLETED` or `FAILED` when done.
+5. `PUT /internal/crew-run/{crew_run_id}/output` – Persist final outputs plus artifact keys.
+
+These endpoints all require the shared internal API key.
+
+## Testing
+
+```bash
+uv run pytest
 ```
+The existing suite mocks authentication/S3 interactions for artifact endpoints. Follow that pattern when adding coverage for other routers/services.
+
+## Troubleshooting
+
+- **Database connection failed** – ensure `.env` values match the running Postgres container and rerun `./scripts/start_local_db.sh` to recreate it.
+- **401s on public routes** – verify the Cognito token audience matches `COGNITO_APP_CLIENT_ID` and that your request includes either the header or `*.idToken` cookie.
+- **S3 upload errors** – confirm AWS credentials/role allow `PutObject`/`GetObject` on `S3_BUCKET_NAME`. For local testing, consider using [LocalStack](https://www.localstack.cloud/).
+- **Alembic revision conflicts** – check `alembic/versions` for duplicate revision IDs, then regenerate after rebasing.
+- **Client drift** – if you see `UnexpectedStatus` when this service calls Crew Service, regenerate the client using the script above to sync models.

@@ -28,10 +28,7 @@ export default function StudioPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['crews'],
-    queryFn: async () => {
-      const response = await getAllCrewsCrewGet();
-      return response.data;
-    },
+    queryFn: () => getAllCrewsCrewGet({ responseStyle: 'data' }),
   })
   const crews = Array.isArray(data) ? data : data ? [data] : [];
 
@@ -152,7 +149,7 @@ export default function StudioPage() {
 
         {crews.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">No cards yet. Create your first card to get started!</p>
+            <p className="text-muted-foreground mb-4">No crews yet. Create your first crew to get started!</p>
             <button
               onClick={handleAddCard}
               className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
