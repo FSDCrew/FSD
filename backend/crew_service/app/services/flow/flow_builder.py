@@ -281,6 +281,28 @@ def build_flow_state_model(graph: FlowDependencyGraph) -> Type[BaseModel]:
 # Dynamic Flow class generation
 # ============================================================================
 
+def extract_inner_type_from_list(field_type_str: str) -> str:
+    """
+    Extract inner type from list field types.
+    
+    Examples:
+        list[ContentStrategy] -> ContentStrategy
+        List[string] -> string
+        Type[] -> Type
+    
+    Args:
+        field_type_str: Field type string from YAML config
+        
+    Returns:
+        Inner type string, or original string if not a list type
+    """
+    if field_type_str.startswith("list[") or field_type_str.startswith("List["):
+        return field_type_str[5:-1].strip()
+    elif field_type_str.endswith("[]"):
+        return field_type_str[:-2].strip()
+    return field_type_str
+
+
 def build_task_step_function(
     task_record: TaskRead,
     step_index: int,
@@ -350,6 +372,27 @@ def build_task_step_function(
         if not agent:
             raise ValueError(f"Agent {agent_key} not found")
 
+        # Determine output_pydantic from write specs
+        # Extract inner type if field is a list (task outputs single object, not list)
+        output_pydantic_model = None
+        write_specs = graph.task_write_specs.get(task_key, [])
+        for write_spec in write_specs:
+            field_name = write_spec["field"]
+            field_spec = graph.state_field_specs.get(field_name)
+            if field_spec:
+                field_type_str = field_spec.get("type", "string")
+                
+                # Extract inner type if it's a list (e.g., list[ContentStrategy] -> ContentStrategy)
+                inner_type_str = extract_inner_type_from_list(field_type_str)
+                
+                # Resolve the Python type for the inner type
+                python_type = resolve_python_type(inner_type_str)
+                
+                # Check if it's a Pydantic BaseModel
+                if isinstance(python_type, type) and issubclass(python_type, BaseModel):
+                    output_pydantic_model = python_type
+                    break  # Use the first Pydantic model found
+
         crew_task_kwargs = {
             "name": task_yaml.get("name", "Task"),
             "description": formatted_description,
@@ -358,6 +401,9 @@ def build_task_step_function(
             "guardrail": llm_judge_guardrail,
             "guardrail_max_retries": 3,
         }
+        
+        if output_pydantic_model:
+            crew_task_kwargs["output_pydantic"] = output_pydantic_model
 
         output_file = task_yaml.get("output_file")
         if output_file:
@@ -382,16 +428,22 @@ def build_task_step_function(
             field_name = write_spec["field"]
             mode = write_spec.get("mode", "replace")
 
+            if hasattr(result, 'pydantic') and result.pydantic is not None:
+                pydantic_value = result.pydantic
+                if isinstance(pydantic_value, BaseModel):
+                    output_value = pydantic_value.model_dump()
+                else:
+                    output_value = pydantic_value
+            else:
+                output_value = result.raw
+
             if mode == "replace":
-                setattr(self.state, field_name, result.raw)
+                setattr(self.state, field_name, output_value)
             elif mode == "append":
                 current_value = getattr(self.state, field_name, [])
                 if not isinstance(current_value, list):
                     current_value = []
-                if isinstance(result.raw, list):
-                    current_value.extend(result.raw)
-                else:
-                    current_value.append(result.raw)
+                current_value.append(output_value)
                 setattr(self.state, field_name, current_value)
 
         return f"{task_key} completed"

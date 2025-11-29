@@ -1,5 +1,7 @@
 from typing import Any, Dict, List, Type
 from datetime import datetime
+from enum import IntEnum
+from pydantic import BaseModel
 
 
 from app.models.models import CUSTOM_TYPE_REGISTRY
@@ -181,21 +183,61 @@ def validate_value_type(value: Any, expected_type_str: str, field_name: str) -> 
     
     if expected_type_str in CUSTOM_TYPE_REGISTRY:
         model_class = CUSTOM_TYPE_REGISTRY[expected_type_str]
+        
+        # Case 1: Value is already an instance of the model class (BaseModel or IntEnum)
+        if isinstance(value, model_class):
+            return  # Already valid, no validation needed
+        
+        # Case 2: Value is a dict - needs to be validated/parsed
         if isinstance(value, dict):
+            if issubclass(model_class, BaseModel):
+                try:
+                    model_class.model_validate(value)
+                except Exception as e:
+                    raise ValueError(
+                        f"Invalid {expected_type_str} for field '{field_name}': {str(e)}"
+                    ) from e
+            elif issubclass(model_class, IntEnum):
+                try:
+                    enum_value = value.get("value", value)
+                    model_class(enum_value)
+                except (ValueError, KeyError, TypeError) as e:
+                    raise ValueError(
+                        f"Invalid {expected_type_str} for field '{field_name}': {str(e)}"
+                    ) from e
+            else:
+                raise ValueError(
+                    f"Unsupported custom type {expected_type_str} for field '{field_name}'"
+                )
+            return
+        
+        # Case 3: IntEnum with int value (not dict, not already enum instance)
+        if issubclass(model_class, IntEnum):
             try:
-                model_class.model_validate(value)
-            except Exception as e:
+                if isinstance(value, int):
+                    model_class(value)  # Validate it's a valid enum value
+                else:
+                    raise ValueError(
+                        f"Expected {expected_type_str} (int, dict, or {expected_type_str} instance) "
+                        f"for field '{field_name}', but got {type(value).__name__}"
+                    )
+            except ValueError as e:
                 raise ValueError(
                     f"Invalid {expected_type_str} for field '{field_name}': {str(e)}"
                 ) from e
-        elif isinstance(value, model_class):
-            pass
-        else:
+            return
+        
+        # Case 4: BaseModel but value is not dict and not instance
+        if issubclass(model_class, BaseModel):
             raise ValueError(
                 f"Expected {expected_type_str} (dict or {expected_type_str} instance) "
                 f"for field '{field_name}', but got {type(value).__name__}"
             )
-        return
+        
+        # Fallback for unsupported types
+        raise ValueError(
+            f"Unsupported custom type {expected_type_str} for field '{field_name}'"
+        )
     
     # Handle Dict[str, Any] (for unknown custom types like DiscoveryDataset)
     if expected_python_type == dict:

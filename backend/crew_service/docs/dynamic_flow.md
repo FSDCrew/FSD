@@ -92,6 +92,8 @@ Because `FlowService` always routes through `build_flow_dependency_graph` and `i
 
 `resolve_python_type` mirrors this mapping logic for the FlowState model so reads/writes remain type-consistent.
 
+For detailed information on how custom types are registered, resolved, and validated, see [Custom Type Handling](custom_types.md).
+
 ## Execution Lifecycle Recap
 
 1. **Task selection** – CRUD service (or the API client) sends an ordered list of `TaskRead` entries describing the logical flow.
