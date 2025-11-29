@@ -1,7 +1,11 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from app.dependencies import get_crew_service, get_user_token
-from app.models.models import CrewRun, CrewRunCreateRequest
+from app.models.models import (
+    CrewRun,
+    CrewRunCreateRequest,
+    RequiredInputsResponse,
+)
 from app.services.crew_service import CrewService
 
 crew_router = APIRouter(
@@ -10,7 +14,8 @@ crew_router = APIRouter(
 )
 
 @crew_router.get(
-    "/crews/{crew_id}/required-inputs",
+    "/{crew_id}/required-inputs",
+    response_model=RequiredInputsResponse,
 )
 async def get_required_inputs(
     crew_id: UUID,

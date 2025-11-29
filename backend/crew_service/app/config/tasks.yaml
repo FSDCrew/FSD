@@ -4,47 +4,71 @@ state:
     theme:
       type: string
       field_kind: context
+      required: true
+      placeholder: "Enter your campaign theme"
     brand_description:
       type: string
       field_kind: context
+      required: true
+      placeholder: "Describe your brand"
     target_audience_description:
       type: string
       field_kind: context
+      required: true
+      placeholder: "Describe your target audience"
     start_date:
       type: date
       field_kind: context
+      required: true
+      placeholder: "YYYY-MM-DD"
     end_date:
       type: date
       field_kind: context
+      required: true
+      placeholder: "YYYY-MM-DD"
     templateId:
       type: list[AllowedTemplateId]
       field_kind: context
+      required: true
+      placeholder: "Select template IDs"
     orshot_schema:
       type: list[OrshotSchemaField]
       field_kind: context
+      required: true
+      placeholder: "Configure Orshot schema fields"
     image_assets:
       type: list[string]
       field_kind: data
+      required: false
+      placeholder: "Add image URLs or file paths"
 
     # --- Dynamic Data Fields (produced or provided depending on workflow) ---
     discovery_datasets:
       type: list[DiscoveryDataset]
       field_kind: data
+      required: false
+      placeholder: "Add discovery dataset references"
 
     marketing_research:
-      # type: MarketingResearch
-      type: string
+      type: MarketingResearch
+      # type: string
       field_kind: data
+      required: false
+      placeholder: "Provide marketing research data"
 
     content_strategy:
       # type: ContentStrategy
       type: string
       field_kind: data
+      required: false
+      placeholder: "Provide content strategy"
 
     social_media_schedule:
       # type: SocialMediaSchedule
       type: string
       field_kind: data
+      required: false
+      placeholder: "Provide social media schedule"
 
 tasks:
   marketing_research:
@@ -432,7 +456,7 @@ tasks:
     expected_output: >
       A properly structured HTML table string that strictly follows the sample schedule format,
       converted into an Excel file using the html_table_to_excel tool.
-  
+
   image_generator:
     reads:
       - field: theme
@@ -481,7 +505,7 @@ tasks:
       </your_task>
 
     expected_output: >
-      A list of S3 links of the generated images, one per line.      
+      A list of S3 links of the generated images, one per line.
 
   orshot_render:
     reads:
@@ -489,9 +513,9 @@ tasks:
         cardinality: required
       - field: orshot_schema
         cardinality: required
-      - field: theme                
+      - field: theme
         cardinality: required
-      - field: brand_description    
+      - field: brand_description
         cardinality: required
       - field: target_audience_description
         cardinality: required

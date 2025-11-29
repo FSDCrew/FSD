@@ -1,9 +1,16 @@
 from typing import Any, Dict, List, Tuple, Type
+from enum import Enum, IntEnum
 
 from crewai.flow.flow import Flow
 from pydantic import BaseModel
 
 from app.api.crud_client.models.task_read import TaskRead
+from app.models.models import (
+    CUSTOM_TYPE_REGISTRY,
+    FieldTypeInfo,
+    RequiredInputField,
+    RequiredInputsResponse,
+)
 from app.services.flow.flow_builder import (
     build_flow_dependency_graph,
     create_flow_from_tasks,
@@ -21,15 +28,87 @@ class FlowService:
         self.tasks_config = tasks_config
         self.agents_config = agents_config
     
-    def get_required_inputs(self, task_reads: List["TaskRead"]) -> Dict[str, str]:
+    def _parse_type_string(self, type_str: str) -> FieldTypeInfo:
         """
-        Get required inputs for a list of tasks, mapping field_name -> type_string.
+        Parse a type string from YAML into structured FieldTypeInfo.
+        
+        Handles:
+        - Basic types: "string", "int", "float", "bool", "date"
+        - Lists: "list[string]", "list[OrshotSchemaField]", "list[AllowedTemplateId]"
+        - Custom models: "MarketingResearch", "ContentStrategy", etc.
+        - Enums: "AllowedTemplateId", "OrshotDataType"
+        - Unknown types: treated as Dict[str, Any]
+        """
+        original_type_str = type_str
+        is_list = False
+        inner_type_str = None
+        
+        if type_str.startswith("list[") or type_str.startswith("List["):
+            is_list = True
+            inner_type_str = type_str[5:-1].strip()
+            type_str = inner_type_str
+        
+        if type_str in CUSTOM_TYPE_REGISTRY:
+            type_class = CUSTOM_TYPE_REGISTRY[type_str]
+            
+            if issubclass(type_class, (Enum, IntEnum)):
+                enum_values = [member.value for member in type_class]
+                
+                return FieldTypeInfo(
+                    type=type_str,
+                    is_list=is_list,
+                    inner_type=inner_type_str if is_list else None,
+                    is_enum=True,
+                    enum_values=enum_values,
+                    is_custom_model=False,
+                )
+            
+            elif issubclass(type_class, BaseModel):
+                try:
+                    model_schema = type_class.model_json_schema()
+                except Exception:
+                    model_schema = None
+                
+                return FieldTypeInfo(
+                    type=type_str,
+                    is_list=is_list,
+                    inner_type=inner_type_str if is_list else None,
+                    is_enum=False,
+                    enum_values=None,
+                    is_custom_model=True,
+                    model_schema=model_schema,
+                )
+        
+        basic_types = {"string", "int", "float", "bool", "date"}
+        if type_str.lower() in basic_types:
+            return FieldTypeInfo(
+                type=type_str.lower(),
+                is_list=is_list,
+                inner_type=inner_type_str.lower() if is_list and inner_type_str else None,
+                is_enum=False,
+                enum_values=None,
+                is_custom_model=False,
+            )
+        
+        return FieldTypeInfo(
+            type=original_type_str,
+            is_list=is_list,
+            inner_type=inner_type_str if is_list else None,
+            is_enum=False,
+            enum_values=None,
+            is_custom_model=True,
+            model_schema=None,
+        )
+    
+    def get_required_inputs(self, task_reads: List["TaskRead"]) -> RequiredInputsResponse:
+        """
+        Get required inputs for a list of tasks with structured type information.
         
         Args:
             task_reads: List of TaskRead objects from CrudClient
             
         Returns:
-            Dict mapping field_name to type_string (e.g., {"theme": "string", "start_date": "date"})
+            RequiredInputsResponse with structured field type information
         """
         # Build dependency graph to access state_field_specs for type information
         graph = build_flow_dependency_graph(task_reads)
@@ -37,13 +116,30 @@ class FlowService:
         # Get required inputs
         required_inputs = infer_initial_inputs(graph, task_reads)
         
-        # Map field names to their types
-        result: Dict[str, str] = {}
+        fields: List[RequiredInputField] = []
         for field_name in required_inputs["all"]:
             field_spec = graph.state_field_specs.get(field_name)
-            result[field_name] = field_spec.get("type", "string") if field_spec else "string"
+            if not field_spec:
+                continue
+            
+            type_str = field_spec.get("type", "string")
+            field_kind = field_spec.get("field_kind", "data")
+            required = field_spec.get("required", True)
+            placeholder = field_spec.get("placeholder")
+            
+            type_info = self._parse_type_string(type_str)
+            
+            fields.append(RequiredInputField(
+                field_name=field_name,
+                type_info=type_info,
+                field_kind=field_kind,
+                required=required,
+                placeholder=placeholder,
+            ))
         
-        return result
+        return RequiredInputsResponse(
+            fields=fields,
+        )
     
     def build_flow(
         self, 
