@@ -171,10 +171,16 @@ def infer_initial_inputs(
     """
     Infer which state fields must be provided by the user before the flow starts.
 
+    Logic:
+    - Context fields: Any context field read by at least one task is required.
+    - Data fields: A data field is required if:
+      1. At least one task requires it (cardinality == "required" or "at_least_one")
+      2. AND no upstream task (earlier in execution order) writes it
+
     Returns:
         {
             "context": [...],  # context fields read by any task
-            "data":    [...],  # required data fields not written by any task
+            "data":    [...],  # required data fields not written by upstream tasks
             "all":     [...],  # combined list
         }
     """
@@ -182,6 +188,9 @@ def infer_initial_inputs(
     required_data_fields: List[str] = []
 
     task_keys = {task.key for task in flow_tasks}
+    
+    # Build mapping of task_key -> index position in flow_tasks
+    task_index_map: Dict[str, int] = {task.key: idx for idx, task in enumerate(flow_tasks)}
 
     # Context fields: used by at least one selected task.
     for field_name, field_spec in graph.state_field_specs.items():
@@ -192,28 +201,36 @@ def infer_initial_inputs(
         if any(reader in task_keys for reader in readers):  # true if any task reads this field
             required_context_fields.append(field_name)
 
-    # Data fields: required by some task, but no selected task writes them.
+    # Data fields: required by some task, but not written by any upstream task.
     for field_name, field_spec in graph.state_field_specs.items():
         if field_spec.get("field_kind") != "data":
             continue
 
-        is_required_somewhere = False
+        # Find the earliest task index that requires this field
+        min_requirer_index = float('inf')
         for task_key in task_keys:
             for read_spec in graph.task_read_specs.get(task_key, []):
                 if read_spec["field"] != field_name:
                     continue
                 cardinality = read_spec["cardinality"]
                 if cardinality == "required" or cardinality == "at_least_one":
-                    is_required_somewhere = True
+                    task_idx = task_index_map.get(task_key, float('inf'))
+                    min_requirer_index = min(min_requirer_index, task_idx)
                     break
-            if is_required_somewhere:
-                break
 
-        if not is_required_somewhere:
+        # If no task requires this field, skip it
+        if min_requirer_index == float('inf'):
             continue
 
+        # Check if any upstream task (before the earliest requirer) writes this field
         writers = graph.field_writers.get(field_name, [])
-        if not any(writer in task_keys for writer in writers):
+        has_upstream_writer = any(
+            task_index_map.get(writer, float('inf')) < min_requirer_index
+            for writer in writers
+            if writer in task_keys
+        )
+
+        if not has_upstream_writer:
             required_data_fields.append(field_name)
 
     return {
