@@ -48,6 +48,12 @@ jobs:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_NAME: ${{ secrets.DB_NAME }}
+          INTERNAL_CREW_API_KEY: ${{ secrets.INTERNAL_CREW_API_KEY }}
+          COGNITO_REGION: ${{ secrets.COGNITO_REGION }}
+          COGNITO_USER_POOL_ID: ${{ secrets.COGNITO_USER_POOL_ID }}
+          COGNITO_APP_CLIENT_ID: ${{ secrets.COGNITO_APP_CLIENT_ID }}
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+          S3_REGION: ${{ secrets.S3_REGION }}
           ENVIRONMENT: production
         run: |
           echo "Starting database migration..."
@@ -59,6 +65,7 @@ jobs:
     name: Build, Push to ECR, and Deploy
     runs-on: ubuntu-latest
     environment: production
+    needs: migrate
 
     steps:
       - name: Checkout Repository
