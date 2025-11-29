@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { CrewRead, getCrewsCrewGet, syncUserUserSyncPost } from "@/lib/api/crud";
+import { CrewRead, getAllCrewsCrewGet, syncUserUserSyncPost } from "@/lib/api/crud";
 
 export default function StudioPage() {
   const router = useRouter();
@@ -19,7 +19,7 @@ export default function StudioPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['crews'],
-    queryFn: () => getCrewsCrewGet({ responseStyle: 'data' }),
+    queryFn: () => getAllCrewsCrewGet({ responseStyle: 'data' }),
   })
   const crews = Array.isArray(data) ? data : data ? [data] : [];
 
@@ -101,7 +101,7 @@ export default function StudioPage() {
 
         {crews.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">No cards yet. Create your first card to get started!</p>
+            <p className="text-muted-foreground mb-4">No crews yet. Create your first crew to get started!</p>
             <button
               onClick={handleAddCard}
               className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
