@@ -1,0 +1,77 @@
+aws_region   = "ap-southeast-2"
+project_name = "campaign" # must be fully lowercase
+environment  = "prod"
+
+
+# VPC Configuration
+vpc_cidr           = "10.0.0.0/16"
+availability_zones = ["ap-southeast-2a", "ap-southeast-2b"]
+
+
+# Domain Configuration
+app_domain = "xxxxxxxxxxxxxxxx" # Replace with your domain name (e.g. campaign.ongspace.com)
+
+
+# Supabase Configuration
+db_host                         = "db_host"
+db_port                         = 5432
+db_name                         = "db_name"
+db_user                         = "db_user"
+db_password                     = "db_password"
+
+
+# Crud Service Configuration
+crud_service_instance_type      = "t3.small"
+crud_service_min_size           = 1
+crud_service_max_size           = 4
+crud_service_desired_capacity   = 2
+crud_service_port               = 6010
+crud_service_health_check_path  = "/status/health"
+
+
+# Crew Service Configuration
+crew_service_instance_type      = "t3.small"
+crew_service_min_size           = 1
+crew_service_max_size           = 4
+crew_service_desired_capacity   = 2
+crew_service_port               = 6011
+crew_service_health_check_path  = "/status/health"
+
+
+# Crew Service Variables
+internal_crew_api_key           = "internal_crew_api_key"
+queue_poll_interval_seconds     = 5
+job_visibility_timeout_seconds  = 300
+heartbeat_interval_seconds      = 60
+openai_api_key                  = "openai_api_key"
+headless                        = "True"
+bright_data_api_key             = "bright_data_api_key"
+bright_data_zone                = "bright_data_zone"
+
+
+# AWS Amplify Configuration
+amplify_repository    = "https://github.com/FSDCrew/FSD"
+amplify_github_token  = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+amplify_branch_name   = "main"
+
+
+# Cognito Configuration
+cognito_password_minimum_length    = 8
+cognito_password_require_lowercase = true
+cognito_password_require_uppercase = true
+cognito_password_require_numbers   = true
+cognito_password_require_symbols   = true
+cognito_auto_verified_attributes   = ["email"]
+cognito_mfa_configuration          = "OFF"
+cognito_username_attributes        = ["email"]
+cognito_refresh_token_validity     = 30  # days
+cognito_access_token_validity      = 1   # hours
+cognito_id_token_validity          = 1   # hours
+cognito_enable_oauth               = true
+cognito_allow_unauthenticated      = false
+
+
+# ECR Configuration
+ecr_image_tag_mutability = "MUTABLE"
+ecr_scan_on_push         = true
+ecr_image_count_limit    = 10  # Number of images to retain
