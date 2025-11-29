@@ -1,4 +1,4 @@
-# Web Application Terraform Infrastructure
+# Terraform Template Overview
 
 This Terraform template deploys a complete AWS infrastructure for the campAIgn app with:
 - AWS Cognito for user authentication and authorisation
@@ -16,10 +16,13 @@ and keeping secrets private using secrets manager
 ## Prerequisites
 
 The following prerequisites must be met before the terraform template can be applied:
-- A public hosted zone for a purchased domain (Note: follow the steps below to manually create a public hosted zone in your AWS account)
+- Terraform >= 1.0
+- AWS CLI
+- AWS Public Hosted Zone for a purchased domain
+- Supabase account & empty database setup
 - Generate an AWS Access Key for Github Actions
 - Generate an AWS Access Key for Terraform and configure AWS CLI
-
+- GitHub Personal Access Token for Amplify
 
 ## Architecture Overview
 
@@ -62,13 +65,8 @@ Components:
 - GitHub Actions: CI/CD workflow pushes images to ECR
 ```
 
-## Prerequisites
+## TODO: Prerequisite Guide
 
-- Terraform >= 1.0
-- AWS CLI configured
-- Docker installed (for building container images)
-- GitHub account with a repository for frontend
-- GitHub Personal Access Token for Amplify
 
 ## File Structure
 
@@ -76,12 +74,13 @@ Components:
 ├── main.tf                 # Provider configuration
 ├── variables.tf            # All input variables
 ├── outputs.tf              # All outputs
-├── backend.tf              # State management configuration
 ├── networking.tf           # VPC, subnets, ALB, security groups, Domain configuration
 ├── iam-identity.tf         # IAM roles, Cognito
 ├── crud-service.tf         # CRUD service ASG and launch template, ECR repository
 ├── crew-service.tf         # Crew service ASG and launch template, ECR repository
 ├── frontend.tf             # AWS Amplify configuration
+├── s3.tf                   # S3 Bucket configuration
+├── data-sources.tf         # AWS Data Sources
 └── terraform.tfvars        # Your configuration values
 
 ## Quick Start
@@ -120,23 +119,32 @@ terraform apply
 
 Edit `terraform.tfvars` with your specific values:
 
-| Variable               | Description               | Example                        |
-|------------------------|---------------------------|--------------------------------|
-| `aws_region`           | AWS region for deployment | `us-east-1`                    |
-| `project_name`         | Project name              | `my-web-app`                   |
-| `microservice_1_ami`   | AMI ID for microservice 1 | `ami-0c55b159cbfafe1f0`        |
-| `microservice_2_ami`   | AMI ID for microservice 2 | `ami-0c55b159cbfafe1f0`        |
-| `amplify_repository`   | GitHub repo URL           | `https://github.com/user/repo` |
-| `amplify_github_token` | GitHub PAT                | `ghp_xxxxx` (keep secret!)     |
+| Variable                | Description                              | Example                        |
+|-------------------------|------------------------------------------|--------------------------------|
+| `aws_region`            | AWS Region for deployment                | `us-east-1`                    |
+| `project_name`          | Project Name (fully lowercase)           | `my-web-app`                   |
+| `app_domain`            | Domain used for app                      | `campaign.ongspace.com`        |
+| `db_host`               | Supabase DB Host                         | `xxxxx.pooler.supabase.com`    |
+| `db_port`               | Supabase DB Port                         | `5432`                         |
+| `db_name`               | Supabase DB Name                         | `crud`                         |
+| `db_user`               | Supabase User                            | `postgres`                     |
+| `db_password`           | Supabase DB password                     | `xxxxx`                        |
+| `internal_crew_api_key` | Internal Crew API Key                    | `xxxxx`                        |
+| `openai_api_key`        | OpenAI API Key                           | `xxxxx`                        |
+| `bright_data_api_key`   | Bright Data API Key                      | `xxxxx`                        |
+| `bright_data_zone`      | Bright Data Zone                         | `xxxxx`                        |
+| `amplify_repository`    | GitHub Repository URL with frontend code | `https://github.com/user/repo` |
+| `amplify_github_token`  | GitHub Personal Access Token             | `ghp_xxxxx`                    |
+| `amplify_branch_name`   | GitHub Branch name to deploy             | `main`                         |
+
 
 ### Optional Variables
-
-You can customize:
 - Instance types
 - Auto Scaling Group sizes
 - Health check paths
 - Path patterns for routing
 - VPC CIDR and availability zones
+- Cognito Attributes
 
 See `variables.tf` for all available options.
 
@@ -163,36 +171,25 @@ terraform output cognito_hosted_ui_url
 ### Frontend Integration
 
 The Amplify app automatically receives Cognito configuration as environment variables:
-- `COGNITO_USER_POOL_ID`
-- `COGNITO_CLIENT_ID`
-- `COGNITO_IDENTITY_POOL_ID`
-- `COGNITO_REGION`
+
+- `NEXT_PUBLIC_COGNITO_USER_POOL_ID`
+- `NEXT_PUBLIC_COGNITO_CLIENT_ID`
+- `NEXT_PUBLIC_COGNITO_DOMAIN`
 
 ### Backend Integration
 
-Your microservices can validate Cognito JWT tokens. The User Pool endpoint is available via:
+Your microservices can validate Cognito JWT tokens.
+The EC2 launch template automatically receives Cognito configuration as environment variables:
 
-```bash
-terraform output cognito_user_pool_endpoint
-```
+- `COGNITO_REGION`
+- `COGNITO_APP_CLIENT_ID`
+- `COGNITO_USER_POOL_ID`
 
 ### Common Cognito Customizations
 
-**Enable MFA:**
+**To Enable MFA:**
 ```hcl
 cognito_mfa_configuration = "ON"  # or "OPTIONAL"
-```
-
-**Add custom user attributes:**
-```hcl
-cognito_custom_attributes = [
-  {
-    name     = "company"
-    type     = "String"
-    mutable  = true
-    required = false
-  }
-]
 ```
 
 **Configure OAuth URLs:**
@@ -212,14 +209,14 @@ cognito_logout_urls = [
 ### ECR Repositories
 
 Two ECR repositories are created automatically:
-- `{project-name}-microservice-1`
-- `{project-name}-microservice-2`
+- `{project-name}-crud-service`
+- `{project-name}-crew-service`
 
 ### Getting ECR Repository URLs
 
 ```bash
-terraform output ecr_repository_url_microservice_1
-terraform output ecr_repository_url_microservice_2
+terraform output ecr_repository_url_crud_service
+terraform output ecr_repository_url_crew_service
 ```
 
 ### Building and Pushing Images
@@ -227,28 +224,8 @@ terraform output ecr_repository_url_microservice_2
 
 ### Using ECR Images in Auto Scaling Groups
 
-Update your launch template to use ECR images in your user data:
+EC2 launch templates are automatically configured to pull and use ECR images in user data.
 
-```bash
-#!/bin/bash
-# Login to ECR
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin {account-id}.dkr.ecr.us-east-1.amazonaws.com
-
-# Pull and run container
-docker pull {ecr-repository-url}:latest
-docker run -d -p 8080:8080 {ecr-repository-url}:latest
-```
-
-Or in your `terraform.tfvars`:
-
-```hcl
-microservice_1_user_data = <<-EOF
-#!/bin/bash
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com
-docker pull ${aws_ecr_repository.microservice_1.repository_url}:latest
-docker run -d -p 8080:8080 ${aws_ecr_repository.microservice_1.repository_url}:latest
-EOF
-```
 
 ### ECR Lifecycle Policy
 
@@ -310,79 +287,24 @@ For a complete DR setup:
    terraform apply -var-file="terraform.dr.tfvars"
    ```
 
-## GitHub Actions Deployment
-
-### Setup
-
-1. **Add GitHub Secrets:**
-   Navigate to your repository Settings → Secrets and add:
-   
-   - `AWS_ACCESS_KEY_ID`
-   - `AWS_SECRET_ACCESS_KEY`
-
-   - `COGNITO_APP_CLIENT_ID`
-   - `COGNITO_REGION`
-   - `COGNITO_REGION`
-   - `COGNITO_USER_POOL_ID`
-   - `CREW_SERVICE_URL`
-   - `DB_HOST`
-   - `DB_NAME`
-   - `DB_PASSWORD`
-   - `DB_PORT`
-   - `DB_USER`
-   - `INTERNAL_CREW_API_KEY`
-   - `S3_BUCKET_NAME`
-   - `S3_REGION`
-
-   - `PROJECT_NAME`
-   - `MICROSERVICE_1_AMI`
-   - `MICROSERVICE_1_INSTANCE_TYPE`
-   - `MICROSERVICE_1_MIN_SIZE`
-   - `MICROSERVICE_1_MAX_SIZE`
-   - `MICROSERVICE_1_DESIRED_CAPACITY`
-   - `MICROSERVICE_2_AMI`
-   - `MICROSERVICE_2_INSTANCE_TYPE`
-   - `MICROSERVICE_2_MIN_SIZE`
-   - `MICROSERVICE_2_MAX_SIZE`
-   - `MICROSERVICE_2_DESIRED_CAPACITY`
-   - `AMPLIFY_REPOSITORY`
-   - `AMPLIFY_GITHUB_TOKEN`
-   - `AMPLIFY_BRANCH_NAME`
-
-2. **Manual Deployment:**
-   - Go to Actions tab
-   - Select "Deploy Infrastructure"
-   - Click "Run workflow"
-   - Choose:
-     - Environment (prod/dr/staging)
-     - AWS Region
-     - Action (plan/apply/destroy)
-
-### Workflow Features
-
-- ✅ Manual trigger only (workflow_dispatch)
-- ✅ Choose environment and region dynamically
-- ✅ Plan before apply
-- ✅ Output infrastructure details
-- ✅ Secure credential handling
-
 ## Outputs
 
-After deployment, Terraform outputs:
+After deployment, important Terraform outputs include but are not limited to:
 
-- `alb_dns_name` - Load balancer DNS for backend API
-- `amplify_branch_url` - Frontend application URL
+- `vpc_id` - VPC identifier
+- `public_subnet_ids` - IDs of public subnets
+- `amplify_custom_domain_url` - Frontend application URL
+- `amplify_domain_status` - Status of the custom domain integration
 - `cognito_user_pool_id` - Cognito User Pool ID for authentication
 - `cognito_client_id` - Cognito App Client ID
-- `cognito_identity_pool_id` - Cognito Identity Pool ID
-- `cognito_hosted_ui_url` - Cognito Hosted UI URL
-- `ecr_repository_url_microservice_1` - ECR repository URL for MS1
-- `ecr_repository_url_microservice_2` - ECR repository URL for MS2
-- `vpc_id` - VPC identifier
-- `microservice_1_asg_name` - Auto Scaling Group for MS1
-- `microservice_2_asg_name` - Auto Scaling Group for MS2
+- `cognito_domain` - Cognito User Pool domain
+- `ecr_repository_url_crud_service` - ECR repository URL for crud service
+- `ecr_repository_url_crew_service` - ECR repository URL for crew service
+- `crud_service_asg_name` - Auto Scaling Group for crud service
+- `crew_service_asg_name` - Auto Scaling Group for crew service
+- `bucket_name` - S3 Bucket name
 
-Access outputs:
+To access all outputs:
 ```bash
 terraform output
 ```
@@ -398,12 +320,12 @@ All resources are tagged with:
 1. **Never commit sensitive values:**
    - Add `terraform.tfvars` to `.gitignore`
    - Use GitHub Secrets for CI/CD
-   - Consider AWS Secrets Manager for production
+   - Store secrets in AWS Secrets Manager for production
 
-2. **Network Security:**
-   - Microservices are in private subnets
+2. **Network Security (production):**
+   - Place Microservices in private subnets instead of public subsets
    - Only ALB is publicly accessible
-   - Security groups follow least-privilege
+   - Ensure Security Groups follow least-privilege
 
 3. **IAM Permissions:**
    - EC2 instances use IAM roles
@@ -428,31 +350,11 @@ resource "aws_nat_gateway" "main" {
 }
 ```
 
-### Adding HTTPS Support
-
-1. Request ACM certificate
-2. Add HTTPS listener to ALB:
-
-```hcl
-resource "aws_lb_listener" "https" {
-  load_balancer_arn = aws_lb.main.arn
-  port              = "443"
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = var.acm_certificate_arn
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.microservice_1.arn
-  }
-}
-```
-
 ### Adding Auto Scaling Policies
 
 ```hcl
 resource "aws_autoscaling_policy" "cpu_scaling" {
-  name                   = "${var.project_name}-cpu-scaling"
+  name                   = lower("${var.project_name}-cpu-scaling")
   autoscaling_group_name = aws_autoscaling_group.microservice_1.name
   policy_type            = "TargetTrackingScaling"
 
@@ -469,16 +371,12 @@ resource "aws_autoscaling_policy" "cpu_scaling" {
 
 ### Common Issues
 
-1. **AMI not available in region:**
-   - Ensure AMI IDs are region-specific
-   - Copy AMIs to target region if needed
-
-2. **Amplify deployment fails:**
+1. **Amplify deployment fails:**
    - Verify GitHub token has correct permissions
    - Check repository URL format
    - Ensure build spec matches your frontend framework
 
-3. **Health checks failing:**
+2. **Health checks failing:**
    - Verify health check paths in your application
    - Check security group rules
    - Review application logs in CloudWatch
@@ -493,9 +391,6 @@ terraform destroy
 
 **Warning:** This will delete all infrastructure. Ensure you have backups!
 
-## License
-
-MIT
 
 ## Support
 
