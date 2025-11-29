@@ -68,7 +68,6 @@ cognito_refresh_token_validity     = 30  # days
 cognito_access_token_validity      = 1   # hours
 cognito_id_token_validity          = 1   # hours
 cognito_enable_oauth               = true
-cognito_allow_unauthenticated      = false
 
 
 # ECR Configuration

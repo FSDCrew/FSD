@@ -347,23 +347,6 @@ variable "cognito_custom_domain" {
   default     = ""
 }
 
-variable "cognito_allow_unauthenticated" {
-  description = "Allow unauthenticated identities in identity pool"
-  type        = bool
-  default     = false
-}
-
-variable "cognito_custom_attributes" {
-  description = "Custom user attributes for Cognito"
-  type = list(object({
-    name     = string
-    type     = string
-    mutable  = bool
-    required = bool
-  }))
-  default = []
-}
-
 variable "cognito_read_attributes" {
   description = "List of attributes the app client can read"
   type        = list(string)

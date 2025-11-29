@@ -123,17 +123,6 @@ resource "aws_cognito_user_pool" "main" {
   # Username attributes
   username_attributes = var.cognito_username_attributes
 
-  # Schema attributes
-  dynamic "schema" {
-    for_each = var.cognito_custom_attributes
-    content {
-      name                = schema.value.name
-      attribute_data_type = schema.value.type
-      mutable             = schema.value.mutable
-      required            = schema.value.required
-    }
-  }
-
   tags = {
     Name        = "${var.project_name}-user-pool"
     Environment = var.environment
