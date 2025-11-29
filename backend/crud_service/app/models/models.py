@@ -77,9 +77,14 @@ class ArtifactRead(ArtifactBase):
 class ArtifactServerCreate(ArtifactBase):
     file_content_base64: str
 
+class TaskInfo(BaseModel):
+    key: str
+    name: str
+    task_description: str
+
 class CrewRunMetadata(BaseModel):
     inputs: dict[str, Any]
-    task_nodes: list[dict[str, Any]] | None = None
+    task_snapshot: list[TaskInfo] | None = None
 
 class CrewRunBase(BaseModel):
     output: dict[str, Any] | None = None

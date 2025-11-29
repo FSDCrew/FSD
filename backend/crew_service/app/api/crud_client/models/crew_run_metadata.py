@@ -10,9 +10,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.crew_run_metadata_inputs import CrewRunMetadataInputs
-    from ..models.crew_run_metadata_task_nodes_type_0_item import (
-        CrewRunMetadataTaskNodesType0Item,
-    )
+    from ..models.task_info import TaskInfo
 
 
 T = TypeVar("T", bound="CrewRunMetadata")
@@ -23,27 +21,27 @@ class CrewRunMetadata:
     """
     Attributes:
         inputs (CrewRunMetadataInputs):
-        task_nodes (list[CrewRunMetadataTaskNodesType0Item] | None | Unset):
+        task_snapshot (list[TaskInfo] | None | Unset):
     """
 
     inputs: CrewRunMetadataInputs
-    task_nodes: list[CrewRunMetadataTaskNodesType0Item] | None | Unset = UNSET
+    task_snapshot: list[TaskInfo] | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         inputs = self.inputs.to_dict()
 
-        task_nodes: list[dict[str, Any]] | None | Unset
-        if isinstance(self.task_nodes, Unset):
-            task_nodes = UNSET
-        elif isinstance(self.task_nodes, list):
-            task_nodes = []
-            for task_nodes_type_0_item_data in self.task_nodes:
-                task_nodes_type_0_item = task_nodes_type_0_item_data.to_dict()
-                task_nodes.append(task_nodes_type_0_item)
+        task_snapshot: list[dict[str, Any]] | None | Unset
+        if isinstance(self.task_snapshot, Unset):
+            task_snapshot = UNSET
+        elif isinstance(self.task_snapshot, list):
+            task_snapshot = []
+            for task_snapshot_type_0_item_data in self.task_snapshot:
+                task_snapshot_type_0_item = task_snapshot_type_0_item_data.to_dict()
+                task_snapshot.append(task_snapshot_type_0_item)
 
         else:
-            task_nodes = self.task_nodes
+            task_snapshot = self.task_snapshot
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -52,24 +50,20 @@ class CrewRunMetadata:
                 "inputs": inputs,
             }
         )
-        if task_nodes is not UNSET:
-            field_dict["task_nodes"] = task_nodes
+        if task_snapshot is not UNSET:
+            field_dict["task_snapshot"] = task_snapshot
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.crew_run_metadata_inputs import CrewRunMetadataInputs
-        from ..models.crew_run_metadata_task_nodes_type_0_item import (
-            CrewRunMetadataTaskNodesType0Item,
-        )
+        from ..models.task_info import TaskInfo
 
         d = dict(src_dict)
         inputs = CrewRunMetadataInputs.from_dict(d.pop("inputs"))
 
-        def _parse_task_nodes(
-            data: object,
-        ) -> list[CrewRunMetadataTaskNodesType0Item] | None | Unset:
+        def _parse_task_snapshot(data: object) -> list[TaskInfo] | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -77,27 +71,25 @@ class CrewRunMetadata:
             try:
                 if not isinstance(data, list):
                     raise TypeError()
-                task_nodes_type_0 = []
-                _task_nodes_type_0 = data
-                for task_nodes_type_0_item_data in _task_nodes_type_0:
-                    task_nodes_type_0_item = (
-                        CrewRunMetadataTaskNodesType0Item.from_dict(
-                            task_nodes_type_0_item_data
-                        )
+                task_snapshot_type_0 = []
+                _task_snapshot_type_0 = data
+                for task_snapshot_type_0_item_data in _task_snapshot_type_0:
+                    task_snapshot_type_0_item = TaskInfo.from_dict(
+                        task_snapshot_type_0_item_data
                     )
 
-                    task_nodes_type_0.append(task_nodes_type_0_item)
+                    task_snapshot_type_0.append(task_snapshot_type_0_item)
 
-                return task_nodes_type_0
+                return task_snapshot_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(list[CrewRunMetadataTaskNodesType0Item] | None | Unset, data)
+            return cast(list[TaskInfo] | None | Unset, data)
 
-        task_nodes = _parse_task_nodes(d.pop("task_nodes", UNSET))
+        task_snapshot = _parse_task_snapshot(d.pop("task_snapshot", UNSET))
 
         crew_run_metadata = cls(
             inputs=inputs,
-            task_nodes=task_nodes,
+            task_snapshot=task_snapshot,
         )
 
         crew_run_metadata.additional_properties = d

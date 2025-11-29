@@ -16,6 +16,14 @@ class CrewRunCreateRequest(BaseModel):
     inputs: Optional[Dict[str, Any]] = None
     
     model_config = ConfigDict(extra="ignore")
+    
+    
+class TaskInfo(BaseModel):
+    """Task information exposed to the frontend."""
+    key: str
+    name: str
+    task_description: str
+
 
 
 # ============================================================================
@@ -156,6 +164,17 @@ class FlowDependencyGraph:
     def register_task_read(self, task_key: str, read_spec: Dict[str, Any]) -> None:
         """Record that a task reads a particular field."""
         field_name = read_spec["field"]
+        
+        field_spec = self.state_field_specs.get(field_name)
+        if field_spec:
+            field_kind = field_spec.get("field_kind")
+            cardinality = read_spec.get("cardinality", "").strip().lower()
+            
+            if field_kind == "context" and cardinality == "optional":
+                raise ValueError(
+                    f"Task '{task_key}' cannot mark context field '{field_name}' as optional. "
+                    "Context fields must be required inputs."
+                )
 
         self.task_read_specs.setdefault(task_key, []).append(read_spec)
         self.field_readers.setdefault(field_name, []).append(task_key)

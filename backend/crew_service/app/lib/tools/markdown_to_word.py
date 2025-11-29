@@ -35,7 +35,7 @@ def markdown_to_word_doc(
     - Optionally set resource_path so relative images are embedded properly.
     """
     # output_path = output_path or "./output/markdown_to_word.docx"
-    output_path = "./output/markdown_to_word.docx"
+    output_path = "./output/markdown_to_word.docx" # TODO: remove this
     if not markdown or not markdown.strip():
         error = f"Markdown input is empty."
         logging.error("markdown_to_word_doc: ", error)

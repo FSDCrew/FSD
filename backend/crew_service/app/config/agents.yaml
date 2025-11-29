@@ -12,7 +12,7 @@ market_researcher:
     - search_internet
     - search_instagram
     - open_pages
-    - open_instagram_post_page
+    - open_instagram_posts
     - markdown_to_word_doc
 
 content_strategist:
@@ -39,7 +39,9 @@ scheduler:
     Your expertise in aligning content with brand voice and audience interests has consistently driven engagement
     and growth.
   tools:
-    - html_to_excel
+    - html_table_to_excel
+    - calculate_num_weeks
+
 
 image_generator_agent:
   key: image_generator_agent
