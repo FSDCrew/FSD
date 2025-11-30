@@ -20,14 +20,7 @@ async def get_pre_defined_tasks() -> List[TaskInfo]:
     """Return the full pre-defined task definitions sourced from tasks.yaml."""
     tasks: List[TaskInfo] = []
 
-    for task_key, task_config in tasks_config.items():
-        if not isinstance(task_config, dict):
-            continue
-
-        task_definition = deepcopy(task_config)
-        task_definition.setdefault("key", task_key)
-        task_definition.setdefault("name", "")
-        task_definition.setdefault("task_description", "")
-        tasks.append(TaskInfo(**task_definition))
+    for task_config in tasks_config.values():
+        tasks.append(TaskInfo.model_validate(task_config))
 
     return tasks

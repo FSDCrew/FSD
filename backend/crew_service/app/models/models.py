@@ -45,7 +45,6 @@ class TaskInfo(BaseModel):
     output_file: str
     reads: List[TaskFieldRead]
     writes: List[TaskFieldWrite]
-    crew_inputs: Optional[str] = None
 
     model_config = ConfigDict(extra="allow")
 
