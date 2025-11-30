@@ -25,6 +25,9 @@ state:
     orshot_schema:
       type: list[OrshotSchemaField]
       field_kind: context
+    image_assets:
+      type: list[string]
+      field_kind: data
 
     # --- Dynamic Data Fields (produced or provided depending on workflow) ---
     discovery_datasets:
@@ -32,15 +35,18 @@ state:
       field_kind: data
 
     marketing_research:
-      type: MarketingResearch
+      # type: MarketingResearch
+      type: string
       field_kind: data
 
     content_strategy:
-      type: ContentStrategy
+      # type: ContentStrategy
+      type: string
       field_kind: data
 
     social_media_schedule:
-      type: SocialMediaSchedule
+      # type: SocialMediaSchedule
+      type: string
       field_kind: data
 
     image_assets:
@@ -71,6 +77,9 @@ tasks:
     agent: market_researcher
     output_file: output/preparing_marketing_campaign/market_research.md
     name: Marketing Research Task
+    task_description: >
+      Conduct theme-aligned market research using required web-scraping and search tools to identify competitors, trends, and relevant Instagram content, 
+      then produces a structured report.
     description: >
       <important_rules>
         1. You must not make up any information. Only include information that you are confident about.
@@ -92,7 +101,7 @@ tasks:
       </context>
 
       <tools>
-        - name: open_instagram_post_page
+        - name: open_instagram_posts
           description: Opens and extracts poster's username, caption and image URLs from one or more Instagram post pages.
           input:
             urls: string | list[string]
@@ -127,7 +136,6 @@ tasks:
           description: Convert Markdown to a Word (.docx) file with GitHub-flavored Markdown features preserved. Automatically removes common leading indentation so pasted/triple-quoted Markdown isn’t treated as a code block.
           input:
             markdown: string
-            output_path: string
           examples:
             - markdown: "# Title\n\n- [x] done\n- [ ] todo\n"
             - markdown: |
@@ -154,7 +162,7 @@ tasks:
           4. For any relevant topics related to the campaign theme, use the Search Instagram tool to gather data on recent posts related to the campaign theme
           5. Analyze the data collected to identify patterns in content types, engagement tactics, visual styles, and posting frequencies that align with the brand and appeal to the target audience.
           6. You MUST generate a comprehensive and structured report summarizing your findings, including actionable insights, recommendations and references for the upcoming campaign.
-          7. You MUST use the Markdown to Word Doc tool to convert the report into a Word (.docx) file. Don't include output_path in the input.
+          7. You MUST use the Markdown to Word Doc tool to convert the report into a Word (.docx) file.
       </your_task>
 
       <additional_instructions>
@@ -197,6 +205,8 @@ tasks:
     agent: content_strategist
     output_file: output/preparing_marketing_campaign/content_strategy.md
     name: Content Strategy Task
+    task_description: >
+      Generate a high-level Instagram content strategy defining campaign phases, tone, objectives, messages, and recommended content types.
     crew_inputs: theme, BRAND_DESCRIPTION, sample
     description: >
       <important_rules>
@@ -255,6 +265,8 @@ tasks:
     agent: scheduler
     output_file: output/preparing_marketing_campaign/social_media_schedule.md
     name: Social Media Schedule Task
+    task_description: >
+      Build a weekly Instagram posting schedule based on content strategy and research, producing a structured excel file for the campaign.
     description: >
       <important_rules>
         1. You must not make up any information. Only include information that you are confident about.
@@ -281,6 +293,96 @@ tasks:
           </content_strategy>
       </context>
 
+      <sample_schedule>
+        <table border="1" cellpadding="6" cellspacing="0">
+          <thead>
+            <tr>
+              <th>Week</th>
+              <th>Posting Cadence</th>
+              <th>Post Type</th>
+              <th>Date</th>
+              <th>Theme/Concept</th>
+              <th>Objective</th>
+              <th>Description</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Week 1 (3 rows = 2 posts + 1 story) -->
+            <tr>
+              <td rowspan="3">1</td>
+              <td rowspan="3">2 posts, 1 story; Post times 11am, 6pm</td>
+              <td>Post</td>
+              <td>01-Nov-2025</td>
+              <td>Welcome to Semester &amp; Campus Life</td>
+              <td>Kickstart engagement; introduce semester vibe</td>
+              <td>Vibrant shots of campus, student groups &amp; iconic spots</td>
+              <td>Canva templates ready</td>
+            </tr>
+            <tr>
+              <td>Post</td>
+              <td>03-Nov-2025</td>
+              <td>Campus Life Highlights</td>
+              <td>Showcase energetic environment and increase relatability</td>
+              <td>Student life &amp; campus hotspots reel</td>
+              <td>Include trending audio</td>
+            </tr>
+            <tr>
+              <td>Story</td>
+              <td>04-Nov-2025</td>
+              <td>Excitement Polls</td>
+              <td>Gather insights on what students want content about</td>
+              <td>Poll: “What are you most excited for?”</td>
+              <td>Campus GIF stickers</td>
+            </tr>
+
+            <!-- Week 2 (5 rows = 3 posts + 2 stories) -->
+            <tr>
+              <td rowspan="5">2</td>
+              <td rowspan="5">3 posts, 2 stories; Post times 12pm, 7pm</td>
+              <td>Post</td>
+              <td>07-Nov-2025</td>
+              <td>Signature Events Preview</td>
+              <td>Build excitement for upcoming campus festivals</td>
+              <td>Teasers of festival themes &amp; prep visuals</td>
+              <td>Add countdown sticker</td>
+            </tr>
+            <tr>
+              <td>Post</td>
+              <td>09-Nov-2025</td>
+              <td>Festival Hype</td>
+              <td>Boost anticipation and awareness of main highlights</td>
+              <td>Hype poster for main festival highlight</td>
+              <td>Include teaser CTA</td>
+            </tr>
+            <tr>
+              <td>Post</td>
+              <td>11-Nov-2025</td>
+              <td>Throwback Inspiration</td>
+              <td>Use nostalgia and credibility to encourage RSVPs</td>
+              <td>Trailer/snippets from past editions</td>
+              <td>Encourage RSVPs</td>
+            </tr>
+            <tr>
+              <td>Story</td>
+              <td>08-Nov-2025</td>
+              <td>Behind the Scenes</td>
+              <td>Provide insider access to drive engagement</td>
+              <td>Behind-the-scenes look</td>
+              <td>Tag organising committee</td>
+            </tr>
+            <tr>
+              <td>Story</td>
+              <td>10-Nov-2025</td>
+              <td>Event Voices</td>
+              <td>Increase participation by spotlighting student opinions</td>
+              <td>Quick vox pops on favourite past events!</td>
+              <td>Include Swipe-up link</td>
+            </tr>
+          </tbody>
+        </table>
+      </sample_schedule>
+
       <table_format_requirements>
         1. The HTML table you produce MUST be fully valid and complete (no missing tags).
         2. For each week:
@@ -288,56 +390,59 @@ tasks:
             - All subsequent rows for that week must NOT repeat those two columns.
         3. Count the number of posts/stories you generate in that week, DOUBLE-CHECK this count, and set the rowspan attribute to this exact number 
           (e.g., if there are 5 posts/stories, use rowspan="5"). Verify that the rowspan value exactly matches the number of consecutive rows for that week.
-        4. Every row must contain exactly 8 cells (except those covered by rowspan in cols 1–2):
-            <td>Post Type</td>
-            <td>Date</td>
-            <td>Theme/Concept</td>
-            <td>Objective</td>
-            <td>Description</td>
-            <td>Notes</td>
+        4. Every row must contain exactly 8 cells (except those covered by rowspan in cols 1–2): 
+          - The first row of each week has 8 cells (including Week and Posting Cadence)
+          - When Week and Posting Cadence use rowspan, subsequent rows have 6 <td> elements (Post Type, Date, Theme/Concept, Objective, Description, Notes)
         5. The table MUST match the structure of the sample schedule shown in <sample_schedule>.
-        6. The HTML must be compatible with the html_to_excel tool (no nested tables, no missing <tr>, no invalid spans).
+        6. The HTML must be compatible with the html_table_to_excel tool (no nested tables, no missing <tr>, no invalid spans).
       </table_format_requirements>
 
       <tools>
-        - name: html_to_excel
+        - name: html_table_to_excel
           description: Converts an HTML table string into an Excel (.xlsx) file with row/col spans preserved as merged cells.
           input:
             html_str: string
           examples:
             - html_str: "<table><tr><td>Hello</td><td>World</td></tr></table>"
+        - name: calculate_num_weeks
+          description: Calculates the number of weeks between a start date and an end date (inclusive, rounded up). Supports multiple date formats including ISO (YYYY-MM-DD), DD-MMM-YYYY, DD/MM/YYYY, and DD-MM-YYYY.
+          input:
+            start_date: string
+            end_date: string
+          examples:
+            - start_date: "01-Nov-2024", end_date: "30-Nov-2024"
+            - start_date: "2024-01-01", end_date: "2024-01-07"
+            - start_date: "01/11/2024", end_date: "30/11/2024"
       </tools>
 
       <tools_usage_rules>
-        1. You MUST use the HTML to Excel tool to convert the HTML table string into an Excel file.
-        2. Do NOT provide an output_path.
-        3. The HTML passed to the tool MUST be complete, valid, and structurally correct.
+        1. You MUST use the HTML Table to Excel tool to convert the HTML table string into an Excel file.
+        2. The HTML passed to the tool MUST be complete, valid, and structurally correct.
+        3. You MUST use the Calculate Number of Weeks tool to determine the total number of weeks in the campaign.
       </tools_usage_rules>
 
       <your_task>
-        You must generate a complete weekly social media posting schedule covering the entire period from {start_date} to {end_date}.
+        You must generate a complete weekly social media posting schedule covering the entire
+        period from {start_date} to {end_date}.
 
         Required steps:
-          1. Determine the total number of weeks in the campaign.
+          1. Determine the total number of weeks in the campaign using the calculate_num_weeks tool.
           2. For each week, determine the number of posts and stories based on the content strategy.
           3. For every post/story:
               - Determine Theme/Concept grounded in the content strategy.
-              - Determine exact date.
-              - Generate Objective, Key Messages, and a detailed Description (used for copy and visual design).
+              - Determine the exact date.
+              - Generate Objective and a detailed Description.
               - Generate Notes (tags, CTA, stickers, etc.).
           4. Identify the weekly posting cadence and place it in the second column.
-          5. Construct the final HTML table following the sample schedule format EXACTLY.
-          6. Validate:
-              - All <tr> rows exist.
-              - All <td> columns are present in every row.
-              - All rowspan values are exactly equal to the number of rows they span.
-              - No malformed HTML is produced.
-          7. Pass the final HTML table string into the html_to_excel tool.
+          5. Construct the final HTML table following the sample schedule format exactly.
+          6. Ensure the final HTML table fully adheres to all constraints listed in 
+            <table_format_requirements>.
+          7. Pass the final HTML table string into the html_table_to_excel tool.
       </your_task>
 
-      expected_output: >
-        A properly structured HTML table string that strictly follows the sample schedule format,
-        converted into an Excel file using the html_to_excel tool.
+    expected_output: >
+      A properly structured HTML table string that strictly follows the sample schedule format,
+      converted into an Excel file using the html_table_to_excel tool.
   
   image_generator:
     reads:
@@ -356,6 +461,8 @@ tasks:
     agent: image_generator_agent
     output_file: output/preparing_marketing_campaign/generated_image_assets.txt
     name: Image Generation Task
+    task_description: >
+      Create images used to create orshot renders.
     description: >
       <important_rules>
         1. You must not make up any information. Only include information that you are confident about.
@@ -412,6 +519,8 @@ tasks:
     agent: orshot_template_mapper
     output_file: output/preparing_marketing_campaign/orshot_render.png
     name: Orshot Render Task
+    task_description: >
+      Render an instagram post or story using the Orshot.
     description: >
       <important_rules>
         1. **DATA INTEGRITY:** Do not make up information. Extract facts strictly from the <context>.

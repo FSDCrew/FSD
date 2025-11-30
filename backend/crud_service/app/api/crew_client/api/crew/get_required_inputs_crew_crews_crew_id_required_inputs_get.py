@@ -7,40 +7,28 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
-from ...models.task_create import TaskCreate
-from ...models.task_read import TaskRead
 from ...types import Response
 
 
 def _get_kwargs(
     crew_id: UUID,
-    *,
-    body: TaskCreate,
 ) -> dict[str, Any]:
-    headers: dict[str, Any] = {}
-
     _kwargs: dict[str, Any] = {
-        "method": "post",
-        "url": "/task/{crew_id}".format(
+        "method": "get",
+        "url": "/crew/crews/{crew_id}/required-inputs".format(
             crew_id=crew_id,
         ),
     }
 
-    _kwargs["json"] = body.to_dict()
-
-    headers["Content-Type"] = "application/json"
-
-    _kwargs["headers"] = headers
     return _kwargs
 
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> HTTPValidationError | TaskRead | None:
-    if response.status_code == 201:
-        response_201 = TaskRead.from_dict(response.json())
-
-        return response_201
+) -> Any | HTTPValidationError | None:
+    if response.status_code == 200:
+        response_200 = response.json()
+        return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
@@ -55,7 +43,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[HTTPValidationError | TaskRead]:
+) -> Response[Any | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -68,27 +56,24 @@ def sync_detailed(
     crew_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: TaskCreate,
-) -> Response[HTTPValidationError | TaskRead]:
-    """Create Task
+) -> Response[Any | HTTPValidationError]:
+    """Get Required Inputs
 
-     Create a new task.
+     Get required inputs for a crew based on its tasks and flow dependencies.
 
     Args:
-        crew_id (UUID): Crew ID to associate the task with
-        body (TaskCreate):
+        crew_id (UUID):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | TaskRead]
+        Response[Any | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
         crew_id=crew_id,
-        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -102,28 +87,25 @@ def sync(
     crew_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: TaskCreate,
-) -> HTTPValidationError | TaskRead | None:
-    """Create Task
+) -> Any | HTTPValidationError | None:
+    """Get Required Inputs
 
-     Create a new task.
+     Get required inputs for a crew based on its tasks and flow dependencies.
 
     Args:
-        crew_id (UUID): Crew ID to associate the task with
-        body (TaskCreate):
+        crew_id (UUID):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | TaskRead
+        Any | HTTPValidationError
     """
 
     return sync_detailed(
         crew_id=crew_id,
         client=client,
-        body=body,
     ).parsed
 
 
@@ -131,27 +113,24 @@ async def asyncio_detailed(
     crew_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: TaskCreate,
-) -> Response[HTTPValidationError | TaskRead]:
-    """Create Task
+) -> Response[Any | HTTPValidationError]:
+    """Get Required Inputs
 
-     Create a new task.
+     Get required inputs for a crew based on its tasks and flow dependencies.
 
     Args:
-        crew_id (UUID): Crew ID to associate the task with
-        body (TaskCreate):
+        crew_id (UUID):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | TaskRead]
+        Response[Any | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
         crew_id=crew_id,
-        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -163,28 +142,25 @@ async def asyncio(
     crew_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: TaskCreate,
-) -> HTTPValidationError | TaskRead | None:
-    """Create Task
+) -> Any | HTTPValidationError | None:
+    """Get Required Inputs
 
-     Create a new task.
+     Get required inputs for a crew based on its tasks and flow dependencies.
 
     Args:
-        crew_id (UUID): Crew ID to associate the task with
-        body (TaskCreate):
+        crew_id (UUID):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | TaskRead
+        Any | HTTPValidationError
     """
 
     return (
         await asyncio_detailed(
             crew_id=crew_id,
             client=client,
-            body=body,
         )
     ).parsed

@@ -1,6 +1,8 @@
+from typing import Dict, List
 from uuid import UUID
-from typing import Dict
+
 import httpx
+from fastapi import HTTPException
 
 from app.api.crud_client import AuthenticatedClient, errors
 from app.api.crud_client.api.internal import (
@@ -12,8 +14,11 @@ from app.api.crud_client.models.body_create_crew_run_internal_internal_crew_run_
 )
 from app.api.crud_client.models.crew_run_create import CrewRunCreate
 from app.api.crud_client.models.crew_run_metadata import CrewRunMetadata
-from app.api.crud_client.models.crew_run_metadata_inputs import CrewRunMetadataInputs
+from app.api.crud_client.models.crew_run_metadata_inputs import (
+    CrewRunMetadataInputs,
+)
 from app.api.crud_client.models.http_validation_error import HTTPValidationError
+from app.api.crud_client.models.task_read import TaskRead
 from app.models.models import CrewRun, CrewRunCreateRequest
 from app.services.flow.flow_service import FlowService
 from config import settings
@@ -33,8 +38,19 @@ class CrewService:
         )
         self.flow_service = flow_service
 
-    async def get_required_inputs(self, crew_id: UUID, user_token: str) -> Dict[str, str]:
-        """Get required inputs for a crew based on its tasks and flow dependencies."""
+    async def _get_crew_tasks(self, crew_id: UUID) -> List["TaskRead"]:
+        """
+        Fetch crew by ID and return its tasks.
+        
+        Args:
+            crew_id: UUID of the crew to fetch
+            
+        Returns:
+            List of TaskRead objects from the crew
+            
+        Raises:
+            ValueError: If crew is not found, has validation errors, or has no tasks
+        """
         try:
             crew_result = await get_crew_by_id_func.asyncio(
                 crew_id=crew_id,
@@ -54,10 +70,29 @@ class CrewService:
         if len(tasks) == 0:
             raise ValueError(f"Crew {crew_id} has no tasks")
         
+        return tasks
+
+    async def get_required_inputs(self, crew_id: UUID, user_token: str) -> Dict[str, str]:
+        """Get required inputs for a crew based on its tasks and flow dependencies."""
+        tasks = await self._get_crew_tasks(crew_id)
         return self.flow_service.get_required_inputs(tasks)
 
     async def kickoff_crew_run(self, crew_run_data: CrewRunCreateRequest, user_token: str):
         """Queue a crew run in CRUD service."""
+        # Validate input types before creating crew run
+        tasks = await self._get_crew_tasks(crew_run_data.crew_id)
+        if crew_run_data.inputs:
+            try:
+                self.flow_service.validate_inputs(
+                    inputs=crew_run_data.inputs,
+                    tasks=tasks,
+                )
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=400,
+                    detail=str(e)
+                ) from e
+        
         metadata = None
         if crew_run_data.inputs:
             metadata_inputs = CrewRunMetadataInputs()

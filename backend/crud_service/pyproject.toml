@@ -9,8 +9,11 @@ dependencies = [
     "boto3>=1.40.69",
     "fastapi[standard]>=0.121.0",
     "greenlet>=3.2.4",
+    "openapi-python-client>=0.27.1",
     "psycopg[binary]>=3.2.12",
     "pydantic-settings>=2.11.0",
     "python-jose[cryptography]>=3.5.0",
     "sqlalchemy>=2.0.44",
 ]
+[tool.setuptools.packages]
+find = { include = ["app", "app.*"] }

@@ -1,17 +1,16 @@
-from typing import Any, Dict, List, Tuple, Type, TYPE_CHECKING
+from typing import Any, Dict, List, Tuple, Type
 
-from pydantic import BaseModel
 from crewai.flow.flow import Flow
+from pydantic import BaseModel
 
+from app.api.crud_client.models.task_read import TaskRead
 from app.services.flow.flow_builder import (
     build_flow_dependency_graph,
     create_flow_from_tasks,
     infer_initial_inputs,
 )
-from config import tasks_config, agents_config
-
-if TYPE_CHECKING:
-    from app.api.crud_client.models.task_read import TaskRead
+from app.services.flow.flow_utils import validate_value_type
+from config import agents_config, tasks_config
 
 
 class FlowService:
@@ -78,4 +77,53 @@ class FlowService:
         """
         flow = flow_class()
         return flow.kickoff(inputs=inputs)
+    
+    def validate_inputs(self, inputs: Dict[str, Any], tasks: List["TaskRead"]) -> None:
+        """
+        Validate that input values match their expected types from the state schema
+        and that all required inputs are provided.
+        
+        Args:
+            inputs: Dictionary of input field names to values
+            tasks: List of TaskRead objects to build dependency graph from
+            
+        Raises:
+            ValueError: If any input type doesn't match the expected type, if required
+                       inputs are missing, or if required inputs are None
+        """
+        graph = build_flow_dependency_graph(tasks)
+        required_inputs = infer_initial_inputs(graph, tasks)
+        required_field_names = set(required_inputs["all"])
+        
+        if required_field_names:
+            provided_field_names = set(inputs.keys()) if inputs else set()
+            missing_fields = required_field_names - provided_field_names
+            if missing_fields:
+                raise ValueError(
+                    f"Missing required input fields: {sorted(missing_fields)}"
+                )
+        
+        for field_name, value in inputs.items():
+            field_spec = graph.state_field_specs.get(field_name)
+            if not field_spec:
+                raise ValueError(
+                    f"Unknown input field '{field_name}'. "
+                    f"Field must be defined in state.fields in tasks.yaml."
+                )
+            
+            expected_type_str = field_spec.get("type", "string")
+            
+            if value is None:
+                if field_name in required_field_names:
+                    raise ValueError(
+                        f"Required input field '{field_name}' cannot be None"
+                    )
+                continue
+            
+            try:
+                validate_value_type(value, expected_type_str, field_name)
+            except ValueError as e:
+                raise ValueError(
+                    f"Type validation failed for input field '{field_name}': {str(e)}"
+                ) from e
 
