@@ -25,9 +25,6 @@ state:
     orshot_schema:
       type: list[OrshotSchemaField]
       field_kind: context
-    image_assets:
-      type: list[string]
-      field_kind: data
 
     # --- Dynamic Data Fields (produced or provided depending on workflow) ---
     discovery_datasets:
