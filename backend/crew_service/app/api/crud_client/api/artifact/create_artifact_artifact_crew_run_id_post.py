@@ -9,15 +9,18 @@ from ...client import AuthenticatedClient, Client
 from ...models.artifact_read import ArtifactRead
 from ...models.artifact_server_create import ArtifactServerCreate
 from ...models.http_validation_error import HTTPValidationError
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     crew_run_id: UUID,
     *,
     body: ArtifactServerCreate,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
+    if not isinstance(x_internal_api_key, Unset):
+        headers["X-Internal-Api-Key"] = x_internal_api_key
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -69,13 +72,15 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: ArtifactServerCreate,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> Response[ArtifactRead | HTTPValidationError]:
     """Create Artifact
 
      Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
 
     Args:
-        crew_run_id (UUID): Crew Run ID to associate the artifact with
+        crew_run_id (UUID):
+        x_internal_api_key (None | str | Unset):
         body (ArtifactServerCreate):
 
     Raises:
@@ -89,6 +94,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         crew_run_id=crew_run_id,
         body=body,
+        x_internal_api_key=x_internal_api_key,
     )
 
     response = client.get_httpx_client().request(
@@ -103,13 +109,15 @@ def sync(
     *,
     client: AuthenticatedClient,
     body: ArtifactServerCreate,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> ArtifactRead | HTTPValidationError | None:
     """Create Artifact
 
      Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
 
     Args:
-        crew_run_id (UUID): Crew Run ID to associate the artifact with
+        crew_run_id (UUID):
+        x_internal_api_key (None | str | Unset):
         body (ArtifactServerCreate):
 
     Raises:
@@ -124,6 +132,7 @@ def sync(
         crew_run_id=crew_run_id,
         client=client,
         body=body,
+        x_internal_api_key=x_internal_api_key,
     ).parsed
 
 
@@ -132,13 +141,15 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     body: ArtifactServerCreate,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> Response[ArtifactRead | HTTPValidationError]:
     """Create Artifact
 
      Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
 
     Args:
-        crew_run_id (UUID): Crew Run ID to associate the artifact with
+        crew_run_id (UUID):
+        x_internal_api_key (None | str | Unset):
         body (ArtifactServerCreate):
 
     Raises:
@@ -152,6 +163,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         crew_run_id=crew_run_id,
         body=body,
+        x_internal_api_key=x_internal_api_key,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -164,13 +176,15 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     body: ArtifactServerCreate,
+    x_internal_api_key: None | str | Unset = UNSET,
 ) -> ArtifactRead | HTTPValidationError | None:
     """Create Artifact
 
      Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
 
     Args:
-        crew_run_id (UUID): Crew Run ID to associate the artifact with
+        crew_run_id (UUID):
+        x_internal_api_key (None | str | Unset):
         body (ArtifactServerCreate):
 
     Raises:
@@ -186,5 +200,6 @@ async def asyncio(
             crew_run_id=crew_run_id,
             client=client,
             body=body,
+            x_internal_api_key=x_internal_api_key,
         )
     ).parsed

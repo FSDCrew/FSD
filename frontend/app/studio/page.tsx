@@ -5,20 +5,26 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CrewRead, getAllCrewsCrewGet, syncUserUserSyncPost } from "@/lib/api/crud";
+import { CrewRead, getAllCrewsCrewGet, syncUserUserSyncPost, deleteCrewCrewCrewIdDelete } from "@/lib/api/crud";
 import { client } from "@/lib/api/crud/client.gen";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function StudioPage() {
   const router = useRouter();
   const { isAuthenticated, token } = useAuth();
   const queryClient = useQueryClient();
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [crewToDelete, setCrewToDelete] = useState<CrewRead | null>(null);
-  const [notification, setNotification] = useState<{
-    message: string;
-    type: "success" | "error" | "info";
-  } | null>(null);
   
   const { data: user } = useQuery({
     queryKey: ['user'],
@@ -43,46 +49,18 @@ export default function StudioPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (crewId: string) => {
-      const response = await fetch(`${client.getConfig().baseUrl}/crew/${crewId}`, {
-        method: 'DELETE',
-        credentials: 'include',
+      return await deleteCrewCrewCrewIdDelete({
+        path: { crew_id: crewId }
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete crew');
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['crews'] });
-      showNotification("Crew deleted successfully", "success");
-      setShowDeleteConfirm(false);
-      setCrewToDelete(null);
+      toast.success("Crew deleted successfully");
     },
     onError: (error: Error) => {
-      showNotification(`Failed to delete crew: ${error.message}`, "error");
+      toast.error(`Failed to delete crew: ${error.message}`);
     },
   });
-
-  const handleDeleteCard = (crew: CrewRead) => {
-    setCrewToDelete(crew);
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmDelete = () => {
-    if (crewToDelete) {
-      deleteMutation.mutate(crewToDelete.id);
-    }
-  };
-
-  const cancelDelete = () => {
-    setShowDeleteConfirm(false);
-    setCrewToDelete(null);
-  };
-
-  const showNotification = (message: string, type: "success" | "error" | "info" = "info") => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 4000);
-  };  
 
   return (
     <div className="min-h-screen bg-background">
@@ -113,32 +91,56 @@ export default function StudioPage() {
                 <h3 className="text-xl font-semibold text-card-foreground group-hover:text-primary transition-colors">
                   {crew.name}
                 </h3>
-                <Button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteCard(crew);
-                  }}
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-muted-foreground hover:text-destructive"
-                  title="Delete card"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M3 6h18" />
-                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                  </svg>
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground hover:text-destructive"
+                      title="Delete crew"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M3 6h18" />
+                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                      </svg>
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Crew</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete <strong>{crew.name}</strong>? This action cannot be undone and will permanently remove this crew and all its data.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteMutation.mutate(crew.id);
+                        }}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        disabled={deleteMutation.isPending}
+                      >
+                        {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
               <div className="mt-4 text-sm text-primary opacity-0 group-hover:opacity-100 transition-opacity">
                 Click to edit →
@@ -156,63 +158,6 @@ export default function StudioPage() {
             >
               + Create First Crew
             </button>
-          </div>
-        )}
-
-        {/* Notification */}
-        {/* Delete Confirmation Dialog */}
-        {showDeleteConfirm && crewToDelete && (
-          <div className="fixed inset-0 bg-background/10 backdrop-blur-sm flex items-center justify-center z-50">
-            {/* blur bg --> fixed inset-0 bg-background/10 backdrop-blur-sm flex items-center justify-center z-50
-            grey bg --> fixed inset-0 bg-black/50 flex items-center justify-center z-50 */}
-            <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
-              <h3 className="text-xl font-semibold mb-4">Delete Crew</h3>
-              <p className="text-muted-foreground mb-6">
-                Are you sure you want to delete <strong>{crewToDelete.name}</strong>? This action cannot be undone.
-              </p>
-              <div className="flex gap-3 justify-end">
-                <Button
-                  onClick={cancelDelete}
-                  variant="secondary"
-                  disabled={deleteMutation.isPending}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={confirmDelete}
-                  variant="destructive"
-                  disabled={deleteMutation.isPending}
-                >
-                  {deleteMutation.isPending ? "Deleting..." : "Delete"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Notification Toast */}
-        {notification && (
-          <div 
-            className={`fixed top-20 right-6 z-[60] px-6 py-4 rounded-lg shadow-lg border-2 animate-in slide-in-from-top-5 duration-300 ${
-              notification.type === "success" 
-                ? "bg-green-50 border-green-500 text-green-800" 
-                : notification.type === "error"
-                ? "bg-red-50 border-red-500 text-red-800"
-                : "bg-blue-50 border-blue-500 text-blue-800"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">
-                {notification.type === "success" ? "✅" : notification.type === "error" ? "❌" : "ℹ️"}
-              </span>
-              <span className="font-medium">{notification.message}</span>
-              <button 
-                onClick={() => setNotification(null)}
-                className="ml-4 text-xl hover:opacity-70"
-              >
-                ✕
-              </button>
-            </div>
           </div>
         )}
       </main>

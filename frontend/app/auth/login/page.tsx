@@ -27,7 +27,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-md p-8 bg-card border border-border rounded-lg shadow-lg">
-        <h1 className="text-3xl font-bold mb-6 text-center">Login to FSD Studio</h1>
+        <h1 className="text-3xl font-bold mb-6 text-center">Login to campAIgn</h1>
           <LoginButton />
           <p className="mt-4 text-center text-sm text-muted-foreground">
             Demo: Enter any email and password to login

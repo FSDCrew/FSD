@@ -7,26 +7,19 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
-from ...types import UNSET, Response, Unset
+from ...types import Response
 
 
 def _get_kwargs(
     artifact_id: UUID,
-    *,
-    x_internal_api_key: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
-    headers: dict[str, Any] = {}
-    if not isinstance(x_internal_api_key, Unset):
-        headers["X-Internal-Api-Key"] = x_internal_api_key
-
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/artifact/{artifact_id}".format(
+        "url": "/artifact/view/{artifact_id}".format(
             artifact_id=artifact_id,
         ),
     }
 
-    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -63,15 +56,14 @@ def sync_detailed(
     artifact_id: UUID,
     *,
     client: AuthenticatedClient,
-    x_internal_api_key: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | str]:
-    """Get Artifact
+    """Get Artifact For User
 
-     Retrieve an artifact by its ID.
+     Retrieve an artifact by its ID for a Frontend User.
+    Authenticated via JWT (Cognito/Auth0).
 
     Args:
         artifact_id (UUID): Artifact ID to retrieve
-        x_internal_api_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -83,7 +75,6 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         artifact_id=artifact_id,
-        x_internal_api_key=x_internal_api_key,
     )
 
     response = client.get_httpx_client().request(
@@ -97,15 +88,14 @@ def sync(
     artifact_id: UUID,
     *,
     client: AuthenticatedClient,
-    x_internal_api_key: None | str | Unset = UNSET,
 ) -> HTTPValidationError | str | None:
-    """Get Artifact
+    """Get Artifact For User
 
-     Retrieve an artifact by its ID.
+     Retrieve an artifact by its ID for a Frontend User.
+    Authenticated via JWT (Cognito/Auth0).
 
     Args:
         artifact_id (UUID): Artifact ID to retrieve
-        x_internal_api_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,7 +108,6 @@ def sync(
     return sync_detailed(
         artifact_id=artifact_id,
         client=client,
-        x_internal_api_key=x_internal_api_key,
     ).parsed
 
 
@@ -126,15 +115,14 @@ async def asyncio_detailed(
     artifact_id: UUID,
     *,
     client: AuthenticatedClient,
-    x_internal_api_key: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | str]:
-    """Get Artifact
+    """Get Artifact For User
 
-     Retrieve an artifact by its ID.
+     Retrieve an artifact by its ID for a Frontend User.
+    Authenticated via JWT (Cognito/Auth0).
 
     Args:
         artifact_id (UUID): Artifact ID to retrieve
-        x_internal_api_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -146,7 +134,6 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         artifact_id=artifact_id,
-        x_internal_api_key=x_internal_api_key,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -158,15 +145,14 @@ async def asyncio(
     artifact_id: UUID,
     *,
     client: AuthenticatedClient,
-    x_internal_api_key: None | str | Unset = UNSET,
 ) -> HTTPValidationError | str | None:
-    """Get Artifact
+    """Get Artifact For User
 
-     Retrieve an artifact by its ID.
+     Retrieve an artifact by its ID for a Frontend User.
+    Authenticated via JWT (Cognito/Auth0).
 
     Args:
         artifact_id (UUID): Artifact ID to retrieve
-        x_internal_api_key (None | str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -180,6 +166,5 @@ async def asyncio(
         await asyncio_detailed(
             artifact_id=artifact_id,
             client=client,
-            x_internal_api_key=x_internal_api_key,
         )
     ).parsed

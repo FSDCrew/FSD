@@ -2,6 +2,7 @@
 
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 export default function LogoutButton() {
     const { isAuthenticated, loading, logout } = useAuth();
@@ -11,9 +12,11 @@ export default function LogoutButton() {
       if (!isAuthenticated) return;
       try {
           await logout();
+          toast.success("Logged out successfully");
           router.push("/auth/login");
       } catch (err) {
-          console.log("Error signing out:", err);
+          toast.error("Error signing out. Please try again.");
+          console.error("Error signing out:", err);
       }
     }
 
