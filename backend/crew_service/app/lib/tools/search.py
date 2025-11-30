@@ -5,29 +5,41 @@ from crewai.tools import tool
 from crewai_tools.tools.brightdata_tool.brightdata_serp import BrightDataSearchTool
 from crewai_tools.tools.scrape_website_tool.scrape_website_tool import ScrapeWebsiteTool
 
-
 def _extract_organic_results(raw_result: Any) -> List[Dict[str, Any]]:
-    """Parse the Bright Data response and return only organic results."""
+    """Parse Bright Data response and return slim organic results."""
 
     def _to_dict(payload: Any) -> Optional[Dict[str, Any]]:
         if isinstance(payload, dict):
             return payload
         if isinstance(payload, str):
             try:
-                parsed = json.loads(payload)
+                return json.loads(payload)
             except json.JSONDecodeError:
                 return None
-            return _to_dict(parsed)
         return None
 
     payload = _to_dict(raw_result)
     if not payload:
         return []
 
-    organic_results = payload.get("organic")
-    return organic_results if isinstance(organic_results, list) else []
+    organic = payload.get("organic")
+    if not isinstance(organic, list):
+        return []
 
+    wanted_keys = ("link", "title", "description", "extensions", "rank")
 
+    results = []
+    for item in organic:
+        if isinstance(item, dict):
+            slim = {
+                k: v
+                for k in wanted_keys
+                if (v := item.get(k)) is not None
+            }
+            if slim:
+                results.append(slim)
+
+    return results
 @tool("search internet")
 def search_internet(query: str):
     """
@@ -75,3 +87,8 @@ def open_pages(website_urls: list[str]):
         results.append(scrape_tool.run())
     
     return results
+
+if __name__ == "__main__":
+    result = search_internet.func("SMU Patron's Day 2026")
+    with open("search_internet_result.json", "w") as f:
+        json.dump(result, f)
