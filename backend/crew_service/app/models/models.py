@@ -30,26 +30,53 @@ class TaskInfo(BaseModel):
 # Flow Models and Types
 # ============================================================================
 
-class MarketingResearch(BaseModel):
+class MarketingResearchReport(BaseModel):
     """
-    Represents marketing research data, typically stored as markdown content.
-    
-    Contains structured research report with sections like:
-    - Executive summary
-    - Competitive landscape
-    - Emerging trends
-    - Successful examples/references
-    - Recommendations
-    - References
+    Structured representation of the marketing‑research markdown report.
+
+    The task’s `expected_output` asks for a markdown document that contains:
+
+    • Executive summary
+    • Competitive landscape
+    • Emerging trends
+    • Successful examples / references
+    • Recommendations
+    • References
+
+    Each section is stored as a separate string so the workflow can either:
+      – render the whole markdown (`report`) directly, or
+      – access individual sections programmatically (e.g. for UI rendering, analytics, etc.).
+
+    `metadata` can be used for generation timestamps, model version, or any other
+    bookkeeping the system wants to keep.
     """
-    content: str = Field(..., description="Markdown content of the marketing research report")
-    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata about the research")
-    
+
+    executive_summary: str = Field(..., description="High‑level overview of findings.")
+    competitive_landscape: str = Field(
+        ..., description="Analysis of competitors identified."
+    )
+    emerging_trends: str = Field(
+        ..., description="Key trends tied to the campaign theme."
+    )
+    successful_examples: str = Field(
+        ..., description="Relevant Instagram examples with usernames & URLs."
+    )
+    recommendations: str = Field(
+        ..., description="Actionable advice for the upcoming campaign."
+    )
+    references: str = Field(
+        ..., description="Citations of web‑search & Instagram sources."
+    )
+
     class Config:
         json_schema_extra = {
             "example": {
-                "content": "# Marketing Research Report\n\n## Executive Summary\n...",
-                "metadata": {"source": "research_synthesis_report", "generated_at": "2024-01-01"}
+                "executive_summary": "The market is shifting toward ...",
+                "competitive_landscape": "Top 2‑3 competitors are ...",
+                "emerging_trends": "Short‑form video, user‑generated content, ...",
+                "successful_examples": "- @brand1 https://instagram.com/p/ABC123\\n- @brand2 https://instagram.com/p/DEF456",
+                "recommendations": "Post 3‑4 reels per week, leverage carousel posts ...",
+                "references": "1. https://example.com/competitor‑analysis\\n2. https://instagram.com/hashtag/…",
             }
         }
 
@@ -96,6 +123,7 @@ class SocialMediaSchedule(BaseModel):
             }
         }
 
+
 class AllowedTemplateId(IntEnum):
     """
     Registry of supported Orshot Templates.
@@ -120,7 +148,7 @@ class OrshotSchemaField(BaseModel):
 
 # Type registry for custom types
 CUSTOM_TYPE_REGISTRY: Dict[str, Type[BaseModel] | Type[IntEnum]] = {
-    "MarketingResearch": MarketingResearch,
+    "MarketingResearchReport": MarketingResearchReport,
     "ContentStrategy": ContentStrategy,
     "SocialMediaSchedule": SocialMediaSchedule,
     "OrshotSchemaField": OrshotSchemaField,

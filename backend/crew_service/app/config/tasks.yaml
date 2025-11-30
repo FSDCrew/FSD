@@ -32,8 +32,7 @@ state:
       field_kind: data
 
     marketing_research:
-      # type: MarketingResearch
-      type: string
+      type: MarketingResearchReport
       field_kind: data
 
     content_strategy:
