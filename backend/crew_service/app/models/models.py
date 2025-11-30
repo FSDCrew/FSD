@@ -1,39 +1,64 @@
-from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
 from enum import Enum, IntEnum
 from typing import Any, Dict, List, Optional, Type
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CrewRun(BaseModel):
     id: UUID
     crew_id: UUID
-    
+
     model_config = ConfigDict(extra="ignore")
 
 
 class CrewRunCreateRequest(BaseModel):
     crew_id: UUID
     inputs: Optional[Dict[str, Any]] = None
-    
+
     model_config = ConfigDict(extra="ignore")
-    
-    
+
+
+class TaskFieldRead(BaseModel):
+    """Describes a state field that a task consumes."""
+
+    field: str
+    cardinality: str
+
+
+class TaskFieldWrite(BaseModel):
+    """Describes a state field that a task produces."""
+
+    field: str
+    mode: str
+
+
 class TaskInfo(BaseModel):
-    """Task information exposed to the frontend."""
+    """Full task definition surfaced via /tasks/pre-defined."""
+
     key: str
     name: str
     task_description: str
+    description: str
+    expected_output: str
+    agent: str
+    output_file: str
+    reads: List[TaskFieldRead]
+    writes: List[TaskFieldWrite]
+    crew_inputs: Optional[str] = None
 
+    model_config = ConfigDict(extra="allow")
 
 
 # ============================================================================
 # Flow Models and Types
 # ============================================================================
 
+
 class MarketingResearch(BaseModel):
     """
     Represents marketing research data, typically stored as markdown content.
-    
+
     Contains structured research report with sections like:
     - Executive summary
     - Competitive landscape
@@ -42,14 +67,22 @@ class MarketingResearch(BaseModel):
     - Recommendations
     - References
     """
-    content: str = Field(..., description="Markdown content of the marketing research report")
-    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata about the research")
-    
+
+    content: str = Field(
+        ..., description="Markdown content of the marketing research report"
+    )
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None, description="Optional metadata about the research"
+    )
+
     class Config:
         json_schema_extra = {
             "example": {
                 "content": "# Marketing Research Report\n\n## Executive Summary\n...",
-                "metadata": {"source": "research_synthesis_report", "generated_at": "2024-01-01"}
+                "metadata": {
+                    "source": "research_synthesis_report",
+                    "generated_at": "2024-01-01",
+                },
             }
         }
 
@@ -57,20 +90,23 @@ class MarketingResearch(BaseModel):
 class ContentStrategy(BaseModel):
     """
     Represents a content strategy plan, typically stored as markdown content.
-    
+
     Contains structured content plan with:
     - Executive summary
     - Calendar overview with theme/concept, objective, and posting cadence
     - Phase-based strategy (per month, week, or day)
     """
+
     content: str = Field(..., description="Markdown content of the content strategy")
-    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata about the strategy")
-    
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None, description="Optional metadata about the strategy"
+    )
+
     class Config:
         json_schema_extra = {
             "example": {
                 "content": "# Content Strategy\n\n## Executive Summary\n...",
-                "metadata": {"phase": "monthly", "generated_at": "2024-01-01"}
+                "metadata": {"phase": "monthly", "generated_at": "2024-01-01"},
             }
         }
 
@@ -78,45 +114,66 @@ class ContentStrategy(BaseModel):
 class SocialMediaSchedule(BaseModel):
     """
     Represents a social media posting schedule, typically stored as markdown or structured data.
-    
+
     Contains a detailed schedule with:
     - Post dates and times
     - Content descriptions
     - Content types (posts, stories, reels)
     - Objectives and key messages
     """
-    content: str = Field(..., description="Markdown or structured content of the social media schedule")
-    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata about the schedule")
-    
+
+    content: str = Field(
+        ..., description="Markdown or structured content of the social media schedule"
+    )
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None, description="Optional metadata about the schedule"
+    )
+
     class Config:
         json_schema_extra = {
             "example": {
                 "content": "# Social Media Schedule\n\n## Week 1\n...",
-                "metadata": {"format": "markdown", "generated_at": "2024-01-01"}
+                "metadata": {"format": "markdown", "generated_at": "2024-01-01"},
             }
         }
+
 
 class AllowedTemplateId(IntEnum):
     """
     Registry of supported Orshot Templates.
     The frontend uses this to render a dropdown.
     """
+
     IG_POST = 1201
+
 
 class OrshotDataType(str, Enum):
     TEXT = "TEXT"
     IMAGE = "IMAGE"
+
 
 class OrshotSchemaField(BaseModel):
     """
     Represents a single configurable field in an Orshot Template.
     User inputs a list of these objects to define the 'rules' for the template.
     """
-    field: str = Field(..., description="The exact parameter key to modify in the Orshot template (e.g., 'headline', 'background_image')")
-    dataType: OrshotDataType = Field(..., description="The data type of this field: 'TEXT' or 'IMAGE'")
-    description: str = Field(..., description="Contextual description of the field (e.g., 'Main title, max 20 chars', 'Product shot in portrait mode')")
+
+    field: str = Field(
+        ...,
+        description="The exact parameter key to modify in the Orshot template (e.g., 'headline', 'background_image')",
+    )
+    dataType: OrshotDataType = Field(
+        ..., description="The data type of this field: 'TEXT' or 'IMAGE'"
+    )
+    description: str = Field(
+        ...,
+        description="Contextual description of the field (e.g., 'Main title, max 20 chars', 'Product shot in portrait mode')",
+    )
 
     model_config = ConfigDict(use_enum_values=True)
+
+    model_config = ConfigDict(use_enum_values=True)
+
 
 # Type registry for custom types
 CUSTOM_TYPE_REGISTRY: Dict[str, Type[BaseModel] | Type[IntEnum]] = {
@@ -164,12 +221,12 @@ class FlowDependencyGraph:
     def register_task_read(self, task_key: str, read_spec: Dict[str, Any]) -> None:
         """Record that a task reads a particular field."""
         field_name = read_spec["field"]
-        
+
         field_spec = self.state_field_specs.get(field_name)
         if field_spec:
             field_kind = field_spec.get("field_kind")
             cardinality = read_spec.get("cardinality", "").strip().lower()
-            
+
             if field_kind == "context" and cardinality == "optional":
                 raise ValueError(
                     f"Task '{task_key}' cannot mark context field '{field_name}' as optional. "
