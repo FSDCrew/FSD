@@ -121,13 +121,14 @@ class TaskInfo(BaseModel):
 
 class CrewRunMetadataBase(BaseModel):
     inputs: dict[str, Any]
+    tasks_snapshot: list[TaskInfo]
 
 
 class CrewRunMetadataCreate(CrewRunMetadataBase):
     pass
 
 class CrewRunMetadataRead(CrewRunMetadataBase):
-    tasks_snapshot: list[TaskInfo]
+    pass
 
 class CrewRunBase(BaseModel):
     output: dict[str, Any] | None = None
@@ -135,7 +136,7 @@ class CrewRunBase(BaseModel):
 
 class CrewRunCreate(CrewRunBase):
     crew_id: UUID
-    run_metadata: CrewRunMetadataCreate | None = None
+    run_metadata: CrewRunMetadataCreate
 
 
 class CrewRunRead(CrewRunBase):

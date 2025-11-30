@@ -1,24 +1,15 @@
 from uuid import UUID
 
-import httpx
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.crew_client import Client
-from app.api.crew_client.api.tasks import (
-    get_pre_defined_tasks_tasks_pre_defined_get as get_pre_defined_tasks,
-)
-from app.api.crew_client.client import Client
 from app.models.models import (
     CrewRunCreate,
     CrewRunRead,
-    TaskRead,
-    TaskInfo
 )
 from app.repositories.crew_run_repository import CrewRunRepository
 from app.repositories.queue_repository import QueueRepository
 from app.services.crew_service import CrewService
-from config import settings
 
 
 class CrewRunService:
@@ -33,10 +24,6 @@ class CrewRunService:
         self.crew_run_repository = repository
         self.queue_repository = queue_repository
         self.session = session
-        self.crew_client = Client(
-            base_url=settings.CREW_SERVICE_URL,
-            timeout=httpx.Timeout(30.0),
-        )
         
     def _convert_db_to_read(self, db_crew_run) -> CrewRunRead:
         """Converts DB model to CrewRunRead."""
@@ -47,35 +34,6 @@ class CrewRunService:
             crew_run_read.retry_count = db_crew_run.queue_entry.retry_count
         
         return crew_run_read
-    
-    async def _get_tasks_snapshot(self, tasks: list[TaskRead]) -> list[TaskInfo]:
-        """Fetch TaskInfo objects for all tasks in the crew."""
-        
-        try:
-            pre_defined_tasks = await get_pre_defined_tasks.asyncio(
-                client=self.crew_client
-            )
-            if not pre_defined_tasks:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to get pre-defined tasks."
-                )
-            
-            task_info_map = {task.key: task for task in pre_defined_tasks}
-            
-            tasks_snapshot: list[TaskInfo] = []
-            for task in tasks:
-                if task.key in task_info_map:
-                    task_info = task_info_map[task.key]
-                    tasks_snapshot.append(TaskInfo.model_validate(task_info.to_dict()))
-                else:
-                    raise ValueError(f"Task {task.key} not found in pre-defined tasks.")
-            return tasks_snapshot
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to get tasks snapshot: {e}",
-            )
 
     async def create_crew_run(
         self, crew_run_data: CrewRunCreate, user_id: UUID
@@ -83,16 +41,14 @@ class CrewRunService:
         """Creates a crew run, enqueues it, and returns the Pydantic model."""
         crew = await self.crew_service.validate_crew(crew_run_data.crew_id, user_id)
         self.crew_service.is_crew_owner(crew.user_id, user_id)
-        tasks = crew.tasks
-        if len(tasks) == 0:
+
+        if len(crew_run_data.run_metadata.tasks_snapshot) == 0:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Crew has no tasks."
+                status_code=status.HTTP_400_BAD_REQUEST, detail="No tasks found in crew run metadata."
             )
         
-        tasks_snapshot = await self._get_tasks_snapshot(tasks)
-        
         try:
-            db_crew_run = await self.crew_run_repository.create_crew_run(crew_run_data, tasks_snapshot)
+            db_crew_run = await self.crew_run_repository.create_crew_run(crew_run_data)
             crew_run_id = UUID(str(db_crew_run.id))
             await self.queue_repository.enqueue_crew_run(crew_run_id)
             await self.session.commit()

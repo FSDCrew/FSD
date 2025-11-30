@@ -11,8 +11,9 @@ class Settings(BaseSettings):
     Pydantic settings class to manage application configuration.
     It automatically validates and loads settings from environment variables or a .env file.
     """
-    INTERNAL_CREW_API_KEY: str
     CREW_SERVICE_URL: str
+    
+    INTERNAL_CREW_API_KEY: str
     
     CRUD_DATABASE_URL: Optional[str] = None
     DB_HOST: str

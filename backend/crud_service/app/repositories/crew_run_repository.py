@@ -3,21 +3,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from app.schemas.schemas import CrewRun as CrewRunDB
-from app.models.models import CrewRunCreate, TaskInfo, CrewRunMetadataCreate
+from app.models.models import CrewRunCreate
 
 class CrewRunRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create_crew_run(self, crew_run_data: CrewRunCreate, tasks_snapshot: list[TaskInfo]) -> CrewRunDB:
+    async def create_crew_run(self, crew_run_data: CrewRunCreate) -> CrewRunDB:
         """Creates a new crew run record."""
-        metadata_dict = None
-        if crew_run_data.run_metadata is None:
-            metadata_dict = CrewRunMetadataCreate(inputs={}).model_dump()
-            metadata_dict['tasks_snapshot'] = tasks_snapshot
-        else:
-            metadata_dict = crew_run_data.run_metadata.model_dump()
-            metadata_dict['tasks_snapshot'] = tasks_snapshot
+        metadata_dict = crew_run_data.run_metadata.model_dump()
     
         db_crew_run = CrewRunDB(
             crew_id=crew_run_data.crew_id,
