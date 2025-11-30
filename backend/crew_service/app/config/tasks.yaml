@@ -534,7 +534,10 @@ tasks:
           5. Carefully review and refine all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
           6. Format the output in clean markdown, organizing by post with clear headings (##, ###) and labels for captions, hashtags, and phrases.
           7. Ensure all hashtags are properly formatted with backticks (e.g., `#hashtag`) to prevent markdown parsing issues.
-          8. After generating the complete markdown output, use the markdown_to_word_doc tool to convert it to a Word document.
+          8. **CRITICAL STEP:** Use the `markdown_to_word_doc` tool to convert your output.
+             - The `markdown` argument MUST be the **full text string** of the report you just generated.
+             - Do NOT pass a dictionary or schema definition (e.g., `{{'type': 'str'}}`).
+             - Pass the actual string content directly.
 
         **IF CONTENT_STRATEGY IS MISSING:**
         Generate creative content ideas based on the theme, brand, and target audience:
@@ -554,7 +557,10 @@ tasks:
           4. Carefully review and refine all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
           5. Format the output in clean markdown as a collection of creative ideas with clear sections and headings.
           6. Ensure all hashtags are properly formatted with backticks (e.g., `#hashtag`) to prevent markdown parsing issues.
-          7. After generating the complete markdown output, use the markdown_to_word_doc tool to convert it to a Word document.
+          7. **CRITICAL STEP:** Use the `markdown_to_word_doc` tool to convert your output.
+             - The `markdown` argument MUST be the **full text string** of the report you just generated.
+             - Do NOT pass a dictionary or schema definition.
+             - Pass the actual string content directly.
 
         Regardless of mode, ensure all output is:
         - On-brand and aligned with brand voice
@@ -725,14 +731,20 @@ tasks:
                   b. **PROMPT ENGINEERING:** Rewrite this requirement into a detailed, high-quality prompt for the image generator. Explicitly describe the subject, style, lighting, and mood.
                   c. **GENERATE:** Call the `generate_imagen_tool` tool using your optimized prompt.
                   d. **MAP:** Use the S3 URL returned by the tool.
+        
+        **PART 3: BACKGROUND FIELDS**
+        For each background field:
+           1. **ANALYZE:** Check if the description specifies a color.
+           2. **GENERATE:** Determine the best HEX color code (e.g., "#FFFFFF") based on the description or the Campaign Theme/Brand.
+           3. **MAP:** Assign strictly the HEX string to the field key.
 
-        **PART 3: STYLING (CSS)**
-        For every field (Text or Image):
+        **PART 4: STYLING (CSS)**
+        For every field (TEXT or IMAGE): (skip BACKGROUND fields)
            - Analyze the Schema Description for visual cues (e.g., "Blue background", "Bold font", "Opacity 50%").
            - Convert these into **CamelCase CSS properties** with dot notation.
            - Add them to the `modifications` object (e.g., `"headline.color": "#0000FF"`).
 
-        **PART 4: EXECUTION**
+        **PART 5: EXECUTION**
         - **DO NOT** construct a JSON string.
         - **CALL** the `orshot_render_tool` with these specific parameters:
              - templateId: {templateId}
