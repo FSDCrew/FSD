@@ -4,9 +4,7 @@ from datetime import datetime, timezone
 from functools import partial
 from typing import Any, Dict, List, Tuple, Type, cast
 
-from crewai import Crew, Process
-from crewai import Agent as CrewAIAgent
-from crewai import Task as CrewAITask
+from crewai import Agent as CrewAIAgent, Crew, Process, Task as CrewAITask
 from crewai.flow.flow import Flow, listen, start
 from opentelemetry import baggage
 from pydantic import BaseModel
@@ -105,7 +103,7 @@ def build_task_step_function(
         if output_pydantic_model:
             guardrails_to_use.append(structured_output_guardrail(output_pydantic_model))
         guardrails_to_use.append(llm_judge_guardrail)
-        
+
         crew_task_kwargs = {
             "name": task_yaml.get("name", "Task"),
             "description": formatted_description,
@@ -133,7 +131,7 @@ def build_task_step_function(
             output_log_file="crew_logs.json"
         )
 
-        result = crew.kickoff(inputs=step_inputs)
+        result = crew.kickoff()
 
         write_specs = graph.task_write_specs.get(task_key, [])
         for write_spec in write_specs:
@@ -142,10 +140,7 @@ def build_task_step_function(
 
             pydantic_value = getattr(result, "pydantic", None)
             if pydantic_value is not None:
-                if isinstance(pydantic_value, BaseModel):
-                    output_value = pydantic_value.model_dump()
-                else:
-                    output_value = pydantic_value
+                output_value = pydantic_value
             else:
                 output_value = getattr(result, "raw", result)
 
