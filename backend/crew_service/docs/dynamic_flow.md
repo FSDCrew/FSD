@@ -6,9 +6,14 @@ This document explains how Crew Service turns declarative YAML (`app/config/task
 
 | Module | Purpose |
 | --- | --- |
-| `app/services/flow/flow_builder.py` | Creates CrewAI agents, derives dependency graphs, builds the Flow state model, and synthesizes a sequential `Flow` subclass tailored to the requested tasks. |
 | `app/services/flow/flow_service.py` | Thin façade used by endpoints/workers to fetch required inputs, build flows, execute them, and validate user-supplied values. |
-| `app/services/flow/flow_utils.py` | Shared helpers for resolving agent tools, mapping YAML types to Python/Pydantic types, interpolating prompt templates, and validating input payloads. |
+| `app/services/flow/flow_builder.py` | Orchestrates dependency-graph creation, FlowState synthesis, guardrail wiring, and `Flow` subclass generation using the helper modules below. |
+| `app/services/flow/dependency_graph.py` | Builds the `FlowDependencyGraph` and infers required inputs for the subset of tasks in a run. |
+| `app/services/flow/state_builder.py` | Converts the dependency graph into a minimal Pydantic FlowState model and exposes helpers for working with list types. |
+| `app/services/flow/agent_factory.py` | Instantiates CrewAI `Agent` objects from `agents.yaml`, resolving tool names through `flow_utils`. |
+| `app/services/flow/guardrails.py` | Houses the structured-output validator, the LLM judge, and a composer that chains guardrails per task. |
+| `app/services/flow/llm_registry.py` | Centralizes the configured LLM clients (task execution vs. guardrail validation). |
+| `app/services/flow/flow_utils.py` | Shared utilities for tool resolution, YAML type mapping, task-description interpolation, and runtime input validation. |
 
 ## Configuration Inputs
 
@@ -20,7 +25,7 @@ All of the builder logic is data-driven:
 
 ## 1. Building the FlowDependencyGraph
 
-`flow_builder.build_flow_dependency_graph` collects the state schema plus the read/write edges for the subset of tasks that will compose the flow (`TaskRead` models from the CRUD service). The resulting `FlowDependencyGraph` (`app/models/models.py`) tracks:
+`dependency_graph.build_flow_dependency_graph` collects the state schema plus the read/write edges for the subset of tasks that will compose the flow (`TaskRead` models from the CRUD service). The resulting `FlowDependencyGraph` (`app/models/models.py`) tracks:
 
 - `state_field_specs`: every field declared in the YAML state schema.
 - `task_read_specs` / `task_write_specs`: per-task declarations of which fields are touched, including cardinality (`required`, `optional`, `at_least_one`) and write mode (`replace`, `append`).
@@ -30,7 +35,7 @@ Graph creation immediately enforces invariants such as “context fields cannot 
 
 ## 2. Inferring Required Inputs
 
-`flow_builder.infer_initial_inputs` examines the dependency graph to figure out which state fields must be provided before the flow starts:
+`dependency_graph.infer_initial_inputs` examines the dependency graph to figure out which state fields must be provided before the flow starts:
 
 - **Context inputs** – All context fields read by any of the selected tasks.
 - **Data inputs** – Data fields that at least one task requires but no selected task writes.
@@ -39,7 +44,7 @@ Graph creation immediately enforces invariants such as “context fields cannot 
 
 ## 3. Flow State Model Generation
 
-`flow_builder.build_flow_state_model` turns the dependency graph into a concrete Pydantic model that reflects only the fields touched by the requested tasks:
+`state_builder.build_flow_state_model` turns the dependency graph into a concrete Pydantic model that reflects only the fields touched by the requested tasks:
 
 1. It seeds metadata fields (`flow_id`, `run_id`, `crew_run_id`).
 2. It scans all read/write specs to determine which user-defined fields are actually needed.
@@ -50,16 +55,16 @@ This means each run has a minimal state surface and enjoys precise type validati
 
 ## 4. Agent and Tool Wiring
 
-`flow_builder.build_crewai_agents` instantiates CrewAI `Agent` objects for every entry in `agents_config`. Tool names listed in `agents.yaml` are resolved to callables through `flow_utils.resolve_tools_for_agent`, which looks up each name in `TOOL_MAP`. Unknown tools are ignored so YAML typos cannot crash the service.
+`agent_factory.build_crewai_agents` instantiates CrewAI `Agent` objects for every entry in `agents_config`. Tool names listed in `agents.yaml` are resolved to callables through `flow_utils.resolve_tools_for_agent`, which looks up each name in `TOOL_MAP`. Unknown tools are ignored so YAML typos cannot crash the service. The agents all share the LLM defined in `llm_registry.general_llm`, while Crew execution uses `llm_registry.function_calling_llm`.
 
-Inside each task step, prompt templates pulled from `tasks_config` are interpolated via `flow_utils.interpolate_task_description`. Any `{field_name}` placeholders are replaced with the current state value (or the placeholder `NOT PROVIDED BY USER` when a field is `None`). A helper named `build_tools_section` can embed structured tool docs inside a task description if the template opts into it.
+Inside each task step, prompt templates pulled from `tasks_config` are interpolated via `flow_utils.interpolate_task_description`. Any `{field_name}` placeholders are replaced with the current state value (or the placeholder `NOT PROVIDED BY USER` when a field is `None`).
 
 ## 5. Dynamic Flow Class Creation
 
 For every requested `TaskRead`, `flow_builder.build_task_step_function` emits a Python function that will become one `@listen` step in the flow. Each step performs the same pattern:
 
 1. **Read enforcement** – Pulls required fields from `self.state` based on the graph. Cardinality rules (`required`, `at_least_one`) are checked at runtime.
-2. **CrewAI execution** – Builds a single-agent CrewAI `Task` with guardrails enabled. Each task uses the agent from YAML, the interpolated description, expected output text, and `llm_judge_guardrail` to validate the response via a second LLM.
+2. **CrewAI execution** – Builds a single-agent CrewAI `Task` with guardrails enabled. Each task wires a structured-output validator (when the task writes a custom Pydantic type) before the `llm_judge_guardrail`, ensuring schema compliance is enforced before semantic validation. See [Guardrail Pipeline](dynamic_flow_guardrails.md) for details.
 3. **State writes** – Applies `replace` or `append` writes declared in YAML, storing the raw CrewAI output in the appropriate state fields.
 
 `flow_builder.build_dynamic_flow_class` then:

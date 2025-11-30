@@ -4,9 +4,9 @@ from crewai.flow.flow import Flow
 from pydantic import BaseModel
 
 from app.api.crud_client.models.task_read import TaskRead
-from app.services.flow.flow_builder import (
+from app.services.flow.flow_builder import create_flow_from_tasks
+from app.services.flow.dependency_graph import (
     build_flow_dependency_graph,
-    create_flow_from_tasks,
     infer_initial_inputs,
 )
 from app.services.flow.flow_utils import validate_value_type
@@ -126,4 +126,3 @@ class FlowService:
                 raise ValueError(
                     f"Type validation failed for input field '{field_name}': {str(e)}"
                 ) from e
-
