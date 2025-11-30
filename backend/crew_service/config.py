@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     
     HEADLESS: bool
+    PLAYWRIGHT_TIMEOUT_MS: int = 30000
     
     BRIGHT_DATA_API_KEY: str
     BRIGHT_DATA_ZONE: str
