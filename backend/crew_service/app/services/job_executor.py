@@ -3,6 +3,7 @@ import logging
 from uuid import UUID
 
 import httpx
+from pydantic import BaseModel
 
 from app.api.crud_client import AuthenticatedClient, errors
 from app.api.crud_client.api.internal import (
@@ -136,7 +137,9 @@ class JobExecutor:
                 for field_name in FlowStateModel.model_fields.keys():
                     value = getattr(flow.state, field_name, None)
                     if value is not None:
-                        if isinstance(value, (str, int, float, bool, dict, list)):
+                        if isinstance(value, BaseModel):
+                            state_dict[field_name] = value.model_dump()
+                        elif isinstance(value, (str, int, float, bool, dict, list)):
                             state_dict[field_name] = value
                         else:
                             state_dict[field_name] = str(value)
