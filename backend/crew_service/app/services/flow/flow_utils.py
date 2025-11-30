@@ -1,6 +1,5 @@
 from typing import Any, Dict, List, Type
 from datetime import datetime
-from pydantic import TypeAdapter
 
 
 from app.models.models import CUSTOM_TYPE_REGISTRY
@@ -190,8 +189,7 @@ def validate_value_type(value: Any, expected_type_str: str, field_name: str) -> 
         model_class = CUSTOM_TYPE_REGISTRY[expected_type_str]
         if isinstance(value, dict):
             try:
-                adapter = TypeAdapter(model_class)
-                adapter.validate_python(value)
+                model_class.model_validate(value)
             except Exception as e:
                 raise ValueError(
                     f"Invalid {expected_type_str} for field '{field_name}': {str(e)}"
