@@ -54,6 +54,11 @@ state:
       type: string
       field_kind: data
 
+    post_captions:
+      # type: PostCaptions
+      type: string
+      field_kind: data
+
 tasks:
   marketing_research:
     reads:
@@ -441,6 +446,137 @@ tasks:
       A properly structured HTML table string that strictly follows the sample schedule format,
       converted into an Excel file using the html_table_to_excel tool.
   
+  copywriter:
+    reads:
+      - field: theme
+        cardinality: required
+      - field: brand_description
+        cardinality: required
+      - field: target_audience_description
+        cardinality: required
+      - field: content_strategy
+        cardinality: optional
+    writes:
+      - field: post_captions
+        mode: replace
+    key: copywriter
+    agent: copywriter_agent
+    output_file: output/preparing_marketing_campaign/post_captions.md
+    name: Copywriting Task
+    task_description: >
+      Generate Instagram post captions, hashtags, and phrases. If content strategy is provided, generate for every post.
+      If content strategy is missing, generate creative ideas based on theme, brand, and target audience.
+    description: >
+      <important_rules>
+        1. You must not make up any information. Only include information that you are confident about.
+        2. You must not include any information that is not related to the topic or the brand.
+        3. All captions must align with the brand voice and target audience.
+        4. You must carefully review all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
+      </important_rules>
+
+      <context>
+        1. The theme of the marketing campaign is described as <THEME>{theme}</THEME>.
+        2. The brand you are creating copy for is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
+        3. The target audience is described as <TARGET_AUDIENCE_DESCRIPTION>{target_audience_description}</TARGET_AUDIENCE_DESCRIPTION>.
+        4. The content strategy (if provided) is as follows:
+          <content_strategy>
+            {content_strategy}
+          </content_strategy>
+      </context>
+
+      <tools>
+        - name: markdown_to_word_doc
+          description: Convert Markdown to a Word (.docx) file with GitHub-flavored Markdown features preserved. Automatically removes common leading indentation so pasted/triple-quoted Markdown isn't treated as a code block.
+          input:
+            markdown: string
+          examples:
+            - markdown: "# Title\n\n- [x] done\n- [ ] todo\n"
+            - markdown: |
+                # Report
+                | A | B |
+                | - | - |
+                | 1 | 2 |
+      </tools>
+
+      <markdown_formatting_rules>
+        1. **Hashtag Formatting:** To prevent hashtags from being interpreted as markdown headers, format them in one of these ways:
+           - Use backticks: `#hashtag` (recommended)
+           - Escape with backslash: \#hashtag
+           - Put hashtags in a code block or inline code
+           - Place hashtags on lines that are NOT at the start of a paragraph
+        2. **Structure:** Use proper markdown headings (##, ###) to organize content by post or section.
+        3. **Lists:** Use markdown list syntax (- or *) for hashtag sets and phrases.
+        4. **No Code Blocks:** Do NOT wrap the entire output in ``` markdown code blocks.
+        5. **Clean Formatting:** Ensure proper spacing and line breaks for readability.
+      </markdown_formatting_rules>
+
+      <your_task>
+        You must determine which mode to operate in based on whether content_strategy is provided.
+
+        **IF CONTENT_STRATEGY IS PROVIDED:**
+        For every post identified in the content strategy:
+          1. Analyze the post's theme, objective, and description.
+          2. Generate a compelling Instagram caption that:
+             - Opens with an engaging hook
+             - Tells a story or provides value
+             - Includes a clear call-to-action (CTA)
+             - Aligns with the brand voice and target audience
+             - Is optimized for Instagram (appropriate length, emoji usage, formatting)
+          3. Generate a strategic hashtag set (5-10 hashtags) including:
+             - Broad/trending hashtags relevant to the theme
+             - Niche hashtags specific to the target audience
+             - Campaign-specific or branded hashtags
+             - Format hashtags using backticks (e.g., `#hashtag`) to prevent markdown header interpretation
+          4. Generate 2-3 engaging phrases or taglines that:
+             - Capture the essence of the post's message
+             - Can be used as alternative captions or in other campaign materials
+             - Are memorable and shareable
+          5. Carefully review and refine all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
+          6. Format the output in clean markdown, organizing by post with clear headings (##, ###) and labels for captions, hashtags, and phrases.
+          7. Ensure all hashtags are properly formatted with backticks (e.g., `#hashtag`) to prevent markdown parsing issues.
+          8. After generating the complete markdown output, use the markdown_to_word_doc tool to convert it to a Word document.
+
+        **IF CONTENT_STRATEGY IS MISSING:**
+        Generate creative content ideas based on the theme, brand, and target audience:
+          1. Create 3-5 sample post captions showcasing different angles:
+             - Different hooks and storytelling approaches
+             - Various CTAs and engagement strategies
+             - Different tones (inspirational, educational, entertaining, etc.)
+          2. Generate a comprehensive hashtag list (15-20 hashtags) including:
+             - Broad hashtags relevant to the theme
+             - Niche hashtags for the target audience
+             - Branded hashtag suggestions
+             - Format hashtags using backticks (e.g., `#hashtag`) to prevent markdown header interpretation
+          3. Generate 5-7 memorable phrases and taglines that:
+             - Capture the brand essence
+             - Resonate with the target audience
+             - Can be used across different campaign materials
+          4. Carefully review and refine all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
+          5. Format the output in clean markdown as a collection of creative ideas with clear sections and headings.
+          6. Ensure all hashtags are properly formatted with backticks (e.g., `#hashtag`) to prevent markdown parsing issues.
+          7. After generating the complete markdown output, use the markdown_to_word_doc tool to convert it to a Word document.
+
+        Regardless of mode, ensure all output is:
+        - On-brand and aligned with brand voice
+        - Tailored to the target audience
+        - Engaging and optimized for Instagram
+        - Free of grammar, spelling, and punctuation errors
+      </your_task>
+
+    expected_output: >
+      Generate markdown-formatted content with proper hashtag formatting (using backticks like `#hashtag`).
+      
+      If content strategy is provided:
+      - For each post: caption, hashtags, and phrases clearly labeled and organized with markdown headings.
+      
+      If content strategy is missing:
+      - A collection of creative ideas including sample captions, hashtag suggestions, and memorable phrases with clear markdown sections.
+      
+      After generating the markdown, convert it to a Word document using the markdown_to_word_doc tool.
+      Format as markdown without wrapping in ``` code blocks.
+      Do NOT describe whether the output meets requirements.
+      Only output the captions, hashtags, and phrases themselves in markdown format.
+  
   image_generator:
     reads:
       - field: theme
@@ -467,7 +603,7 @@ tasks:
       </important_rules>
 
       <tools>
-        - name: generate_image_tool
+        - name: generate_imagen_tool
           description: Generates an image based on a textual prompt and provides a secure S3 link.
           input:
             prompt: string
@@ -487,7 +623,8 @@ tasks:
         Based on the context, you are to create high-quality images that align with the content strategy.
           1. Analyze the content strategy to identify key themes, concepts, and visual styles needed for the campaign.
           2. For each identified image requirement, generate a detailed prompt that captures the desired aesthetics, mood, and elements.
-          3. Use the generate_image_tool tool to create each image based on the prompts.
+          3. Use the generate_imagen_tool tool to create each image based on the prompts.
+            - parameters: prompt, {crew_run_id}
           4. Collect and output the S3 links of all generated images.
       </your_task>
 
@@ -561,7 +698,7 @@ tasks:
                   }
                 }
         
-        - name: generate_image_tool
+        - name: generate_imagen_tool
           description: Generates an image based on a textual prompt and provides a secure S3 link.
           input:
             prompt: string
@@ -586,7 +723,7 @@ tasks:
               - **IF NOT FOUND:** You must generate a new image:
                   a. **ANALYZE:** Synthesize the **Schema Field Description** (user input) with the **Campaign Theme** and **Brand Voice** to understand the specific visual requirement.
                   b. **PROMPT ENGINEERING:** Rewrite this requirement into a detailed, high-quality prompt for the image generator. Explicitly describe the subject, style, lighting, and mood.
-                  c. **GENERATE:** Call the `generate_image_s3` tool using your optimized prompt.
+                  c. **GENERATE:** Call the `generate_imagen_tool` tool using your optimized prompt.
                   d. **MAP:** Use the S3 URL returned by the tool.
 
         **PART 3: STYLING (CSS)**

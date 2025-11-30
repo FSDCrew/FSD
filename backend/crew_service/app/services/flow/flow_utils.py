@@ -188,21 +188,21 @@ def validate_value_type(value: Any, expected_type_str: str, field_name: str) -> 
     
     if expected_type_str in CUSTOM_TYPE_REGISTRY:
         model_class = CUSTOM_TYPE_REGISTRY[expected_type_str]
-        if isinstance(value, dict):
-            try:
+
+        try:
                 adapter = TypeAdapter(model_class)
                 adapter.validate_python(value)
-            except Exception as e:
+        except Exception as e:
                 raise ValueError(
                     f"Invalid {expected_type_str} for field '{field_name}': {str(e)}"
                 ) from e
-        elif isinstance(value, model_class):
-            pass
-        else:
-            raise ValueError(
-                f"Expected {expected_type_str} (dict or {expected_type_str} instance) "
-                f"for field '{field_name}', but got {type(value).__name__}"
-            )
+        # elif isinstance(value, model_class):
+        #     pass
+        # else:
+        #     raise ValueError(
+        #         f"Expected {expected_type_str} (dict or {expected_type_str} instance) "
+        #         f"for field '{field_name}', but got {type(value).__name__}"
+        #     )
         return
     
     # Handle Dict[str, Any] (for unknown custom types like DiscoveryDataset)
