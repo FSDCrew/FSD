@@ -10,7 +10,7 @@ from opentelemetry import baggage
 from pydantic import BaseModel
 
 from app.api.crud_client.models.task_read import TaskRead
-from app.models.models import FlowDependencyGraph
+from app.models.models import CUSTOM_TYPE_REGISTRY, FlowDependencyGraph
 from app.services.flow.agent_factory import build_crewai_agents
 from app.services.flow.dependency_graph import (
     build_flow_dependency_graph,
@@ -193,6 +193,14 @@ def build_dynamic_flow_class(
         if filtered_inputs:
             for field_name, value in filtered_inputs.items():
                 if hasattr(self.state, field_name):
+                    field_spec = graph.state_field_specs.get(field_name)
+                    if field_spec and isinstance(value, dict):
+                        field_type_str = field_spec.get("type", "")
+                        if field_type_str in CUSTOM_TYPE_REGISTRY:
+                            model_class = CUSTOM_TYPE_REGISTRY[field_type_str]
+                            if issubclass(model_class, BaseModel):
+                                value = model_class.model_validate(value)
+                    
                     try:
                         setattr(self.state, field_name, value)
                     except Exception as e:
@@ -293,4 +301,3 @@ def create_flow_from_tasks(
     )
 
     return FlowStateModel, FlowClass, required_inputs
-
