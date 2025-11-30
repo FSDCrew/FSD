@@ -1,21 +1,26 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple, Type, cast
+from functools import partial
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, cast
 
-from opentelemetry import baggage
-from pydantic import BaseModel, Field, create_model
-from crewai import Agent as CrewAIAgent, Task as CrewAITask, Crew, LLM, Process, TaskOutput
+from crewai import LLM, Crew, Process, TaskOutput
+from crewai import Agent as CrewAIAgent
+from crewai import Task as CrewAITask
 from crewai.flow.flow import Flow, listen, start
+from crewai.tasks.output_format import OutputFormat
+from opentelemetry import baggage
+from pydantic import BaseModel, Field, ValidationError, create_model
 
 from app.api.crud_client.models.task_read import TaskRead
 from app.models.models import FlowDependencyGraph
 from app.services.flow.flow_utils import (
-    resolve_python_type,
     interpolate_task_description,
+    resolve_python_type,
     resolve_tools_for_agent,
 )
-from config import logger, tasks_config, agents_config, state_fields_config
+from config import agents_config, logger, settings, state_fields_config, tasks_config
 
+GuardrailCallable = Callable[[TaskOutput], Tuple[bool, Any]]
 
 # ============================================================================
 # LLMs
@@ -25,12 +30,10 @@ general_llm = LLM(
     model="openai/gpt-4.1-mini",
     # model="openai/gpt-4o-mini",
     temperature=0.7,
-    
     # model="openai/gpt-5-mini",
     # model="openai/gpt-5-nano",
     # reasoning_effort="none",
     stop=None,
-
     seed=42,
 )
 
@@ -43,8 +46,10 @@ function_calling_llm = LLM(
 # Guardrail definitions
 # ============================================================================
 
+
 class GuardrailResponseFormat(BaseModel):
     """Structured response format used by the judge LLM."""
+
     valid: bool
     reason: str
 
@@ -57,14 +62,99 @@ judge_llm = LLM(
 )
 
 
+def structured_output_guardrail(
+    result: TaskOutput, expected_model: Type[BaseModel]
+) -> Tuple[bool, Any]:
+    """Ensure the structured output aligns with the expected Pydantic model."""   
+    if result.output_format != OutputFormat.PYDANTIC:
+        reason = (
+            f"Task expected structured output '{expected_model.__name__}' "
+            f"but produced '{result.output_format.value}'."
+        )
+        logger.error(reason)
+        return False, reason
+
+    pydantic_value = result.pydantic
+    
+    # WORKAROUND: If output_format is PYDANTIC but pydantic is None,
+    # try to parse result.raw as JSON and validate it
+    if pydantic_value is None and result.output_format == OutputFormat.PYDANTIC:
+        try:
+            import json
+            # Try to parse raw as JSON string
+            if isinstance(result.raw, str):
+                parsed_json = json.loads(result.raw)
+                # Validate against expected model
+                pydantic_value = expected_model.model_validate(parsed_json)
+                # Set it on the result object so it's available downstream
+                result.pydantic = pydantic_value
+            else:
+                # If raw is already a dict, try to validate directly
+                if isinstance(result.raw, dict):
+                    pydantic_value = expected_model.model_validate(result.raw)
+                    result.pydantic = pydantic_value
+                else:
+                    reason = (
+                        f"Task expected structured output '{expected_model.__name__}' "
+                        f"but raw output is neither JSON string nor dict (type: {type(result.raw)})."
+                    )
+                    return False, reason
+        except json.JSONDecodeError as e:
+            reason = (
+                f"Task expected structured output '{expected_model.__name__}' "
+                f"but failed to parse raw output as JSON: {e}"
+            )
+            return False, reason
+        except ValidationError as e:
+            reason = (
+                f"Task expected structured output '{expected_model.__name__}' "
+                f"but parsed JSON failed validation: {e}"
+            )
+            return False, reason
+        except Exception as e:
+            reason = (
+                f"Task expected structured output '{expected_model.__name__}' "
+                f"but failed to parse/validate raw output: {e}"
+            )
+            return False, reason
+    
+    if pydantic_value is None:
+        reason = (
+            f"Task expected structured output '{expected_model.__name__}' "
+            "but no Pydantic payload was returned."
+        )
+        logger.error(reason) 
+        return False, reason
+
+    if not isinstance(pydantic_value, BaseModel):
+        reason = (
+            f"Structured output for '{expected_model.__name__}' "
+            "was not a Pydantic model."
+        )
+        logger.error(reason)
+        logger.error(f"Pydantic value type: {type(pydantic_value)}")
+        logger.error(f"Pydantic value: {pydantic_value}")
+        return False, reason
+
+    try:
+        validated_payload = expected_model.model_validate(pydantic_value.model_dump())
+        result.pydantic = validated_payload
+    except ValidationError as exc:
+        reason = f"Structured output failed {expected_model.__name__} validation: {exc}"
+        logger.error(reason)
+        return False, reason
+
+    return True, result
+
+
 def llm_judge_guardrail(result: TaskOutput) -> Tuple[bool, Any]:
     """
     Use a separate LLM as a judge to validate a task's output.
-    
+
     Returns:
         (is_valid, output_format) as a tuple where output_format is a TaskOutputFormat
         instance containing the standardized task output.
-        
+
     Note: Return type annotation must be Tuple[bool, Any] to satisfy CrewAI's validation,
     but the actual return value is a TaskOutputFormat instance.
     """
@@ -97,15 +187,39 @@ def llm_judge_guardrail(result: TaskOutput) -> Tuple[bool, Any]:
         if not parsed.valid:
             logger.error(f"Guardrail validation failed: {parsed.reason}")
             return parsed.valid, parsed.reason
-        return parsed.valid, result.raw
+        return parsed.valid, result
 
     except Exception as e:
         raise Exception(f"Evaluation error: {str(e)}")
 
 
+def compose_guardrails(guardrails: Sequence[GuardrailCallable]) -> GuardrailCallable:
+    """Chain multiple guardrails so each validates before the next runs."""
+
+    def runner(result: TaskOutput) -> Tuple[bool, Any]:
+        if not guardrails:
+            return True, result.raw
+
+        current_output = result
+        last_result: Any = result
+        for guard in guardrails:
+            success, guard_result = guard(current_output)
+            if not success:
+                return False, guard_result
+
+            last_result = guard_result
+            if isinstance(guard_result, TaskOutput):
+                current_output = guard_result
+
+        return True, last_result
+
+    return runner
+
+
 # ============================================================================
 # Agent creation
 # ============================================================================
+
 
 def build_crewai_agents() -> Dict[str, CrewAIAgent]:
     """
@@ -134,6 +248,7 @@ def build_crewai_agents() -> Dict[str, CrewAIAgent]:
 # ============================================================================
 # Flow dependency graph
 # ============================================================================
+
 
 def build_flow_dependency_graph(
     flow_tasks: List[TaskRead],
@@ -189,7 +304,9 @@ def infer_initial_inputs(
             continue
 
         readers = graph.field_readers.get(field_name, [])
-        if any(reader in task_keys for reader in readers):  # true if any task reads this field
+        if any(
+            reader in task_keys for reader in readers
+        ):  # true if any task reads this field
             required_context_fields.append(field_name)
 
     # Data fields: required by some task, but no selected task writes them.
@@ -227,10 +344,11 @@ def infer_initial_inputs(
 # Flow state model generation
 # ============================================================================
 
+
 def build_flow_state_model(graph: FlowDependencyGraph) -> Type[BaseModel]:
     """
     Build the Pydantic FlowState model from the dependency graph's field specs.
-    
+
     Only includes fields that are read or written by tasks in the current flow.
 
     The resulting model is used as the state type for the dynamic Flow class.
@@ -245,11 +363,11 @@ def build_flow_state_model(graph: FlowDependencyGraph) -> Type[BaseModel]:
     field_definitions["crew_run_id"] = (Optional[str], None)
 
     used_fields: set[str] = set()
-    
+
     for read_specs in graph.task_read_specs.values():
         for read_spec in read_specs:
             used_fields.add(read_spec["field"])
-    
+
     for write_specs in graph.task_write_specs.values():
         for write_spec in write_specs:
             used_fields.add(write_spec["field"])
@@ -258,7 +376,7 @@ def build_flow_state_model(graph: FlowDependencyGraph) -> Type[BaseModel]:
     for field_name, field_spec in graph.state_field_specs.items():
         if field_name not in used_fields:
             continue
-        
+
         field_type_str = field_spec.get("type", "string")
         python_type = resolve_python_type(field_type_str)
 
@@ -281,18 +399,19 @@ def build_flow_state_model(graph: FlowDependencyGraph) -> Type[BaseModel]:
 # Dynamic Flow class generation
 # ============================================================================
 
+
 def extract_inner_type_from_list(field_type_str: str) -> str:
     """
     Extract inner type from list field types.
-    
+
     Examples:
         list[ContentStrategy] -> ContentStrategy
         List[string] -> string
         Type[] -> Type
-    
+
     Args:
         field_type_str: Field type string from YAML config
-        
+
     Returns:
         Inner type string, or original string if not a list type
     """
@@ -316,7 +435,7 @@ def build_task_step_function(
     to the dynamic Flow subclass.
     """
     task_key = task_record.key
-    
+
     # Get agent_key from tasks.yaml config using the task's key
     task_yaml = tasks_config.get(task_key, {})
     agent_key = task_yaml.get("agent")
@@ -338,7 +457,10 @@ def build_task_step_function(
             field_spec = graph.state_field_specs.get(field_name)
             if field_spec:
                 field_kind = field_spec.get("field_kind")
-                if field_kind == "context" and cardinality.strip().lower() == "optional":
+                if (
+                    field_kind == "context"
+                    and cardinality.strip().lower() == "optional"
+                ):
                     raise ValueError(
                         f"Context field '{field_name}' cannot be optional for task {task_key}. "
                         "Context fields must be required inputs."
@@ -362,12 +484,12 @@ def build_task_step_function(
         crew_run_id = getattr(self.state, "crew_run_id", None)
         if crew_run_id is not None:
             step_inputs["crew_run_id"] = crew_run_id
-        
+
         description_template = task_yaml.get("description", "")
         formatted_description = interpolate_task_description(
             description_template, step_inputs
         )
-        
+
         agent = crew_agents.get(agent_key)
         if not agent:
             raise ValueError(f"Agent {agent_key} not found")
@@ -381,27 +503,37 @@ def build_task_step_function(
             field_spec = graph.state_field_specs.get(field_name)
             if field_spec:
                 field_type_str = field_spec.get("type", "string")
-                
+
                 # Extract inner type if it's a list (e.g., list[ContentStrategy] -> ContentStrategy)
                 inner_type_str = extract_inner_type_from_list(field_type_str)
-                
+
                 # Resolve the Python type for the inner type
                 python_type = resolve_python_type(inner_type_str)
-                
+
                 # Check if it's a Pydantic BaseModel
                 if isinstance(python_type, type) and issubclass(python_type, BaseModel):
                     output_pydantic_model = python_type
                     break  # Use the first Pydantic model found
+
+        task_guardrails: List[GuardrailCallable] = []
+        if output_pydantic_model:
+            task_guardrails.append(
+                partial(
+                    structured_output_guardrail,
+                    expected_model=output_pydantic_model,
+                )
+            )
+        task_guardrails.append(llm_judge_guardrail)
 
         crew_task_kwargs = {
             "name": task_yaml.get("name", "Task"),
             "description": formatted_description,
             "expected_output": task_yaml.get("expected_output", ""),
             "agent": agent,
-            "guardrail": llm_judge_guardrail,
+            "guardrail": compose_guardrails(task_guardrails),
             "guardrail_max_retries": 3,
         }
-        
+
         if output_pydantic_model:
             crew_task_kwargs["output_pydantic"] = output_pydantic_model
 
@@ -428,14 +560,14 @@ def build_task_step_function(
             field_name = write_spec["field"]
             mode = write_spec.get("mode", "replace")
 
-            if hasattr(result, 'pydantic') and result.pydantic is not None:
-                pydantic_value = result.pydantic
+            pydantic_value = getattr(result, "pydantic", None)
+            if pydantic_value is not None:
                 if isinstance(pydantic_value, BaseModel):
                     output_value = pydantic_value.model_dump()
                 else:
                     output_value = pydantic_value
             else:
-                output_value = result.raw
+                output_value = getattr(result, "raw", result)
 
             if mode == "replace":
                 setattr(self.state, field_name, output_value)
@@ -471,15 +603,17 @@ def build_dynamic_flow_class(
         # 1. Get inputs from baggage (Standard Logic)
         inputs = cast(dict[str, Any], baggage.get_baggage("flow_inputs") or {})
         filtered_inputs = {k: v for k, v in inputs.items() if k != "id"}
-        
+
         if filtered_inputs:
             for field_name, value in filtered_inputs.items():
                 if hasattr(self.state, field_name):
                     try:
                         setattr(self.state, field_name, value)
-                    except Exception as e:
+                    except Exception:
                         if hasattr(self.state, "model_copy"):
-                            self.state = self.state.model_copy(update={field_name: value})
+                            self.state = self.state.model_copy(
+                                update={field_name: value}
+                            )
 
         # 2. Generate Run ID (Standard Logic)
         run_id = getattr(self.state, "run_id", None)
@@ -495,11 +629,13 @@ def build_dynamic_flow_class(
             # Only care about context fields
             if field_spec.get("field_kind") != "context":
                 continue
-            
+
             # Check if this field is actually read by any task in this flow
             readers = graph.field_readers.get(field_name, [])
-            is_used_by_active_tasks = any(reader in active_task_keys for reader in readers)
-            
+            is_used_by_active_tasks = any(
+                reader in active_task_keys for reader in readers
+            )
+
             if is_used_by_active_tasks:
                 value = getattr(self.state, field_name, None)
                 if not value:
@@ -524,7 +660,7 @@ def build_dynamic_flow_class(
 
     def __init__(self):
         # Flow.__init__ sets up Flow.state with the generic model
-        Flow.__init__(self, tracing=True)
+        Flow.__init__(self, tracing=settings.CREWAI_TRACING_ENABLED)
         self.tasks_config = tasks_config
         self.agents_config = agents_config
         self.crew_agents = crew_agents
@@ -562,12 +698,13 @@ def build_dynamic_flow_class(
 # Public factory: build FlowState + Flow from CrudTask list
 # ============================================================================
 
+
 def create_flow_from_tasks(
     incoming_tasks: List[TaskRead],
 ) -> Tuple[Type[BaseModel], Type[Flow], Dict[str, List[str]]]:
     """
     Build a dynamic FlowState model and Flow class from a list of TaskRead.
-    
+
     Agent and task configs are retrieved from config.py.
 
     Args:
@@ -590,4 +727,3 @@ def create_flow_from_tasks(
     )
 
     return FlowStateModel, FlowClass, required_inputs
-
