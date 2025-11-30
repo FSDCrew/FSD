@@ -3,6 +3,8 @@ from bs4 import BeautifulSoup
 import xlsxwriter
 import os
 
+from app.lib.tools.output_paths import resolve_output_path
+
 def _parse_html_table_with_spans(html: str):
     """
     Returns: grid (list[list[str]]), merges (list[(r1, c1, r2, c2, value)])
@@ -125,14 +127,13 @@ def _parse_html_table_with_spans(html: str):
 @tool("HTML Table to Excel Converter")
 def html_table_to_excel_tool(
     html_str: str,
-    # output_path: str | None = None
-) -> str:
+    file_name: str | None = None,
+):
     """
     Converts an HTML table string into an Excel (.xlsx) file with row/col spans preserved as merged cells.
     Only the first <table> is processed.
     """
-    # output_path = output_path or "./output/html_table_to_excel.xlsx"
-    output_path = "./output/html_table_to_excel.xlsx" # TODO: remove this
+    output_path = resolve_output_path(file_name, "html_table_to_excel.xlsx", ".xlsx")
     try:
         grid, merges = _parse_html_table_with_spans(html_str)
 

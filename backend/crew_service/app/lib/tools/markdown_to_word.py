@@ -6,6 +6,8 @@ import pypandoc
 from crewai.tools import tool
 from typing import Optional, Sequence
 
+from app.lib.tools.output_paths import resolve_output_path
+
 def _ensure_pandoc_env() -> None:
     """Ensure PYPANDOC_PANDOC points to a pandoc executable, downloading if needed."""
     if shutil.which("pandoc"):
@@ -24,7 +26,7 @@ def _safe_mkdirs(path: str) -> None:
 @tool("Markdown to Word Doc")
 def markdown_to_word_doc(
     markdown: str,
-    # output_path: str | None = None,
+    file_name: str | None = None,
 ):
     """
     Convert Markdown string to a Word (.docx) using Pandoc, preserving Markdown features.
@@ -34,31 +36,16 @@ def markdown_to_word_doc(
     - Optionally map styles via a Word template (reference_docx).
     - Optionally set resource_path so relative images are embedded properly.
     """
-    # output_path = output_path or "./output/markdown_to_word.docx"
-    output_path = "./output/markdown_to_word.docx" # TODO: remove this
+    output_path = resolve_output_path(file_name, "markdown_to_word.docx", ".docx")
     if not markdown or not markdown.strip():
         error = f"Markdown input is empty."
         logging.error("markdown_to_word_doc: ", error)
         return error
-        return {
-            "status": "error",
-            "output_format": "docx",
-            "output_path": output_path,
-            "notes": "Markdown input is empty.",
-            "raw": ""
-        }
-
+    
     if not output_path.lower().endswith(".docx"):
         error = f"output_path must end with .docx (Pandoc targets .docx, not legacy .doc): {output_path}"
         logging.error("markdown_to_word_doc: ", error)
         return error
-        return {
-            "status": "error",
-            "output_format": "docx",
-            "output_path": output_path,
-            "notes": "output_path must end with .docx (Pandoc targets .docx, not legacy .doc).",
-            "raw": ""
-        }
 
     _ensure_pandoc_env()
     _safe_mkdirs(output_path)
@@ -74,24 +61,7 @@ def markdown_to_word_doc(
             outputfile=output_path,
         )
         return markdown
-        # return {
-        #     "status": "success",
-        #     "output_format": "docx",
-        #     "output_path": output_path,
-        #     "notes": (
-        #         "Converted with Pandoc using GFM extensions. "
-        #         "If styles look off, provide a reference .docx to control Word styles."
-        #     ),
-        #     "raw": ""
-        # }
     except Exception as e:
         error = f"Error converting Markdown to Word Doc: {e}"
         logging.error("markdown_to_word_doc: ", error)
         return error 
-        # return {
-        #     "status": "error",
-        #     "output_format": "docx",
-        #     "output_path": output_path,
-        #     "notes": "Unexpected error during conversion.",
-        #     "raw": repr(e)
-        # }

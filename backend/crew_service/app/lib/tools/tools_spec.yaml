@@ -34,17 +34,19 @@ tools:
     description: Converts an HTML table string into an Excel (.xlsx) file with row/col spans preserved as merged cells.
     input:
       html_str: string
-      examples:
+      file_name: string (optional)
+    examples:
         - html_str: """
           <table>
             <tr><td>Hello</td><td>World</td></tr>
             <tr><td>Hello</td><td>World</td></tr>
-          """, output_path: "./social_media_schedule.xlsx"
+          """, file_name: "social_media_schedule.xlsx"
 
   - name: markdown_to_word_doc
     description: Convert Markdown to a Word (.docx) file with GitHub-flavored Markdown features preserved. Automatically removes common leading indentation so pasted/triple-quoted Markdown isn't treated as a code block.
     input:
       markdown: string
+      file_name: string (optional)
     examples:
       - markdown: "# Title\n\n- [x] done\n- [ ] todo\n"
       - markdown: |
