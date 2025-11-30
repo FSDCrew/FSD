@@ -6,6 +6,9 @@ from app.lib.tools.html_to_excel import html_to_excel_tool
 from app.lib.tools.markdown_to_word import markdown_to_word_doc
 from app.lib.tools.open_instagram_posts import open_instagram_posts
 from app.lib.tools.search import open_pages, search_internet, search_instagram
+from app.lib.tools.orshot_tool import orshot_render_tool
+from app.lib.tools.image_generator import generate_image_tool
+from app.lib.tools.imagen_generator import generate_imagen_tool
 
 
 # ============================================================================
@@ -20,6 +23,9 @@ TOOL_MAP = {
     "open_instagram_posts": open_instagram_posts,
     "markdown_to_word_doc": markdown_to_word_doc,
     "html_to_excel": html_to_excel_tool,
+    "orshot_render_tool": orshot_render_tool,
+    "generate_image_tool": generate_image_tool,
+    "generate_imagen_tool": generate_imagen_tool,
 }
 
 # ============================================================================
