@@ -1,20 +1,34 @@
 from uuid import UUID
-from fastapi import HTTPException, status
+
 import httpx
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.crew_client import Client
+from app.api.crew_client.api.tasks import (
+    get_pre_defined_tasks_tasks_pre_defined_get as get_pre_defined_tasks,
+)
+from app.api.crew_client.client import Client
+from app.models.models import (
+    CrewRunCreate,
+    CrewRunRead,
+    TaskRead,
+    TaskInfo
+)
 from app.repositories.crew_run_repository import CrewRunRepository
 from app.repositories.queue_repository import QueueRepository
-from app.models.models import CrewRunCreate, CrewRunRead, CrewRunMetadata, TaskInfo, TaskRead
 from app.services.crew_service import CrewService
-from app.api.crew_client.client import Client
-from app.api.crew_client.api.tasks import get_pre_defined_tasks_tasks_pre_defined_get as get_pre_defined_tasks
-
-
 from config import settings
 
+
 class CrewRunService:
-    def __init__(self, crew_service: CrewService, repository: CrewRunRepository, queue_repository: QueueRepository, session: AsyncSession):
+    def __init__(
+        self,
+        crew_service: CrewService,
+        repository: CrewRunRepository,
+        queue_repository: QueueRepository,
+        session: AsyncSession,
+    ):
         self.crew_service = crew_service
         self.crew_run_repository = repository
         self.queue_repository = queue_repository
@@ -34,11 +48,13 @@ class CrewRunService:
         
         return crew_run_read
     
-    async def _get_task_snapshot(self, tasks: list[TaskRead]) -> list[TaskInfo]:
+    async def _get_tasks_snapshot(self, tasks: list[TaskRead]) -> list[TaskInfo]:
         """Fetch TaskInfo objects for all tasks in the crew."""
         
         try:
-            pre_defined_tasks = await get_pre_defined_tasks.asyncio(client=self.crew_client)
+            pre_defined_tasks = await get_pre_defined_tasks.asyncio(
+                client=self.crew_client
+            )
             if not pre_defined_tasks:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -47,42 +63,36 @@ class CrewRunService:
             
             task_info_map = {task.key: task for task in pre_defined_tasks}
             
-            task_snapshot = []
+            tasks_snapshot: list[TaskInfo] = []
             for task in tasks:
                 if task.key in task_info_map:
                     task_info = task_info_map[task.key]
-                    task_snapshot.append(TaskInfo(
-                        key=task_info.key,
-                        name=task_info.name,
-                        task_description=task_info.task_description
-                    ))
-            
-            return task_snapshot
+                    tasks_snapshot.append(TaskInfo.model_validate(task_info.to_dict()))
+                else:
+                    raise ValueError(f"Task {task.key} not found in pre-defined tasks.")
+            return tasks_snapshot
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to get task snapshot: {e}"
+                detail=f"Failed to get tasks snapshot: {e}",
             )
-    
-    async def create_crew_run(self, crew_run_data: CrewRunCreate, user_id: UUID) -> CrewRunRead:
+
+    async def create_crew_run(
+        self, crew_run_data: CrewRunCreate, user_id: UUID
+    ) -> CrewRunRead:
         """Creates a crew run, enqueues it, and returns the Pydantic model."""
         crew = await self.crew_service.validate_crew(crew_run_data.crew_id, user_id)
         self.crew_service.is_crew_owner(crew.user_id, user_id)
         tasks = crew.tasks
         if len(tasks) == 0:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Crew has no tasks."
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Crew has no tasks."
             )
         
-        task_snapshot = await self._get_task_snapshot(tasks)
-        
-        if crew_run_data.run_metadata is None:
-            crew_run_data.run_metadata = CrewRunMetadata(inputs={})
-        crew_run_data.run_metadata.task_snapshot = task_snapshot
+        tasks_snapshot = await self._get_tasks_snapshot(tasks)
         
         try:
-            db_crew_run = await self.crew_run_repository.create_crew_run(crew_run_data)
+            db_crew_run = await self.crew_run_repository.create_crew_run(crew_run_data, tasks_snapshot)
             crew_run_id = UUID(str(db_crew_run.id))
             await self.queue_repository.enqueue_crew_run(crew_run_id)
             await self.session.commit()
@@ -93,13 +103,21 @@ class CrewRunService:
                 detail=f"Failed to create crew run: {e}"
             )
         await self.session.refresh(db_crew_run)
-        full_crew_run = await self.crew_run_repository.get_crew_run_by_id_with_artifacts(crew_run_id)
+        full_crew_run = (
+            await self.crew_run_repository.get_crew_run_by_id_with_artifacts(
+                crew_run_id
+            )
+        )
 
         return self._convert_db_to_read(full_crew_run)
 
-    async def get_crew_run_by_id_with_artifacts(self, crew_run_id: UUID, user_id: UUID) -> CrewRunRead:
+    async def get_crew_run_by_id_with_artifacts(
+        self, crew_run_id: UUID, user_id: UUID
+    ) -> CrewRunRead:
         """Retrieves a crew run and its artifacts, performing access validation."""
-        db_crew_run = await self.crew_run_repository.get_crew_run_by_id_with_artifacts(crew_run_id)
+        db_crew_run = await self.crew_run_repository.get_crew_run_by_id_with_artifacts(
+            crew_run_id
+        )
 
         if db_crew_run is None:
             raise HTTPException(
@@ -111,26 +129,36 @@ class CrewRunService:
     
     async def get_crew_run_by_id_internal(self, crew_run_id: UUID) -> CrewRunRead:
         """Retrieves a crew run by ID for internal use without user validation."""
-        db_crew_run = await self.crew_run_repository.get_crew_run_by_id_internal(crew_run_id)
+        db_crew_run = await self.crew_run_repository.get_crew_run_by_id_internal(
+            crew_run_id
+        )
 
         if db_crew_run is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Crew Run with ID {crew_run_id} not found."
+                detail=f"Crew Run with ID {crew_run_id} not found.",
             )
 
         return self._convert_db_to_read(db_crew_run)
-    
-    async def update_crew_run_output(self, crew_run_id: UUID, output: dict) -> CrewRunRead:
+
+    async def update_crew_run_output(
+        self, crew_run_id: UUID, output: dict
+    ) -> CrewRunRead:
         """Updates the output of a crew run."""
         # TODO: Should output be an array of objects rather than just a dictionary?
-        db_crew_run = await self.crew_run_repository.update_crew_run_output(crew_run_id, output)
-        
+        db_crew_run = await self.crew_run_repository.update_crew_run_output(
+            crew_run_id, output
+        )
+
         if db_crew_run is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Crew Run with ID {crew_run_id} not found."
+                detail=f"Crew Run with ID {crew_run_id} not found.",
             )
-        
-        full_crew_run = await self.crew_run_repository.get_crew_run_by_id_with_artifacts(crew_run_id)
+
+        full_crew_run = (
+            await self.crew_run_repository.get_crew_run_by_id_with_artifacts(
+                crew_run_id
+            )
+        )
         return self._convert_db_to_read(full_crew_run)
