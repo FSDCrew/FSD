@@ -194,7 +194,7 @@ variable "headless" {
 
 variable "playwright_timeout_ms" {
   description = "Playwright timeout measured in milliseconds"
-  type        = string
+  type        = number
   default     = 30000
 }
 

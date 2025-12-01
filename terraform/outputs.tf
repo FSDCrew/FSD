@@ -1,3 +1,8 @@
+output "aws_region" {
+  description = "AWS Deployment Region"
+  value       = var.aws_region
+}
+
 # ============================================
 # NETWORKING OUTPUTS
 # ============================================
@@ -152,6 +157,11 @@ output "ecr_repository_arn_crud_service" {
   value       = aws_ecr_repository.crud_service.arn
 }
 
+output "ecr_repository_name_crud_service" {
+  description = "Name of ECR repository for CRUD service"
+  value       = aws_ecr_repository.crud_service.name
+}
+
 output "ecr_repository_url_crew_service" {
   description = "URL of ECR repository for Crew service"
   value       = aws_ecr_repository.crew_service.repository_url
@@ -160,6 +170,11 @@ output "ecr_repository_url_crew_service" {
 output "ecr_repository_arn_crew_service" {
   description = "ARN of ECR repository for Crew service"
   value       = aws_ecr_repository.crew_service.arn
+}
+
+output "ecr_repository_name_crew_service" {
+  description = "ARN of ECR repository for Crew service"
+  value       = aws_ecr_repository.crew_service.name
 }
 
 
