@@ -296,7 +296,7 @@ tasks:
             - description (string, typically 1–2 sentences)
             - notes (optional string, e.g. CTAs, hashtags, mentions)
 
-  image_generator:
+  copywriter:
     reads:
       - field: theme
         cardinality: required
