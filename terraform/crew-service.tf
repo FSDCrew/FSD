@@ -58,6 +58,7 @@ resource "aws_launch_template" "crew_service" {
       -e BRIGHT_DATA_ZONE=${var.bright_data_zone} \
       -e ORSHOT_API_KEY=${var.orshot_api_key} \
       -e ORSHOT_API_URL=${var.orshot_api_url} \
+      -e GEMINI_API_KEY=${var.gemini_api_key} \
       $ECR_REGISTRY_URL:latest
 
     echo "User Data Script Finished!"

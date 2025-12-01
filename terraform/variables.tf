@@ -214,6 +214,12 @@ variable "orshot_api_url" {
   type        = string
 }
 
+variable "gemini_api_key" {
+  description = "Gemini API key"
+  type        = string
+}
+
+
 # ============================================
 # AWS AMPLIFY Configuration
 # ============================================
