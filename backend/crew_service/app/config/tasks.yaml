@@ -16,15 +16,15 @@ state:
     end_date:
       type: date
       field_kind: context
+    image_description:
+      type: string
+      field_kind: context
     templateId:
       type: list[AllowedTemplateId]
       field_kind: context
     orshot_schema:
       type: list[OrshotSchemaField]
       field_kind: context
-    image_assets:
-      type: list[string]
-      field_kind: data
 
     # --- Dynamic Data Fields (produced or provided depending on workflow) ---
     discovery_datasets:
@@ -41,6 +41,19 @@ state:
 
     social_media_schedule:
       type: SocialMediaSchedule
+      field_kind: data
+
+    image_assets:
+      type: string
+      field_kind: data
+
+    orshot_render:
+      type: string
+      field_kind: data
+
+    post_captions:
+      # type: PostCaptions
+      type: string
       field_kind: data
 
 tasks:
@@ -300,14 +313,147 @@ tasks:
       - field: target_audience_description
         cardinality: required
       - field: content_strategy
-        cardinality: at_least_one
-        min_items: 1
-      - field: marketing_research
-        cardinality: at_least_one
-        min_items: 1
+        cardinality: optional
+    writes:
+      - field: post_captions
+        mode: replace
+    key: copywriter
+    agent: copywriter_agent
+    output_file: output/preparing_marketing_campaign/post_captions.md
+    name: Copywriting Task
+    task_description: >
+      Generate Instagram post captions, hashtags, and phrases. If content strategy is provided, generate for every post.
+      If content strategy is missing, generate creative ideas based on theme, brand, and target audience.
+    description: >
+      <important_rules>
+        1. You must not make up any information. Only include information that you are confident about.
+        2. You must not include any information that is not related to the topic or the brand.
+        3. All captions must align with the brand voice and target audience.
+        4. You must carefully review all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
+      </important_rules>
+
+      <context>
+        1. The theme of the marketing campaign is described as <THEME>{theme}</THEME>.
+        2. The brand you are creating copy for is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
+        3. The target audience is described as <TARGET_AUDIENCE_DESCRIPTION>{target_audience_description}</TARGET_AUDIENCE_DESCRIPTION>.
+        4. The content strategy (if provided) is as follows:
+          <content_strategy>
+            {content_strategy}
+          </content_strategy>
+      </context>
+
+      <tools>
+        - name: markdown_to_word_doc
+          description: Convert Markdown to a Word (.docx) file with GitHub-flavored Markdown features preserved. Automatically removes common leading indentation so pasted/triple-quoted Markdown isn't treated as a code block.
+          input:
+            markdown: string
+          examples:
+            - markdown: "# Title\n\n- [x] done\n- [ ] todo\n"
+            - markdown: |
+                # Report
+                | A | B |
+                | - | - |
+                | 1 | 2 |
+      </tools>
+
+      <markdown_formatting_rules>
+        1. **Hashtag Formatting:** To prevent hashtags from being interpreted as markdown headers, format them in one of these ways:
+           - Use backticks: `#hashtag` (recommended)
+           - Escape with backslash: \#hashtag
+           - Put hashtags in a code block or inline code
+           - Place hashtags on lines that are NOT at the start of a paragraph
+        2. **Structure:** Use proper markdown headings (##, ###) to organize content by post or section.
+        3. **Lists:** Use markdown list syntax (- or *) for hashtag sets and phrases.
+        4. **No Code Blocks:** Do NOT wrap the entire output in ``` markdown code blocks.
+        5. **Clean Formatting:** Ensure proper spacing and line breaks for readability.
+      </markdown_formatting_rules>
+
+      <your_task>
+        You must determine which mode to operate in based on whether content_strategy is provided.
+
+        **IF CONTENT_STRATEGY IS PROVIDED:**
+        For every post identified in the content strategy:
+          1. Analyze the post's theme, objective, and description.
+          2. Generate a compelling Instagram caption that:
+             - Opens with an engaging hook
+             - Tells a story or provides value
+             - Includes a clear call-to-action (CTA)
+             - Aligns with the brand voice and target audience
+             - Is optimized for Instagram (appropriate length, emoji usage, formatting)
+          3. Generate a strategic hashtag set (5-10 hashtags) including:
+             - Broad/trending hashtags relevant to the theme
+             - Niche hashtags specific to the target audience
+             - Campaign-specific or branded hashtags
+             - Format hashtags using backticks (e.g., `#hashtag`) to prevent markdown header interpretation
+          4. Generate 2-3 engaging phrases or taglines that:
+             - Capture the essence of the post's message
+             - Can be used as alternative captions or in other campaign materials
+             - Are memorable and shareable
+          5. Carefully review and refine all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
+          6. Format the output in clean markdown, organizing by post with clear headings (##, ###) and labels for captions, hashtags, and phrases.
+          7. Ensure all hashtags are properly formatted with backticks (e.g., `#hashtag`) to prevent markdown parsing issues.
+          8. **CRITICAL STEP:** Use the `markdown_to_word_doc` tool to convert your output.
+             - The `markdown` argument MUST be the **full text string** of the report you just generated.
+             - Do NOT pass a dictionary or schema definition (e.g., `{{'type': 'str'}}`).
+             - Pass the actual string content directly.
+
+        **IF CONTENT_STRATEGY IS MISSING:**
+        Generate creative content ideas based on the theme, brand, and target audience:
+          1. Create 3-5 sample post captions showcasing different angles:
+             - Different hooks and storytelling approaches
+             - Various CTAs and engagement strategies
+             - Different tones (inspirational, educational, entertaining, etc.)
+          2. Generate a comprehensive hashtag list (15-20 hashtags) including:
+             - Broad hashtags relevant to the theme
+             - Niche hashtags for the target audience
+             - Branded hashtag suggestions
+             - Format hashtags using backticks (e.g., `#hashtag`) to prevent markdown header interpretation
+          3. Generate 5-7 memorable phrases and taglines that:
+             - Capture the brand essence
+             - Resonate with the target audience
+             - Can be used across different campaign materials
+          4. Carefully review and refine all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
+          5. Format the output in clean markdown as a collection of creative ideas with clear sections and headings.
+          6. Ensure all hashtags are properly formatted with backticks (e.g., `#hashtag`) to prevent markdown parsing issues.
+          7. **CRITICAL STEP:** Use the `markdown_to_word_doc` tool to convert your output.
+             - The `markdown` argument MUST be the **full text string** of the report you just generated.
+             - Do NOT pass a dictionary or schema definition.
+             - Pass the actual string content directly.
+
+        Regardless of mode, ensure all output is:
+        - On-brand and aligned with brand voice
+        - Tailored to the target audience
+        - Engaging and optimized for Instagram
+        - Free of grammar, spelling, and punctuation errors
+      </your_task>
+
+    expected_output: >
+      Generate markdown-formatted content with proper hashtag formatting (using backticks like `#hashtag`).
+      
+      If content strategy is provided:
+      - For each post: caption, hashtags, and phrases clearly labeled and organized with markdown headings.
+      
+      If content strategy is missing:
+      - A collection of creative ideas including sample captions, hashtag suggestions, and memorable phrases with clear markdown sections.
+      
+      After generating the markdown, convert it to a Word document using the markdown_to_word_doc tool.
+      Format as markdown without wrapping in ``` code blocks.
+      Do NOT describe whether the output meets requirements.
+      Only output the captions, hashtags, and phrases themselves in markdown format.
+  
+  image_generator:
+    reads:
+      - field: theme
+        cardinality: required
+      - field: brand_description
+        cardinality: required
+      - field: target_audience_description
+        cardinality: required
+      - field: image_description
+        cardinality: required
     writes:
       - field: image_assets
-        mode: append
+        mode: replace
     key: image_generator
     agent: image_generator_agent
     output_file: output/preparing_marketing_campaign/generated_image_assets.txt
@@ -320,21 +466,29 @@ tasks:
         2. You must not include any information that is not related to the topic or the brand.
       </important_rules>
 
+      <tools>
+        - name: generate_imagen_tool
+          description: Generates an image based on a textual prompt and provides a secure S3 link.
+          input:
+            prompt: string
+          examples:
+            - prompt: "A serene beach at sunset with palm trees and gentle waves."
+      </tools>
+
       <context>
         1. You are to create high-quality images for a marketing campaign to be executed on instagram.
-        2. The brand you are creating images for is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
-        3. The target audience is described as <TARGET_AUDIENCE_DESCRIPTION>{target_audience_description}</TARGET_AUDIENCE_DESCRIPTION>.
-        4. The content strategy is as follows:
-          <content_strategy>
-            {content_strategy}
-          </content_strategy>
+        2. The theme of the marketing campaign is described as <THEME>{theme}</THEME>.
+        3. The brand you are creating images for is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
+        4. The target audience is described as <TARGET_AUDIENCE_DESCRIPTION>{target_audience_description}</TARGET_AUDIENCE_DESCRIPTION>.
+        5. The specific image requirements are described as <IMAGE_DESCRIPTION>{image_description}</IMAGE_DESCRIPTION>.
       </context>
 
       <your_task>
         Based on the context, you are to create high-quality images that align with the content strategy.
           1. Analyze the content strategy to identify key themes, concepts, and visual styles needed for the campaign.
           2. For each identified image requirement, generate a detailed prompt that captures the desired aesthetics, mood, and elements.
-          3. Use the generate_image_s3 tool to create each image based on the prompts.
+          3. Use the generate_imagen_tool tool to create each image based on the prompts.
+            - parameters: prompt, {crew_run_id}
           4. Collect and output the S3 links of all generated images.
       </your_task>
 
@@ -354,18 +508,11 @@ tasks:
       - field: target_audience_description
         cardinality: required
 
-        # Optional Fields
-      - field: marketing_research
-        cardinality: optional
-      - field: content_strategy
-        cardinality: optional
-      - field: social_media_schedule
-        cardinality: optional
       - field: image_assets
         cardinality: optional
     writes:
-      - field: image_assets
-        mode: append
+      - field: orshot_render
+        mode: replace
     key: orshot_render
     agent: orshot_template_mapper
     output_file: output/preparing_marketing_campaign/orshot_render.png
@@ -378,6 +525,9 @@ tasks:
         2. **STYLING:** Convert natural language style descriptions into CamelCase CSS properties using dot notation in the `modifications` object (e.g. "field.fontSize": "20px").
         3. **TOOL USAGE:** You must call `orshot_render_tool` with THREE specific arguments: `templateId` (int), `modifications` (dict), and `crew_run_id` (string). Do not pass a single JSON string.
         4. **OPTIONAL INPUTS:** If certain inputs are optional and not present, it would be NOT PROVIDED BY USER. Ignore this field and do not attempt to extract data from it.
+        5. **IMPORTANT:** If the Orshot tool returns an error message starting with "Error:", 
+        STOP immediately. Do NOT generate a fake link. Do NOT try to fix it blindly.
+        Your final answer must be the exact error message returned by the tool.
       </important_rules>
 
       <context>
@@ -385,12 +535,12 @@ tasks:
         - Crew Run ID: {crew_run_id}
         - Template ID: {templateId}
         - Schema: {orshot_schema}
-
-        **2. Content Sources (In Order of Priority):**
-
-        - Priority B (Research/Strategy): "{social_media_schedule}", "{content_strategy}", "{marketing_research}"
-        - Priority C (Creative Core): Theme="{theme}", Brand="{brand_description}", Audience="{target_audience_description}"
-
+        
+        **2. Creative Core:**
+        - Theme: "{theme}"
+        - Brand: "{brand_description}"
+        - Audience: "{target_audience_description}"
+        
         **3. Assets:**
         - Available Images: "{image_assets}"
       </context>
@@ -411,38 +561,54 @@ tasks:
                     ...
                   }
                 }
+        
+        - name: generate_imagen_tool
+          description: Generates an image based on a textual prompt and provides a secure S3 link.
+          input:
+            prompt: string
+          examples:
+            - prompt: "A serene beach at sunset with palm trees and gentle waves."
       </tools>
 
       <your_task>
         Iterate through every field in the **Schema** and populate the `modifications` object:
 
         **PART 1: TEXT FIELDS**
-        For each text field, determine the value using this **Fallback Chain**:
-
-           2. **CHECK PRIORITY B (Strategy/Schedule/Research):** - If (A) is missing, search the Schedule or Strategy for relevant topics/hooks.
-           3. **CHECK PRIORITY C (Fresh Generation):** - If (A) and (B) are missing, **GENERATE NEW TEXT** based on the Campaign Theme, Brand Voice, and Target Audience.
-           4. **MISSING CONTEXT** - If none of the above yield usable text, use a generic placeholder like "To Be Determined".
-           5. **REFINEMENT:** - Regardless of the source, **Rewrite/Summarize** the text to strictly match the length/format constraints defined in the Schema Description (e.g., "Max 3 words").
+        For each text field in the **Schema**:
+           1. **ANALYZE:** Read the field's `description` to understand the specific intent (e.g., "Catchy Title", "Sale CTA") and constraints (e.g., "Max 3 words").
+           2. **GENERATE:** Create creative text based on the **Campaign Theme**, **Brand Description**, and **Target Audience**.
+           3. **REFINEMENT:** - Regardless of the source, **Rewrite/Summarize** the text to strictly match the length/format constraints defined in the Schema Description (e.g., "Max 3 words").
 
         **PART 2: IMAGE FIELDS**
         For each image field:
            1. **CHECK ASSETS:** Look for a valid S3 URL in "Available Images".
-           2. **DECISION:** - If found -> Map the URL to the field.
-              - If NOT found -> Use your **Image Generation Tool** to create a new image based on the Schema Description + Campaign Theme. Map the result.
+           2. **DECISION:**
+              - **IF FOUND:** Map the existing S3 URL directly to the field.
+              - **IF NOT FOUND:** You must generate a new image:
+                  a. **ANALYZE:** Synthesize the **Schema Field Description** (user input) with the **Campaign Theme** and **Brand Voice** to understand the specific visual requirement.
+                  b. **PROMPT ENGINEERING:** Rewrite this requirement into a detailed, high-quality prompt for the image generator. Explicitly describe the subject, style, lighting, and mood.
+                  c. **GENERATE:** Call the `generate_imagen_tool` tool using your optimized prompt.
+                  d. **MAP:** Use the S3 URL returned by the tool.
+        
+        **PART 3: BACKGROUND FIELDS**
+        For each background field:
+           1. **ANALYZE:** Check if the description specifies a color.
+           2. **GENERATE:** Determine the best HEX color code (e.g., "#FFFFFF") based on the description or the Campaign Theme/Brand.
+           3. **MAP:** Assign strictly the HEX string to the field key.
 
-        **PART 3: STYLING (CSS)**
-        For every field (Text or Image):
+        **PART 4: STYLING (CSS)**
+        For every field (TEXT or IMAGE): (skip BACKGROUND fields)
            - Analyze the Schema Description for visual cues (e.g., "Blue background", "Bold font", "Opacity 50%").
            - Convert these into **CamelCase CSS properties** with dot notation.
            - Add them to the `modifications` object (e.g., `"headline.color": "#0000FF"`).
 
-        **PART 4: EXECUTION**
+        **PART 5: EXECUTION**
         - **DO NOT** construct a JSON string.
         - **CALL** the `orshot_render_tool` with these specific parameters:
              - templateId: {templateId}
              - modifications: { ...your_fully_populated_map... }
              - crew_run_id: "{crew_run_id}"
-        - **OUTPUT ONLY** the S3 URL link returned by the tool.
+        - **OUTPUT ONLY** the S3 URL link returned by the orshot_render_tool.
       </your_task>
 
     expected_output: >

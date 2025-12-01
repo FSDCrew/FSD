@@ -8,11 +8,14 @@ from pydantic import BaseModel
 
 from app.lib.tools.dates import calculate_num_weeks
 from app.lib.tools.html_table_to_excel import html_table_to_excel_tool
+from app.lib.tools.image_generator import generate_image_tool
+from app.lib.tools.imagen_generator import generate_imagen_tool
 from app.lib.tools.markdown_to_word import markdown_to_word_doc
-from app.lib.tools.open_instagram_posts import open_instagram_posts
-from app.lib.tools.search import open_pages, search_instagram, search_internet
-from app.lib.tools.social_media_schedule import generate_social_media_schedule_tool
 from app.lib.tools.math import verify_sum_equals_expected
+from app.lib.tools.open_instagram_posts import open_instagram_posts
+from app.lib.tools.orshot_tool import orshot_render_tool
+from app.lib.tools.search import open_pages, search_internet, search_instagram
+from app.lib.tools.social_media_schedule import generate_social_media_schedule_tool
 from app.models.models import CUSTOM_TYPE_REGISTRY
 
 
@@ -195,11 +198,14 @@ class TaskDescriptionInterpolator:
 
 TOOL_MAP = {
     "calculate_num_weeks": calculate_num_weeks,
+    "generate_image": generate_image_tool,
+    "generate_imagen": generate_imagen_tool,
     "generate_social_media_schedule": generate_social_media_schedule_tool,
     "html_table_to_excel": html_table_to_excel_tool,
     "markdown_to_word_doc": markdown_to_word_doc,
     "open_instagram_posts": open_instagram_posts,
     "open_pages": open_pages,
+    "orshot_render": orshot_render_tool,
     "search_instagram": search_instagram,
     "search_internet": search_internet,
     "verify_sum_equals_expected": verify_sum_equals_expected,

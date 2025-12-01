@@ -254,11 +254,13 @@ class AllowedTemplateId(IntEnum):
     """
 
     IG_POST = 1201
+    BG_POST = 1909
 
 
 class OrshotDataType(str, Enum):
     TEXT = "TEXT"
     IMAGE = "IMAGE"
+    BACKGROUND = "BACKGROUND"
 
 
 class OrshotSchemaField(BaseModel):
@@ -266,6 +268,9 @@ class OrshotSchemaField(BaseModel):
     Represents a single configurable field in an Orshot Template.
     User inputs a list of these objects to define the 'rules' for the template.
     """
+    field: str = Field(..., description="The exact parameter key to modify in the Orshot template (e.g., 'headline', 'background_image')")
+    dataType: OrshotDataType = Field(..., description="The data type of this field: 'TEXT', 'IMAGE' or 'BACKGROUND'")
+    description: str = Field(..., description="Contextual description of the field (e.g., 'Main title, max 20 chars', 'Product shot in portrait mode')")
 
     field: str = Field(
         ...,

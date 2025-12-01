@@ -60,14 +60,19 @@ class OrshotRenderTool(BaseTool):
                 "Authorization": f"Bearer {ORSHOT_API_KEY}"
             }
 
-            # Send to Orshot
             response = requests.post(
                 ORSHOT_API_URL, 
                 json=orshot_payload, 
                 headers=headers, 
                 timeout=30
             )
-            response.raise_for_status()
+            if not response.ok:
+                try:
+                    error_details = response.json()
+                except Exception:
+                    error_details = response.text
+
+                return f"Error: Orshot API failed (Status {response.status_code}). Reason: {error_details}"
 
             data = response.json()
 
@@ -100,7 +105,7 @@ class OrshotRenderTool(BaseTool):
             )
 
             if not create_result:
-                return "Error saving artifact to CRUD service."
+                return "Error: Error saving artifact to CRUD service."
             if isinstance(create_result, ArtifactRead):
                 s3_url = get_artifact_artifact_artifact_id_get.sync(
                     artifact_id=create_result.id,
@@ -110,15 +115,10 @@ class OrshotRenderTool(BaseTool):
             if s3_url:
                 return s3_url
             else:
-                return "Error obtaining S3 URL from artifact."
-
-            # Return base64 content of rendered image
-            # return data.get("content")
-
-
+                return "Error: Error obtaining S3 URL from artifact."
 
         except Exception as e:
-            return f"Error executing Orshot render: {str(e)}"
+            return f"Error: Error executing Orshot render: {str(e)}"
 
 
 orshot_render_tool = OrshotRenderTool()
