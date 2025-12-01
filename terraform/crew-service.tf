@@ -56,6 +56,8 @@ resource "aws_launch_template" "crew_service" {
       -e HEADLESS=${var.headless} \
       -e BRIGHT_DATA_API_KEY=${var.bright_data_api_key} \
       -e BRIGHT_DATA_ZONE=${var.bright_data_zone} \
+      -e ORSHOT_API_KEY=${var.orshot_api_key} \
+      -e ORSHOT_API_URL=${var.orshot_api_url} \
       $ECR_REGISTRY_URL:latest
 
     echo "User Data Script Finished!"

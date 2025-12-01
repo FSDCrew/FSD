@@ -47,6 +47,8 @@ openai_api_key                  = "openai_api_key"
 headless                        = "True"
 bright_data_api_key             = "bright_data_api_key"
 bright_data_zone                = "bright_data_zone"
+orshot_api_key                  = "orshot_api_key"
+orshot_api_url                  = "https://api.orshot.com/v1/studio/render"
 
 
 # AWS Amplify Configuration

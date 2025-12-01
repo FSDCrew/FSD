@@ -71,6 +71,7 @@ resource "aws_iam_instance_profile" "backend_instance_profile" {
   role = aws_iam_role.backend_instance_role.name
 }
 
+
 # ============================================
 # COGNITO USER AUTHENTICATION
 # ============================================

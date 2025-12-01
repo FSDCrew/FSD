@@ -204,6 +204,15 @@ variable "bright_data_zone" {
   default     = "serp_api1"
 }
 
+variable "orshot_api_key" {
+   description = "Orshot API key"
+  type        = string
+}
+
+variable "orshot_api_url" {
+  description = "Orshot API URL"
+  type        = string
+}
 
 # ============================================
 # AWS AMPLIFY Configuration
