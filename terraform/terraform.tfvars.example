@@ -50,6 +50,7 @@ bright_data_zone                = "bright_data_zone"
 orshot_api_key                  = "orshot_api_key"
 orshot_api_url                  = "https://api.orshot.com/v1/studio/render"
 gemini_api_key                  = "gemini_api_key"
+playwright_timeout_ms           = 30000
 
 
 # AWS Amplify Configuration

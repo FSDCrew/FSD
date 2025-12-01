@@ -192,6 +192,12 @@ variable "headless" {
   default     = "True"
 }
 
+variable "playwright_timeout_ms" {
+  description = "Playwright timeout measured in milliseconds"
+  type        = string
+  default     = 30000
+}
+
 variable "bright_data_api_key" {
   description = "Bright Data API key for proxy/scraping services"
   type        = string

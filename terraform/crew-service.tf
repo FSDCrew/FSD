@@ -54,6 +54,7 @@ resource "aws_launch_template" "crew_service" {
       -e HEARTBEAT_INTERVAL_SECONDS=${var.heartbeat_interval_seconds} \
       -e OPENAI_API_KEY=${var.openai_api_key} \
       -e HEADLESS=${var.headless} \
+      -e PLAYWRIGHT_TIMEOUT_MS=${var.playwright_timeout_ms} \
       -e BRIGHT_DATA_API_KEY=${var.bright_data_api_key} \
       -e BRIGHT_DATA_ZONE=${var.bright_data_zone} \
       -e ORSHOT_API_KEY=${var.orshot_api_key} \
