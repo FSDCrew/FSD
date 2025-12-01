@@ -1,4 +1,3 @@
-import os
 import base64
 from typing import Type
 from uuid import UUID
@@ -8,15 +7,8 @@ from google.genai import types
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 
-from app.api.crud_client import AuthenticatedClient
-from app.api.crud_client.api.artifact import (
-    create_artifact_artifact_crew_run_id_post, 
-    get_artifact_artifact_artifact_id_get
-)
-from app.api.crud_client.models.artifact_server_create import ArtifactServerCreate
 from app.api.crud_client.models.artifact_type import ArtifactType
-from app.api.crud_client.models.artifact_read import ArtifactRead
-from config import settings
+from app.lib.tools.utils.artifact import get_default_artifact_service
 
 class GenerateImagenInput(BaseModel):
     prompt: str = Field(..., description="A detailed description of the image to generate.")
@@ -66,35 +58,27 @@ class GenerateImagenTool(BaseTool):
             base64_content = base64.b64encode(image_bytes).decode('utf-8')
 
             print(f"Saving Image Artifact for Run: {crew_run_id}...")
-            
-            crud_client = AuthenticatedClient(
-                base_url=settings.CRUD_SERVICE_URL,
-                token=settings.INTERNAL_CREW_API_KEY
-            )
-
+            artifact_service = get_default_artifact_service()
             safe_name = "".join(x for x in prompt[:20] if x.isalnum()) or "image"
             file_name = f"gen_{safe_name}_{UUID(crew_run_id).hex[:8]}.png"
 
-            artifact_body = ArtifactServerCreate(
-                type_=ArtifactType.IMAGE,
+            save_result = artifact_service.save_artifact(
+                crew_run_id=crew_run_id,
                 file_name=file_name,
-                file_content_base64=base64_content
+                file_content_base64=base64_content,
+                artifact_type=ArtifactType.IMAGE,
             )
+            if not save_result.is_success or not save_result.artifact:
+                return save_result.error or "Error saving artifact to CRUD service."
 
-            create_result = create_artifact_artifact_crew_run_id_post.sync(
-                crew_run_id=UUID(crew_run_id),
-                client=crud_client,
-                body=artifact_body
+            s3_result = artifact_service.get_artifact_s3_url(
+                artifact_id=save_result.artifact.id,
+                crew_run_id=crew_run_id,
             )
+            if not s3_result.is_success or not s3_result.url:
+                return s3_result.error or "Error obtaining artifact S3 URL."
 
-            if isinstance(create_result, ArtifactRead):
-                s3_url = get_artifact_artifact_artifact_id_get.sync(
-                    artifact_id=create_result.id,
-                    client=crud_client
-                )
-                return str(s3_url)
-            
-            return f"Error saving artifact: {create_result}"
+            return s3_result.url
 
         except Exception as e:
             return f"Error creating image: {str(e)}"
