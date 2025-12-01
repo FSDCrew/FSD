@@ -114,11 +114,6 @@ def build_task_step_function(
         if output_pydantic_model:
             crew_task_kwargs["output_pydantic"] = output_pydantic_model
 
-        # TODO: Remove this
-        output_file = task_yaml.get("output_file")
-        if output_file:
-            crew_task_kwargs["output_file"] = output_file
-
         crew_task = CrewAITask(**crew_task_kwargs)
 
         crew = Crew(
@@ -126,7 +121,6 @@ def build_task_step_function(
             tasks=[crew_task],
             process=Process.sequential,
             verbose=True,
-            output_log_file="crew_logs.json",  # TODO: Remove this
         )
 
         result = crew.kickoff()

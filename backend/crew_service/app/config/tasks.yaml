@@ -74,7 +74,6 @@ tasks:
         mode: replace
     key: marketing_research
     agent: market_researcher
-    output_file: output/preparing_marketing_campaign/market_research.md
     name: Marketing Research Task
     task_description: >
       Conduct theme-aligned market research using required web-scraping and search tools to identify competitors, trends, and relevant Instagram content,
@@ -97,6 +96,7 @@ tasks:
         2. The brand you are preparing the market research for is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
         3. The target audience is described as <TARGET_AUDIENCE_DESCRIPTION>{target_audience_description}</TARGET_AUDIENCE_DESCRIPTION>.
         4. You are preparing market research to be used to guide the content strategy for the marketing campaign which will take place from <START_DATE>{start_date}</START_DATE> to <END_DATE>{end_date}</END_DATE>.
+        5. <CREW_RUN_ID>{crew_run_id}</CREW_RUN_ID>
       </context>
 
       <your_task>
@@ -144,7 +144,6 @@ tasks:
         mode: replace
     key: content_strategy
     agent: content_strategist
-    output_file: output/preparing_marketing_campaign/content_strategy.md
     name: Content Strategy Task
     task_description: >
       Develop a high-level Instagram content strategy defining campaign phases, tone, messaging, and recommended content types.
@@ -165,6 +164,7 @@ tasks:
           <MARKETING_RESEARCH>
             {marketing_research}
           </MARKETING_RESEARCH>
+        6. <CREW_RUN_ID>{crew_run_id}</CREW_RUN_ID>
       </context>
 
       <your_task>
@@ -211,18 +211,10 @@ tasks:
 
   social_media_schedule:
     reads:
-      # - field: theme
-      #   cardinality: required
-      # - field: brand_description
-      #   cardinality: required
-      # - field: target_audience_description
-      #   cardinality: required
       - field: start_date
         cardinality: required
       - field: end_date
         cardinality: required
-      # - field: marketing_research
-      #   cardinality: required
       - field: content_strategy
         cardinality: required
     writes:
@@ -230,7 +222,6 @@ tasks:
         mode: replace
     key: social_media_schedule
     agent: scheduler
-    output_file: output/preparing_marketing_campaign/social_media_schedule.md
     name: Social Media Schedule Task
     task_description: >
       Convert the ContentStrategy phases and cadence into a fully dated Instagram posting schedule for the entire campaign.
@@ -278,6 +269,7 @@ tasks:
           <CONTENT_STRATEGY>
             {content_strategy}
           </CONTENT_STRATEGY> 
+        3. <CREW_RUN_ID>{crew_run_id}</CREW_RUN_ID>
           
         IMPORTANT: When calling generate_social_media_schedule, you MUST pass the content_strategy_json parameter
         as a valid JSON string containing the ContentStrategy object with all required fields:
@@ -319,7 +311,6 @@ tasks:
         mode: replace
     key: copywriter
     agent: copywriter_agent
-    output_file: output/preparing_marketing_campaign/post_captions.md
     name: Copywriting Task
     task_description: >
       Generate Instagram post captions, hashtags, and phrases. If content strategy is provided, generate for every post.
@@ -456,7 +447,6 @@ tasks:
         mode: replace
     key: image_generator
     agent: image_generator_agent
-    output_file: output/preparing_marketing_campaign/generated_image_assets.txt
     name: Image Generation Task
     task_description: >
       Create images used to create orshot renders.
@@ -515,7 +505,6 @@ tasks:
         mode: replace
     key: orshot_render
     agent: orshot_template_mapper
-    output_file: output/preparing_marketing_campaign/orshot_render.png
     name: Orshot Render Task
     task_description: >
       Render an instagram post or story using the Orshot.
