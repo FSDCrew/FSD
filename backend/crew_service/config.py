@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     """
     INTERNAL_CREW_API_KEY: str
     CRUD_SERVICE_URL: str
+    
+    CREWAI_TRACING_ENABLED: bool = False
         
     QUEUE_POLL_INTERVAL_SECONDS: int
     JOB_VISIBILITY_TIMEOUT_SECONDS: int
@@ -23,6 +25,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     
     HEADLESS: bool
+    PLAYWRIGHT_TIMEOUT_MS: int = 30000
     
     BRIGHT_DATA_API_KEY: str
     BRIGHT_DATA_ZONE: str
@@ -63,7 +66,7 @@ def load_tasks_and_state_fields_config() -> Dict[str, Dict[str, Any]]:
     tasks_config_path = Path(__file__).parent / "app" / "config" / "tasks.yaml"
     try:
         if tasks_config_path.exists():
-            with open(tasks_config_path, 'r') as f:
+            with open(tasks_config_path, 'r', encoding="utf-8") as f:
                 tasks_data = yaml.safe_load(f) or {}
                 for key, task_config in tasks_data.items():
                     if isinstance(task_config, dict):

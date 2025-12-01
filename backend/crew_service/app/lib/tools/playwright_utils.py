@@ -72,7 +72,7 @@ class BrowserConfig:
 
 async def fetch_page_with_playwright(
     url: str,
-    timeout_ms: int = 9000,
+    timeout_ms: int = 30000,
     config: Optional[BrowserConfig] = None,
     page_interaction: Optional[Callable[[Any], Coroutine[Any, Any, List[str]]]] = None,
 ) -> Optional[Tuple[str, List[str]]]:

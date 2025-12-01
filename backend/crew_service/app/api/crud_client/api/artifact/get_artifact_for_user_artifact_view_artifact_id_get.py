@@ -1,46 +1,34 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.artifact_read import ArtifactRead
-from ...models.artifact_server_create import ArtifactServerCreate
 from ...models.http_validation_error import HTTPValidationError
 from ...types import Response
 
 
 def _get_kwargs(
-    crew_run_id: UUID,
-    *,
-    body: ArtifactServerCreate,
+    artifact_id: UUID,
 ) -> dict[str, Any]:
-    headers: dict[str, Any] = {}
-
     _kwargs: dict[str, Any] = {
-        "method": "post",
-        "url": "/artifact/{crew_run_id}".format(
-            crew_run_id=crew_run_id,
+        "method": "get",
+        "url": "/artifact/view/{artifact_id}".format(
+            artifact_id=artifact_id,
         ),
     }
 
-    _kwargs["json"] = body.to_dict()
-
-    headers["Content-Type"] = "application/json"
-
-    _kwargs["headers"] = headers
     return _kwargs
 
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ArtifactRead | HTTPValidationError | None:
-    if response.status_code == 201:
-        response_201 = ArtifactRead.from_dict(response.json())
-
-        return response_201
+) -> HTTPValidationError | str | None:
+    if response.status_code == 200:
+        response_200 = cast(str, response.json())
+        return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
@@ -55,7 +43,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ArtifactRead | HTTPValidationError]:
+) -> Response[HTTPValidationError | str]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -65,30 +53,28 @@ def _build_response(
 
 
 def sync_detailed(
-    crew_run_id: UUID,
+    artifact_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: ArtifactServerCreate,
-) -> Response[ArtifactRead | HTTPValidationError]:
-    """Create Artifact
+) -> Response[HTTPValidationError | str]:
+    """Get Artifact For User
 
-     Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
+     Retrieve an artifact by its ID for a Frontend User.
+    Authenticated via JWT (Cognito/Auth0).
 
     Args:
-        crew_run_id (UUID): Crew Run ID to associate the artifact with
-        body (ArtifactServerCreate):
+        artifact_id (UUID): Artifact ID to retrieve
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ArtifactRead | HTTPValidationError]
+        Response[HTTPValidationError | str]
     """
 
     kwargs = _get_kwargs(
-        crew_run_id=crew_run_id,
-        body=body,
+        artifact_id=artifact_id,
     )
 
     response = client.get_httpx_client().request(
@@ -99,59 +85,55 @@ def sync_detailed(
 
 
 def sync(
-    crew_run_id: UUID,
+    artifact_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: ArtifactServerCreate,
-) -> ArtifactRead | HTTPValidationError | None:
-    """Create Artifact
+) -> HTTPValidationError | str | None:
+    """Get Artifact For User
 
-     Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
+     Retrieve an artifact by its ID for a Frontend User.
+    Authenticated via JWT (Cognito/Auth0).
 
     Args:
-        crew_run_id (UUID): Crew Run ID to associate the artifact with
-        body (ArtifactServerCreate):
+        artifact_id (UUID): Artifact ID to retrieve
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ArtifactRead | HTTPValidationError
+        HTTPValidationError | str
     """
 
     return sync_detailed(
-        crew_run_id=crew_run_id,
+        artifact_id=artifact_id,
         client=client,
-        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
-    crew_run_id: UUID,
+    artifact_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: ArtifactServerCreate,
-) -> Response[ArtifactRead | HTTPValidationError]:
-    """Create Artifact
+) -> Response[HTTPValidationError | str]:
+    """Get Artifact For User
 
-     Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
+     Retrieve an artifact by its ID for a Frontend User.
+    Authenticated via JWT (Cognito/Auth0).
 
     Args:
-        crew_run_id (UUID): Crew Run ID to associate the artifact with
-        body (ArtifactServerCreate):
+        artifact_id (UUID): Artifact ID to retrieve
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ArtifactRead | HTTPValidationError]
+        Response[HTTPValidationError | str]
     """
 
     kwargs = _get_kwargs(
-        crew_run_id=crew_run_id,
-        body=body,
+        artifact_id=artifact_id,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -160,31 +142,29 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    crew_run_id: UUID,
+    artifact_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: ArtifactServerCreate,
-) -> ArtifactRead | HTTPValidationError | None:
-    """Create Artifact
+) -> HTTPValidationError | str | None:
+    """Get Artifact For User
 
-     Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
+     Retrieve an artifact by its ID for a Frontend User.
+    Authenticated via JWT (Cognito/Auth0).
 
     Args:
-        crew_run_id (UUID): Crew Run ID to associate the artifact with
-        body (ArtifactServerCreate):
+        artifact_id (UUID): Artifact ID to retrieve
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ArtifactRead | HTTPValidationError
+        HTTPValidationError | str
     """
 
     return (
         await asyncio_detailed(
-            crew_run_id=crew_run_id,
+            artifact_id=artifact_id,
             client=client,
-            body=body,
         )
     ).parsed

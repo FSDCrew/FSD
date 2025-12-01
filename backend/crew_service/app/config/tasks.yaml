@@ -32,18 +32,15 @@ state:
       field_kind: data
 
     marketing_research:
-      # type: MarketingResearch
-      type: string
+      type: MarketingResearchReport
       field_kind: data
 
     content_strategy:
-      # type: ContentStrategy
-      type: string
+      type: ContentStrategy
       field_kind: data
 
     social_media_schedule:
-      # type: SocialMediaSchedule
-      type: string
+      type: SocialMediaSchedule
       field_kind: data
 
     image_assets:
@@ -77,10 +74,9 @@ tasks:
         mode: replace
     key: marketing_research
     agent: market_researcher
-    output_file: output/preparing_marketing_campaign/market_research.md
     name: Marketing Research Task
     task_description: >
-      Conduct theme-aligned market research using required web-scraping and search tools to identify competitors, trends, and relevant Instagram content, 
+      Conduct theme-aligned market research using required web-scraping and search tools to identify competitors, trends, and relevant Instagram content,
       then produces a structured report.
     description: >
       <important_rules>
@@ -99,62 +95,9 @@ tasks:
           <theme>{theme}</theme>
         2. The brand you are preparing the market research for is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
         3. The target audience is described as <TARGET_AUDIENCE_DESCRIPTION>{target_audience_description}</TARGET_AUDIENCE_DESCRIPTION>.
-        4. You are preparing market research to be used to guide the content strategy for the marketing campaign which will take place from {start_date} to {end_date}.
+        4. You are preparing market research to be used to guide the content strategy for the marketing campaign which will take place from <START_DATE>{start_date}</START_DATE> to <END_DATE>{end_date}</END_DATE>.
+        5. <CREW_RUN_ID>{crew_run_id}</CREW_RUN_ID>
       </context>
-
-      <tools>
-        - name: open_instagram_posts
-          description: Opens and extracts poster's username, caption and image URLs from one or more Instagram post pages.
-          input:
-            urls: string | list[string]
-            examples:
-              - "https://www.instagram.com/p/ABC123xyz/"
-              - ["https://www.instagram.com/p/ABC123xyz/", "https://www.instagram.com/p/DEF456uvw/"]
-
-        - name: search_internet
-          description: Performs a general Google search (via Bright Data) to return summarized web results.
-          input:
-            query: string
-            examples:
-              - "latest olympics news"
-              - "how to bake bread"
-
-        - name: search_instagram
-          description: Searches Google for public Instagram posts using keywords.
-          input:
-            query: string
-            examples:
-              - "cosplay singapore"
-              - "travel photography tips"
-
-        - name: open_pages
-          description: Scrapes one or more webpages and extracts the main readable text content of each webpage.
-          input:
-            website_urls: list[string]
-            examples:
-              - ["https://example.com/blog/post1", "https://newswebsite.com/article/123"]
-
-        - name: markdown_to_word_doc
-          description: Convert Markdown to a Word (.docx) file with GitHub-flavored Markdown features preserved. Automatically removes common leading indentation so pasted/triple-quoted Markdown isn’t treated as a code block.
-          input:
-            markdown: string
-          examples:
-            - markdown: "# Title\n\n- [x] done\n- [ ] todo\n"
-            - markdown: |
-                # Report
-                | A | B |
-                | - | - |
-                | 1 | 2 |
-      </tools>
-
-      <tool_usage_rules>
-        1. You MUST use the Search Internet tool at least once.
-        2. You MUST extract webpage content using the Open Pages tool after Search Internet.
-        3. You MUST use the Search Instagram tool at least once.
-        4. You MUST extract instagram post data using the Open Instagram Post Page tool after Search Instagram.
-        5. You MUST reference the exact tool outputs in your analysis.
-        6. You MUST NOT rely solely on internal knowledge.
-      </tool_usage_rules>
 
       <your_task>
         Based on the context, you are to prepare a report summarizing the competitive landscape, emerging trends tied to "{theme}", and successful examples/reference:
@@ -164,7 +107,7 @@ tasks:
           4. For any relevant topics related to the campaign theme, use the Search Instagram tool to gather data on recent posts related to the campaign theme
           5. Analyze the data collected to identify patterns in content types, engagement tactics, visual styles, and posting frequencies that align with the brand and appeal to the target audience.
           6. You MUST generate a comprehensive and structured report summarizing your findings, including actionable insights, recommendations and references for the upcoming campaign.
-          7. You MUST use the Markdown to Word Doc tool to convert the report into a Word (.docx) file.
+          7. You MUST use the Markdown to Word Doc tool to save the report as a Word (.docx) file before returning the markdown report. The name of the report should be "market_research.docx".
       </your_task>
 
       <additional_instructions>
@@ -180,11 +123,7 @@ tasks:
       - Recommendations
       - References
 
-      Write the full report in markdown.
-      Do NOT describe whether the report meets requirements.
-      Do NOT evaluate or summarize the structure.
-      Only output the report itself.
-      Formatted as markdown without '```'.
+      The final report should be formatted as markdown without '```'.
 
   content_strategy:
     reads:
@@ -205,58 +144,76 @@ tasks:
         mode: replace
     key: content_strategy
     agent: content_strategist
-    output_file: output/preparing_marketing_campaign/content_strategy.md
     name: Content Strategy Task
     task_description: >
-      Generate a high-level Instagram content strategy defining campaign phases, tone, objectives, messages, and recommended content types.
-    crew_inputs: theme, BRAND_DESCRIPTION, sample
+      Develop a high-level Instagram content strategy defining campaign phases, tone, messaging, and recommended content types.
     description: >
       <important_rules>
-        1. You must not make up any information. Only include information that you are confident about.
-        2. You must not include any information that is not related to the topic or the brand.
+        1. Do not make up any information not grounded in the provided brand description, audience, or research.
+        2. Do not include any calendar dates, week assignments, posting schedule, or per-post topics.
+        3. The strategy must remain high-level and non-operational.
+        4. You MUST ensure each phase has valid duration_in_weeks, posting_cadence, themes, objectives, and recommended_content_types.
       </important_rules>
 
       <context>
-        1. You are to develop a content strategy for a marketing campaign to be executed on instagram from {start_date} to {end_date}.
-        2. The brand you are developing the content strategy for is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
+        1. You are to develop a content strategy for an Instagram marketing campaign running from <START_DATE>{start_date}</START_DATE> to <END_DATE>{end_date}</END_DATE>.
+        2. The brand is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
         3. The target audience is described as <TARGET_AUDIENCE_DESCRIPTION>{target_audience_description}</TARGET_AUDIENCE_DESCRIPTION>.
-        4. You are developing the content strategy to be used to guide the social media schedule for the marketing campaign.
+        4. This strategy will guide the Separate Scheduler Task. You must NOT include dates or scheduling details.
         5. The marketing research is as follows:
-          <marketing_research>
+          <MARKETING_RESEARCH>
             {marketing_research}
-          </marketing_research>
+          </MARKETING_RESEARCH>
+        6. <CREW_RUN_ID>{crew_run_id}</CREW_RUN_ID>
       </context>
 
       <your_task>
-        Based on the context, you are to come up with a high-level content strategy for the marketing campaign that MUST be grounded in the marketing research
-          1. Determine an appropriate phase for the strategy. If the campaign is long you can plan per month or per week, if the campaign is relatively short the phase can
-          be day. The marketing campaign should start on the 1st day of the month or 1st Monday, whichever is closer to {start_date}.
-          2. Determine the tone and voice that will resonate with the target audience while reflecting the brand's identity.
-          3. For each phase of the marketing campaign define:
-            - objectives (awareness, engagement, CTA where applicable)
-            - key messages
-            - content types (posts, stories, reels)
+        - Use the calculate-num-weeks tool to determine the <TOTAL_WEEKS> in the campaign.
+        - Produce:
+            1. A human-readable markdown strategy stored in `content`.
+              This should include:
+                  - Executive summary
+                  - Brand alignment
+                  - Audience alignment
+                  - Explanation of each strategy phase
+                  - Messaging principles
+                  - Tone & voice guidelines
+                  - How content types support campaign goals
+
+            2. A structured set of fields mapped into the ContentStrategy object:
+                - `global_settings`
+                    *tone, voice, content pillars, messaging guidelines*
+                - `phases`
+                    A list of phases, each containing:
+                      - name
+                      - duration_in_weeks
+                      - themes
+                      - objectives
+                      - recommended_content_types
+                      - posting_cadence (e.g. posts_per_week, stories_per_week)
+                      - messaging_guidelines
+
+            IMPORTANT:
+            - Do NOT assign dates, days, or weeks.
+            - Do NOT calculate cadence distribution across the campaign.
+            - Do NOT produce HTML tables.
+            - Do NOT perform any scheduling activities.
+          - Double check that the total number of weeks across phases is equal to the <TOTAL_WEEKS> using the verify_sum_equals_expected tool
+          - You MUST the Markdown to Word Doc tool to save the content strategy as a Word (.docx) file before returning the markdown content strategy.
+            The name of the content strategy should be "content_strategy.docx".
       </your_task>
 
     expected_output: >
-      A structured content plan containing:
-      - Executive summary of the content strategy
-      - A calendar overview with theme/concept, objective, and suggested posting cadence
-      Formatted as markdown without '```'.
+      A ContentStrategy object:
+        - `content`: markdown (no backticks)
+        - `global_settings`: structured dict
+        - `phases`: list of StrategyPhase objects
 
   social_media_schedule:
     reads:
-      - field: theme
-        cardinality: required
-      - field: brand_description
-        cardinality: required
-      - field: target_audience_description
-        cardinality: required
       - field: start_date
         cardinality: required
       - field: end_date
-        cardinality: required
-      - field: marketing_research
         cardinality: required
       - field: content_strategy
         cardinality: required
@@ -265,187 +222,80 @@ tasks:
         mode: replace
     key: social_media_schedule
     agent: scheduler
-    output_file: output/preparing_marketing_campaign/social_media_schedule.md
     name: Social Media Schedule Task
     task_description: >
-      Build a weekly Instagram posting schedule based on content strategy and research, producing a structured excel file for the campaign.
+      Convert the ContentStrategy phases and cadence into a fully dated Instagram posting schedule for the entire campaign.
     description: >
       <important_rules>
-        1. You must not make up any information. Only include information that you are confident about.
-        2. You must not include any information that is not related to the topic or the brand.
-        3. You must ensure the HTML table you generate is **structurally valid**, uses **correct rowspans**, and contains **no missing <tr> rows**.
-        4. You must ensure that every rowspan value equals the exact number of consecutive rows that belong to that week.
-        5. You must ensure the HTML contains **no unclosed tags, no mis-nested tags, and no malformed colspan/rowspan values**.
-        6. You must ensure that the table strictly follows the column order and structure of the sample schedule:
-          Week | Posting Cadence | Post Type | Date | Theme/Concept | Objective | Description | Notes
+        1. You must derive all information strictly from:
+            - the <CONTENT_STRATEGY>,
+            - the brand description,
+            - the target audience description,
+            - the marketing research.
+          You may infer details only when they logically follow from these sources.
+
+        2. You must not invent new phases, change phase order, or alter posting cadence at the phase level.
+          You may only distribute each phase’s defined weekly cadence across specific dates in that week.
+
+        3. All scheduled items (posts, reels, stories) must remain relevant to:
+            - the campaign dates,
+            - the campaign theme,
+            - the brand,
+            - the specified audience,
+            - the content strategy.
+          No unrelated content, topics, or stylistic deviations.
+
+        4. Weekly mapping must follow the phase durations in order.
+          You MUST NOT manually generate the weekly phase mapping, weekly date allocation,
+          or posting cadence distribution yourself.
+
+        5. You MUST NOT manually construct ScheduleItem objects or select post types yourself.
+          All schedule construction must come ONLY from the generate_social_media_schedule tool.
+
+        6. You MUST NOT manually construct the HTML table.
+          The HTML table MUST come directly from the tool output.
+
+        7. You MUST NOT call schedule_items_to_html_table or html_table_to_excel.
+          The generate_social_media_schedule tool already performs these steps internally.
+
+        8. You MUST call ONLY the generate_social_media_schedule tool to produce the final schedule.
+          No other tools may be used.
       </important_rules>
 
       <context>
-        1. You are to develop a social media schedule for a marketing campaign to be executed on Instagram from {start_date} to {end_date}.
-        2. The brand you are developing the content strategy for is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
-        3. The target audience is described as <TARGET_AUDIENCE_DESCRIPTION>{target_audience_description}</TARGET_AUDIENCE_DESCRIPTION>.
-        4. You are developing the schedule to guide content creation, including copywriting and visual design.
-        5. The marketing research is as follows:
-          <marketing_research>
-            {marketing_research}
-          </marketing_research>
-        6. The content strategy is as follows:
-          <content_strategy>
+        1. You are to develop a social media schedule for a marketing campaign to be executed on Instagram
+          from <START_DATE>{start_date}</START_DATE> to <END_DATE>{end_date}</END_DATE>.
+        2. The content strategy is as follows (including phases, themes, and posting cadence):
+          <CONTENT_STRATEGY>
             {content_strategy}
-          </content_strategy>
+          </CONTENT_STRATEGY> 
+        3. <CREW_RUN_ID>{crew_run_id}</CREW_RUN_ID>
+          
+        IMPORTANT: When calling generate_social_media_schedule, you MUST pass the content_strategy_json parameter
+        as a valid JSON string containing the ContentStrategy object with all required fields:
+        - content (string)
+        - global_settings (object)
+        - phases (array of StrategyPhase objects)
       </context>
 
-      <sample_schedule>
-        <table border="1" cellpadding="6" cellspacing="0">
-          <thead>
-            <tr>
-              <th>Week</th>
-              <th>Posting Cadence</th>
-              <th>Post Type</th>
-              <th>Date</th>
-              <th>Theme/Concept</th>
-              <th>Objective</th>
-              <th>Description</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Week 1 (3 rows = 2 posts + 1 story) -->
-            <tr>
-              <td rowspan="3">1</td>
-              <td rowspan="3">2 posts, 1 story; Post times 11am, 6pm</td>
-              <td>Post</td>
-              <td>01-Nov-2025</td>
-              <td>Welcome to Semester &amp; Campus Life</td>
-              <td>Kickstart engagement; introduce semester vibe</td>
-              <td>Vibrant shots of campus, student groups &amp; iconic spots</td>
-              <td>Canva templates ready</td>
-            </tr>
-            <tr>
-              <td>Post</td>
-              <td>03-Nov-2025</td>
-              <td>Campus Life Highlights</td>
-              <td>Showcase energetic environment and increase relatability</td>
-              <td>Student life &amp; campus hotspots reel</td>
-              <td>Include trending audio</td>
-            </tr>
-            <tr>
-              <td>Story</td>
-              <td>04-Nov-2025</td>
-              <td>Excitement Polls</td>
-              <td>Gather insights on what students want content about</td>
-              <td>Poll: “What are you most excited for?”</td>
-              <td>Campus GIF stickers</td>
-            </tr>
-
-            <!-- Week 2 (5 rows = 3 posts + 2 stories) -->
-            <tr>
-              <td rowspan="5">2</td>
-              <td rowspan="5">3 posts, 2 stories; Post times 12pm, 7pm</td>
-              <td>Post</td>
-              <td>07-Nov-2025</td>
-              <td>Signature Events Preview</td>
-              <td>Build excitement for upcoming campus festivals</td>
-              <td>Teasers of festival themes &amp; prep visuals</td>
-              <td>Add countdown sticker</td>
-            </tr>
-            <tr>
-              <td>Post</td>
-              <td>09-Nov-2025</td>
-              <td>Festival Hype</td>
-              <td>Boost anticipation and awareness of main highlights</td>
-              <td>Hype poster for main festival highlight</td>
-              <td>Include teaser CTA</td>
-            </tr>
-            <tr>
-              <td>Post</td>
-              <td>11-Nov-2025</td>
-              <td>Throwback Inspiration</td>
-              <td>Use nostalgia and credibility to encourage RSVPs</td>
-              <td>Trailer/snippets from past editions</td>
-              <td>Encourage RSVPs</td>
-            </tr>
-            <tr>
-              <td>Story</td>
-              <td>08-Nov-2025</td>
-              <td>Behind the Scenes</td>
-              <td>Provide insider access to drive engagement</td>
-              <td>Behind-the-scenes look</td>
-              <td>Tag organising committee</td>
-            </tr>
-            <tr>
-              <td>Story</td>
-              <td>10-Nov-2025</td>
-              <td>Event Voices</td>
-              <td>Increase participation by spotlighting student opinions</td>
-              <td>Quick vox pops on favourite past events!</td>
-              <td>Include Swipe-up link</td>
-            </tr>
-          </tbody>
-        </table>
-      </sample_schedule>
-
-      <table_format_requirements>
-        1. The HTML table you produce MUST be fully valid and complete (no missing tags).
-        2. For each week:
-            - Start with a <tr> containing the Week number and Posting Cadence using correct rowspan.
-            - All subsequent rows for that week must NOT repeat those two columns.
-        3. Count the number of posts/stories you generate in that week, DOUBLE-CHECK this count, and set the rowspan attribute to this exact number 
-          (e.g., if there are 5 posts/stories, use rowspan="5"). Verify that the rowspan value exactly matches the number of consecutive rows for that week.
-        4. Every row must contain exactly 8 cells (except those covered by rowspan in cols 1–2): 
-          - The first row of each week has 8 cells (including Week and Posting Cadence)
-          - When Week and Posting Cadence use rowspan, subsequent rows have 6 <td> elements (Post Type, Date, Theme/Concept, Objective, Description, Notes)
-        5. The table MUST match the structure of the sample schedule shown in <sample_schedule>.
-        6. The HTML must be compatible with the html_table_to_excel tool (no nested tables, no missing <tr>, no invalid spans).
-      </table_format_requirements>
-
-      <tools>
-        - name: html_table_to_excel
-          description: Converts an HTML table string into an Excel (.xlsx) file with row/col spans preserved as merged cells.
-          input:
-            html_str: string
-          examples:
-            - html_str: "<table><tr><td>Hello</td><td>World</td></tr></table>"
-        - name: calculate_num_weeks
-          description: Calculates the number of weeks between a start date and an end date (inclusive, rounded up). Supports multiple date formats including ISO (YYYY-MM-DD), DD-MMM-YYYY, DD/MM/YYYY, and DD-MM-YYYY.
-          input:
-            start_date: string
-            end_date: string
-          examples:
-            - start_date: "01-Nov-2024", end_date: "30-Nov-2024"
-            - start_date: "2024-01-01", end_date: "2024-01-07"
-            - start_date: "01/11/2024", end_date: "30/11/2024"
-      </tools>
-
-      <tools_usage_rules>
-        1. You MUST use the HTML Table to Excel tool to convert the HTML table string into an Excel file.
-        2. The HTML passed to the tool MUST be complete, valid, and structurally correct.
-        3. You MUST use the Calculate Number of Weeks tool to determine the total number of weeks in the campaign.
-      </tools_usage_rules>
-
       <your_task>
-        You must generate a complete weekly social media posting schedule covering the entire
-        period from {start_date} to {end_date}.
-
-        Required steps:
-          1. Determine the total number of weeks in the campaign using the calculate_num_weeks tool.
-          2. For each week, determine the number of posts and stories based on the content strategy.
-          3. For every post/story:
-              - Determine Theme/Concept grounded in the content strategy.
-              - Determine the exact date.
-              - Generate Objective and a detailed Description.
-              - Generate Notes (tags, CTA, stickers, etc.).
-          4. Identify the weekly posting cadence and place it in the second column.
-          5. Construct the final HTML table following the sample schedule format exactly.
-          6. Ensure the final HTML table fully adheres to all constraints listed in 
-            <table_format_requirements>.
-          7. Pass the final HTML table string into the html_table_to_excel tool.
+        You MUST call ONLY the generate_social_media_schedule tool to generate the entire
+        weekly Instagram posting schedule for the campaign.
       </your_task>
 
     expected_output: >
-      A properly structured HTML table string that strictly follows the sample schedule format,
-      converted into an Excel file using the html_table_to_excel tool.
-  
+      A SocialMediaSchedule object:
+        - `items`: A list of ScheduleItem objects, one for each post/story/reel in the schedule.
+          Each ScheduleItem must include:
+            - week (int, 1-based week number within the campaign)
+            - phase_name (string, matching one of the ContentStrategy phases)
+            - post_type (one of "Post", "Story", "Reel")
+            - date (YYYY-MM-DD format)
+            - theme_concept (string)
+            - objective (string)
+            - description (string, typically 1–2 sentences)
+            - notes (optional string, e.g. CTAs, hashtags, mentions)
+
   copywriter:
     reads:
       - field: theme
@@ -461,7 +311,6 @@ tasks:
         mode: replace
     key: copywriter
     agent: copywriter_agent
-    output_file: output/preparing_marketing_campaign/post_captions.md
     name: Copywriting Task
     task_description: >
       Generate Instagram post captions, hashtags, and phrases. If content strategy is provided, generate for every post.
@@ -598,7 +447,6 @@ tasks:
         mode: replace
     key: image_generator
     agent: image_generator_agent
-    output_file: output/preparing_marketing_campaign/generated_image_assets.txt
     name: Image Generation Task
     task_description: >
       Create images used to create orshot renders.
@@ -635,7 +483,7 @@ tasks:
       </your_task>
 
     expected_output: >
-      A list of S3 links of the generated images, one per line.      
+      A list of S3 links of the generated images, one per line.
 
   orshot_render:
     reads:
@@ -643,9 +491,9 @@ tasks:
         cardinality: required
       - field: orshot_schema
         cardinality: required
-      - field: theme                
+      - field: theme
         cardinality: required
-      - field: brand_description    
+      - field: brand_description
         cardinality: required
       - field: target_audience_description
         cardinality: required
@@ -657,7 +505,6 @@ tasks:
         mode: replace
     key: orshot_render
     agent: orshot_template_mapper
-    output_file: output/preparing_marketing_campaign/orshot_render.png
     name: Orshot Render Task
     task_description: >
       Render an instagram post or story using the Orshot.
