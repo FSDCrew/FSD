@@ -58,7 +58,6 @@ resource "aws_launch_template" "crud_service" {
       -e COGNITO_APP_CLIENT_ID=${aws_cognito_user_pool_client.main.id} \
       -e S3_REGION=${var.aws_region} \
       -e S3_BUCKET_NAME=${aws_s3_bucket.main.bucket} \
-      -e CRUD_DATABASE_URL=postgresql+psycopg://${var.db_user}:${var.db_password}@${var.db_host}:${var.db_port}/${var.db_name} \
       $ECR_REGISTRY_URL:latest
 
     echo "User Data Script Finished!"
