@@ -25,7 +25,6 @@ class TaskInfo:
         description (str):
         expected_output (str):
         agent (str):
-        output_file (str):
         reads (list[TaskFieldRead]):
         writes (list[TaskFieldWrite]):
     """
@@ -36,7 +35,6 @@ class TaskInfo:
     description: str
     expected_output: str
     agent: str
-    output_file: str
     reads: list[TaskFieldRead]
     writes: list[TaskFieldWrite]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -53,8 +51,6 @@ class TaskInfo:
         expected_output = self.expected_output
 
         agent = self.agent
-
-        output_file = self.output_file
 
         reads = []
         for reads_item_data in self.reads:
@@ -76,7 +72,6 @@ class TaskInfo:
                 "description": description,
                 "expected_output": expected_output,
                 "agent": agent,
-                "output_file": output_file,
                 "reads": reads,
                 "writes": writes,
             }
@@ -102,8 +97,6 @@ class TaskInfo:
 
         agent = d.pop("agent")
 
-        output_file = d.pop("output_file")
-
         reads = []
         _reads = d.pop("reads")
         for reads_item_data in _reads:
@@ -125,7 +118,6 @@ class TaskInfo:
             description=description,
             expected_output=expected_output,
             agent=agent,
-            output_file=output_file,
             reads=reads,
             writes=writes,
         )
