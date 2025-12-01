@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from app.api.crud_client.models.task_read import TaskRead
-from app.models.models import FlowDependencyGraph
+from app.models.models import FlowDependencyGraph, TaskInfo
 from config import state_fields_config, tasks_config
 
 
-def build_flow_dependency_graph(flow_tasks: List[TaskRead]) -> FlowDependencyGraph:
+def build_flow_dependency_graph(flow_tasks: List[TaskInfo]) -> FlowDependencyGraph:
     """Build the FlowDependencyGraph from task and state definitions."""
 
     graph = FlowDependencyGraph()
@@ -17,15 +16,13 @@ def build_flow_dependency_graph(flow_tasks: List[TaskRead]) -> FlowDependencyGra
 
     for task_record in flow_tasks:
         task_key = task_record.key
-        if task_key not in tasks_config:
-            continue
-
-        task_config = tasks_config[task_key]
-
-        for read_spec in task_config.get("reads", []):
+        
+        for read_field in task_record.reads:
+            read_spec = read_field.model_dump(mode='json')
             graph.register_task_read(task_key, read_spec)
-
-        for write_spec in task_config.get("writes", []):
+        
+        for write_field in task_record.writes:
+            write_spec = write_field.model_dump(mode='json')
             graph.register_task_write(task_key, write_spec)
 
     return graph
@@ -33,7 +30,7 @@ def build_flow_dependency_graph(flow_tasks: List[TaskRead]) -> FlowDependencyGra
 
 def infer_initial_inputs(
     graph: FlowDependencyGraph,
-    flow_tasks: List[TaskRead],
+    flow_tasks: List[TaskInfo],
 ) -> Dict[str, List[str]]:
     """Infer which state fields must be provided before the flow starts."""
 

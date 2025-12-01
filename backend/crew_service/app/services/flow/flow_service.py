@@ -3,7 +3,8 @@ from typing import Any, Dict, List, Tuple, Type
 from crewai.flow.flow import Flow
 from pydantic import BaseModel
 
-from app.api.crud_client.models.task_read import TaskRead
+from app.models.models import TaskInfo
+# from app.api.crud_client.models.task_read import TaskRead
 from app.services.flow.flow_builder import create_flow_from_tasks
 from app.services.flow.dependency_graph import (
     build_flow_dependency_graph,
@@ -21,7 +22,7 @@ class FlowService:
         self.tasks_config = tasks_config
         self.agents_config = agents_config
     
-    def get_required_inputs(self, task_reads: List["TaskRead"]) -> Dict[str, str]:
+    def get_required_inputs(self, task_reads: List["TaskInfo"]) -> Dict[str, str]:
         """
         Get required inputs for a list of tasks, mapping field_name -> type_string.
         
@@ -47,7 +48,7 @@ class FlowService:
     
     def build_flow(
         self, 
-        task_reads: List["TaskRead"]
+        task_reads: List["TaskInfo"]
     ) -> Tuple[Type[BaseModel], Type[Flow], Dict[str, List[str]]]:
         """
         Build Flow from TaskRead objects.
@@ -78,14 +79,14 @@ class FlowService:
         flow = flow_class()
         return flow.kickoff(inputs=inputs)
     
-    def validate_inputs(self, inputs: Dict[str, Any], tasks: List["TaskRead"]) -> None:
+    def validate_inputs(self, inputs: Dict[str, Any], tasks: List["TaskInfo"]) -> None:
         """
         Validate that input values match their expected types from the state schema
         and that all required inputs are provided.
         
         Args:
             inputs: Dictionary of input field names to values
-            tasks: List of TaskRead objects to build dependency graph from
+            tasks: List of TaskInfo objects to build dependency graph from
             
         Raises:
             ValueError: If any input type doesn't match the expected type, if required
