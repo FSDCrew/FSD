@@ -5,6 +5,18 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import StartNode from "@/components/StartNode";
 import CustomNode from "@/components/CustomNode";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -140,14 +152,11 @@ export default function CrewPage() {
   const [hoveredNodeType, setHoveredNodeType] = useState<string | null>(null);
   const [nodeTypeConfigs, setNodeTypeConfigs] = useState<NodeTypeConfig[]>([]);
   const [preDefinedTasks, setPreDefinedTasks] = useState<PreDefinedTask[]>([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   
   
   const nodeTypes = React.useMemo(() => createNodeTypes(nodeTypeConfigs), [nodeTypeConfigs]);
   const [selectedRun, setSelectedRun] = useState<any | null>(null);
-  const [notification, setNotification] = useState<{
-    message: string;
-    type: "success" | "error" | "info";
-  } | null>(null);
   
   // Initialize kickoff form
   const kickoffForm = useForm<z.infer<typeof kickoffFormSchema>>({
@@ -172,10 +181,14 @@ export default function CrewPage() {
   
   useEffect(() => {
     const fetchPreDefinedTasks = async () => {
+      console.log('Fetching pre-defined tasks...');
+      setIsLoadingTasks(true);
       try {
         const response = await fetch('http://localhost:8001/tasks/pre-defined');
+        console.log('Response status:', response.status);
         if (response.ok) {
           const tasks: PreDefinedTask[] = await response.json();
+          console.log('Fetched tasks:', tasks);
           setPreDefinedTasks(tasks); 
           const configs = tasks.map((task) => ({
             type: task.key,
@@ -183,6 +196,7 @@ export default function CrewPage() {
             color: getTaskColor(task.key), 
             description: task.task_description
           }));
+          console.log('Setting node configs:', configs);
           setNodeTypeConfigs(configs);
         } else {
           console.error('Failed to fetch pre-defined tasks');
@@ -191,6 +205,8 @@ export default function CrewPage() {
       } catch (error) {
         console.error('Error fetching pre-defined tasks:', error);
         setNodeTypeConfigs([]);
+      } finally {
+        setIsLoadingTasks(false);
       }
     };
 
@@ -218,7 +234,7 @@ export default function CrewPage() {
     (params: Connection) => {
       // Prevent connections TO the start node
       if (params.target === 'start-node') {
-        showNotification("The START node cannot receive connections. It's the beginning of the flow.", "error");
+        toast.error("The START node cannot receive connections. It's the beginning of the flow.");
         return;
       }
       // Check if source node already has an outgoing connection (all nodes including start node can only have ONE outgoing connection)
@@ -226,11 +242,11 @@ export default function CrewPage() {
       // Check if target node already has an incoming connection
       const targetHasConnection = edges.some(edge => edge.target === params.target);
       if (sourceHasConnection) {
-        showNotification("This node already has an outgoing connection. Each node can only connect to one other node for linear flow.", "error");
+        toast.error("This node already has an outgoing connection. Each node can only connect to one other node for linear flow.");
         return;
       }
       if (targetHasConnection) {
-        showNotification("The target node already has an incoming connection. Each node can only receive one connection for linear flow.", "error");
+        toast.error("The target node already has an incoming connection. Each node can only receive one connection for linear flow.");
         return;
       }
       setEdges((eds) => addEdge(params, eds));
@@ -277,7 +293,7 @@ const createCrewMutation = useMutation({
 
   onSuccess: async (crewData) => {
     if (!crewData) {
-      showNotification("Crew created but no data returned", "error");
+      toast.error("Crew created but no data returned");
       return;
     }
     if (nodes.length > 0) {
@@ -289,7 +305,7 @@ const createCrewMutation = useMutation({
         });
       } catch (error) {
         console.error("Error saving tasks:", error);
-        showNotification("Crew created but failed to save tasks", "error");
+        toast.error("Crew created but failed to save tasks");
         return;
       }
     }
@@ -307,12 +323,12 @@ const createCrewMutation = useMutation({
     
     queryClient.invalidateQueries({ queryKey: ['crews'] });
     router.push(`/studio/crew?id=${crewData.id}&title=${encodeURIComponent(crewData.name)}`);
-    showNotification("Crew created successfully!", "success");
+    toast.success("Crew created successfully!");
   },
 
   onError: (error) => {
     console.error("Error creating crew:", error);
-    showNotification("Failed to create crew. Please try again.", "error");
+    toast.error("Failed to create crew. Please try again.");
   }
 });
 
@@ -344,12 +360,12 @@ const updateCrewMutation = useMutation({
     setLastSavedTitle(title);
     setHasUnsavedChanges(false);
     queryClient.invalidateQueries({ queryKey: ['crews'] });
-    showNotification("Crew updated successfully!", "success");
+    toast.success("Crew updated successfully!");
   },
   
   onError: (error) => {
     console.error("Error updating crew:", error);
-    showNotification("Failed to update crew. Please try again.", "error");
+    toast.error("Failed to update crew. Please try again.");
   }
 });
 
@@ -376,7 +392,7 @@ const updateCrewMutation = useMutation({
   
   const handleDeleteNode = useCallback((nodeId: string) => {
     if (nodeId === 'start-node') {
-      showNotification("The START node cannot be deleted.", "error");
+      toast.error("The START node cannot be deleted.");
       return;
     }
     setNodes((nds) => nds.filter((node) => node.id !== nodeId));
@@ -404,11 +420,12 @@ const updateCrewMutation = useMutation({
       const type = event.dataTransfer.getData("application/reactflow") as string;
       if (!type) return;
 
-      const reactFlowBounds = event.currentTarget.getBoundingClientRect();
-      const position = {
-        x: event.clientX - reactFlowBounds.left,
-        y: event.clientY - reactFlowBounds.top,
-      };
+      if (!reactFlowInstance) return;
+
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
 
       const nodeTypeConfig = nodeTypeConfigs.find((n) => n.type === type);
       if (!nodeTypeConfig) return;
@@ -418,7 +435,7 @@ const updateCrewMutation = useMutation({
         return nodeData.taskType === type && n.id !== 'start-node';
       });
       if (existingNode) {
-        showNotification(`Task "${nodeTypeConfig.name}" is already on the canvas. Each task type can only be added once.`, "error");
+        toast.error(`Task "${nodeTypeConfig.name}" is already on the canvas. Each task type can only be added once.`);
         return;
       }
 
@@ -578,7 +595,7 @@ const updateCrewMutation = useMutation({
     const cardId = searchParams.get("id");
     
     if (!title || title.trim() === "") {
-      showNotification("Crew name cannot be empty", "error");
+      toast.error("Crew name cannot be empty");
       return;
     }
     
@@ -591,7 +608,7 @@ const updateCrewMutation = useMutation({
       });
       
       if (!connectionMap.has('start-node')) {
-        showNotification("Please connect the START node to the first task in your flow.", "error");
+        toast.error("Please connect the START node to the first task in your flow.");
         return;
       }
       let currentNodeId = connectionMap.get('start-node');
@@ -604,7 +621,7 @@ const updateCrewMutation = useMutation({
         currentNodeId = connectionMap.get(currentNodeId);
       }
       if (connectedCount !== taskNodes.length) {
-        showNotification(`Linear flow incomplete: ${connectedCount} of ${taskNodes.length} tasks are connected. Please connect all tasks in a single chain starting from START.`, "error");
+        toast.error(`Linear flow incomplete: ${connectedCount} of ${taskNodes.length} tasks are connected. Please connect all tasks in a single chain starting from START.`);
         return;
       }
     }
@@ -617,7 +634,7 @@ const updateCrewMutation = useMutation({
       );
       
       if (duplicateCrew) {
-        showNotification(`A crew with the name "${title}" already exists. Please choose a different name.`, "error");
+        toast.error(`A crew with the name "${title}" already exists. Please choose a different name.`);
         return;
       }
       
@@ -628,11 +645,29 @@ const updateCrewMutation = useMutation({
       }
     } catch (error) {
       console.error("Error checking for duplicate crews:", error);
-      showNotification("Failed to validate crew name. Please try again.", "error");
+      toast.error("Failed to validate crew name. Please try again.");
     }
   };
 
   const handleCancel = () => {
+    router.push("/studio");
+  };
+
+  const handleDiscardChanges = () => {
+    // Revert to last saved state
+    const revertedNodes = lastSavedNodes.map((node: Node) => ({
+      ...node,
+      data: {
+        ...node.data,
+        onChange: (field: string, value: string) => handleNodeDataChange(node.id, field, value),
+        onDelete: () => handleDeleteNode(node.id),
+      },
+    }));
+    
+    setNodes(revertedNodes);
+    setEdges(lastSavedEdges);
+    setTitle(lastSavedTitle);
+    setHasUnsavedChanges(false);
     router.push("/studio");
   };
 
@@ -657,7 +692,7 @@ const updateCrewMutation = useMutation({
       return response.json();
     },
     onSuccess: async () => {
-      showNotification("Flow execution started! Run created successfully.", "success");
+      toast.success("Flow execution started! Run created successfully.");
       
       const cardId = searchParams.get("id");
       if (cardId) {
@@ -680,14 +715,14 @@ const updateCrewMutation = useMutation({
       }
     },
     onError: (error: Error) => {
-      showNotification(`Failed to create crew run: ${error.message}`, "error");
+      toast.error(`Failed to create crew run: ${error.message}`);
     },
   });
 
   const handleRun = () => {
     const cardId = searchParams.get("id");
     if (!cardId) {
-      showNotification("Cannot run flow: No crew ID found", "error");
+      toast.error("Cannot run flow: No crew ID found");
       return;
     }
     
@@ -757,11 +792,6 @@ const updateCrewMutation = useMutation({
     setShowUnsavedWarning(false);
   };
 
-  const showNotification = (message: string, type: "success" | "error" | "info" = "info") => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 4000); 
-  };
-
   const checkDuplicateTitle = (newTitle: string) => {
     const cardId = searchParams.get("id");
     const savedCards = localStorage.getItem("studio_cards");
@@ -776,32 +806,6 @@ const updateCrewMutation = useMutation({
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
-      {/* Custom Notification */}
-      {notification && (
-        <div 
-          className={`fixed top-20 right-6 z-50 px-6 py-4 rounded-lg shadow-lg border-2 animate-in slide-in-from-top-5 duration-300 ${
-            notification.type === "success" 
-              ? "bg-green-50 border-green-500 text-green-800" 
-              : notification.type === "error"
-              ? "bg-red-50 border-red-500 text-red-800"
-              : "bg-blue-50 border-blue-500 text-blue-800"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">
-              {notification.type === "success" ? "✅" : notification.type === "error" ? "❌" : "ℹ️"}
-            </span>
-            <span className="font-medium">{notification.message}</span>
-            <button 
-              onClick={() => setNotification(null)}
-              className="ml-4 text-xl hover:opacity-70"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
       
       <main className="p-6">
         {/* Top Section with Title and Mode Toggle */}
@@ -892,39 +896,25 @@ const updateCrewMutation = useMutation({
         </div>
 
         {/* Unsaved Changes Warning Modal */}
-        {showUnsavedWarning && (
-          <div 
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                cancelModeChange();
-              }
-            }}
-          >
-            <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4">
-              <h2 className="text-xl font-semibold mb-4">Unsaved Changes</h2>
-              <p className="text-muted-foreground mb-6">
+        <AlertDialog open={showUnsavedWarning} onOpenChange={setShowUnsavedWarning}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+              <AlertDialogDescription>
                 You have unsaved changes. Do you want to discard them and switch modes?
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  onClick={cancelModeChange}
-                  variant="secondary"
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={confirmModeChange}
-                  variant="destructive"
-                  className="flex-1"
-                >
-                  Discard Changes
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={cancelModeChange}>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={confirmModeChange}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Discard Changes
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* React Flow Canvas with Sidebar */}
         <div className="mb-8 flex gap-4">
@@ -935,7 +925,7 @@ const updateCrewMutation = useMutation({
               <p className="text-xs text-gray-300 mb-4">Drag to canvas</p>
               
               <div className="space-y-3">
-                {nodeTypeConfigs.length > 0 ? (
+                {!isLoadingTasks && nodeTypeConfigs.length > 0 ? (
                   nodeTypeConfigs.map((nodeType) => (
                     <div
                       key={nodeType.type}
@@ -952,7 +942,7 @@ const updateCrewMutation = useMutation({
                   ))
                 ) : (
                   <div className="text-center text-white py-8">
-                    Loading node types...
+                    {isLoadingTasks ? "Loading node types..." : "No node types available"}
                   </div>
                 )}
               </div>
@@ -1123,12 +1113,39 @@ const updateCrewMutation = useMutation({
         <div className="flex gap-4 justify-end">
           {mode === "edit" ? (
             <>
-              <Button
-                onClick={handleCancel}
-                variant="secondary"
-              >
-                Cancel
-              </Button>
+              {hasUnsavedChanges ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="secondary">
+                      Cancel
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Discard Changes?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        You have unsaved changes. Are you sure you want to discard them and return to the studio? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Keep Editing</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={handleDiscardChanges}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Discard Changes
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : (
+                <Button
+                  onClick={handleCancel}
+                  variant="secondary"
+                >
+                  Cancel
+                </Button>
+              )}
               <Button
                 onClick={handleSave}
                 disabled={!hasUnsavedChanges}
