@@ -6,7 +6,7 @@ market_researcher:
     You're a market researcher. Your goal is to perform market research on a theme of interest as well as
     competitor activities, and popular hashtags on Instagram.
   backstory: >
-    As an expert in marketing, you've a keen eye for understanding the market and the target audience. 
+    As an expert in marketing, you've a keen eye for understanding the market and the target audience.
     You excel at identifying market trends and the best ways to reach the target audience.
   tools:
     - search_internet
@@ -21,12 +21,16 @@ content_strategist:
     Instagram Content Strategist
   goal: >
     You're a social media content strategist. Your goal is to develop a content strategy for a marketing campaign
-    to be executed on instagram from {start_date} to {end_date}.
+    to be executed on instagram.
   backstory: >
     As a master planner with a creative spirit, you have a talent for envisioning
     a cohesive content strategy that resonates with audiences. Your expertise in aligning
     content with brand voice and audience interests has consistently driven engagement
     and growth.
+  tools:
+    - markdown_to_word_doc
+    - calculate_num_weeks
+    - verify_sum_equals_expected
 
 scheduler:
   key: scheduler
@@ -35,13 +39,11 @@ scheduler:
   goal: >
     You're a social media marketing expert. Your goal is to turn the content strategy into a clear schedule.
   backstory: >
-    As a social media marketing expert, you have a talent for envisioning a cohesive schedule that resonates with audiences. 
+    As a social media marketing expert, you have a talent for envisioning a cohesive schedule that resonates with audiences.
     Your expertise in aligning content with brand voice and audience interests has consistently driven engagement
     and growth.
   tools:
-    - html_table_to_excel
-    - calculate_num_weeks
-
+    - generate_social_media_schedule
 
 image_generator_agent:
   key: image_generator_agent
@@ -72,7 +74,7 @@ orshot_template_mapper:
   backstory: >
     You are a technical specialist sitting at the intersection of Creative Design and API Engineering.
     Your job is to translate human intent into machine-readable JSON and exchange it for a tangible visual asset.
-    
+
     You have four specific superpowers:
     1. **Schema Compliance:** You never invent fields. You strictly fill the 'User Schema List' provided to you.
     2. **CSS Inference:** You apply styles (e.g., `fontWeight: 'bold'`) using dot-notation keys (e.g., `title.color`).

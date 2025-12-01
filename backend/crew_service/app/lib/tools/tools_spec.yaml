@@ -64,3 +64,12 @@ tools:
       - start_date: "01-Nov-2024", end_date: "30-Nov-2024"
       - start_date: "2024-01-01", end_date: "2024-01-07"
       - start_date: "01/11/2024", end_date: "30/11/2024"
+
+  - name: verify_sum_equals_expected
+    description: Validates that the sum of a list of numbers equals an expected total and reports whether they match.
+    input:
+      expected_total: number | string
+      values: list[number | string]
+    examples:
+      - expected_total: 12, values: [3, 4, 5]
+      - expected_total: "10", values: [2.5, 2.5, 5]

@@ -125,7 +125,9 @@ class JobExecutor:
             # Convert result to serializable format
             result_data = None
             if result:
-                if hasattr(result, '__dict__'):
+                if isinstance(result, BaseModel):
+                    result_data = result.model_dump(mode='json')
+                elif hasattr(result, '__dict__'):
                     result_data = str(result)
                 elif isinstance(result, (str, int, float, bool, dict, list)):
                     result_data = result
@@ -138,7 +140,7 @@ class JobExecutor:
                     value = getattr(flow.state, field_name, None)
                     if value is not None:
                         if isinstance(value, BaseModel):
-                            state_dict[field_name] = value.model_dump()
+                            state_dict[field_name] = value.model_dump(mode='json')
                         elif isinstance(value, (str, int, float, bool, dict, list)):
                             state_dict[field_name] = value
                         else:
