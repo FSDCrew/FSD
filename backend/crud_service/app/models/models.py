@@ -112,7 +112,6 @@ class TaskInfo(BaseModel):
     description: str
     expected_output: str
     agent: str
-    output_file: str
     reads: list[TaskFieldRead]
     writes: list[TaskFieldWrite]
 
