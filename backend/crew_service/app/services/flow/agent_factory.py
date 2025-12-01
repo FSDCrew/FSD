@@ -26,6 +26,8 @@ def build_crewai_agents() -> Dict[str, CrewAIAgent]:
             tools=tools or None,
             verbose=True,
             llm=general_llm,
+            # reasoning=True,
+            # max_reasoning_attempts=5
         )
 
     return agents

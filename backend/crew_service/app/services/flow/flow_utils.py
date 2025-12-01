@@ -10,7 +10,9 @@ from app.lib.tools.dates import calculate_num_weeks
 from app.lib.tools.html_table_to_excel import html_table_to_excel_tool
 from app.lib.tools.markdown_to_word import markdown_to_word_doc
 from app.lib.tools.open_instagram_posts import open_instagram_posts
-from app.lib.tools.search import open_pages, search_internet, search_instagram
+from app.lib.tools.search import open_pages, search_instagram, search_internet
+from app.lib.tools.social_media_schedule import generate_social_media_schedule_tool
+from app.lib.tools.math import verify_sum_equals_expected
 from app.models.models import CUSTOM_TYPE_REGISTRY
 
 
@@ -132,7 +134,9 @@ class FlowValueValidator:
                 "Expected ISO format (e.g., '2024-01-01' or '2024-01-01T00:00:00Z')"
             )
 
-    def _validate_custom_type(self, value: Any, expected_type_str: str, field_name: str) -> None:
+    def _validate_custom_type(
+        self, value: Any, expected_type_str: str, field_name: str
+    ) -> None:
         model_class = CUSTOM_TYPE_REGISTRY[expected_type_str]
 
         if isinstance(value, model_class):
@@ -179,19 +183,26 @@ class TaskDescriptionInterpolator:
         for field_name, value in state_values.items():
             placeholder = f"{{{field_name}}}"
             if placeholder in result:
-                replacement = "NOT PROVIDED BY USER" if value is None else str(value)
+                if value is None:
+                    replacement = "NOT PROVIDED BY USER"
+                elif isinstance(value, BaseModel):
+                    replacement = value.model_dump_json(indent=2)
+                else:
+                    replacement = str(value)
                 result = result.replace(placeholder, replacement)
         return result
 
 
 TOOL_MAP = {
-    "search_internet": search_internet,
-    "search_instagram": search_instagram,
-    "open_pages": open_pages,
-    "open_instagram_posts": open_instagram_posts,
-    "markdown_to_word_doc": markdown_to_word_doc,
-    "html_table_to_excel": html_table_to_excel_tool,
     "calculate_num_weeks": calculate_num_weeks,
+    "generate_social_media_schedule": generate_social_media_schedule_tool,
+    "html_table_to_excel": html_table_to_excel_tool,
+    "markdown_to_word_doc": markdown_to_word_doc,
+    "open_instagram_posts": open_instagram_posts,
+    "open_pages": open_pages,
+    "search_instagram": search_instagram,
+    "search_internet": search_internet,
+    "verify_sum_equals_expected": verify_sum_equals_expected,
 }
 
 BASE_TYPE_MAPPING: Dict[str, Type] = {
@@ -226,4 +237,3 @@ def interpolate_task_description(
     state_values: Dict[str, Any],
 ) -> str:
     return interpolator.interpolate(description_template, state_values)
-

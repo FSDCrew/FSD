@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from functools import partial
 from typing import Any, Dict, List, Tuple, Type, cast
 
 from crewai import Agent as CrewAIAgent, Crew, Process, Task as CrewAITask
@@ -24,7 +23,6 @@ from app.services.flow.guardrails import (
     llm_judge_guardrail,
     structured_output_guardrail,
 )
-from app.services.flow.llm_registry import function_calling_llm
 from app.services.flow.state_builder import (
     build_flow_state_model,
     extract_inner_type_from_list,
@@ -116,6 +114,7 @@ def build_task_step_function(
         if output_pydantic_model:
             crew_task_kwargs["output_pydantic"] = output_pydantic_model
 
+        # TODO: Remove this
         output_file = task_yaml.get("output_file")
         if output_file:
             crew_task_kwargs["output_file"] = output_file
@@ -127,8 +126,7 @@ def build_task_step_function(
             tasks=[crew_task],
             process=Process.sequential,
             verbose=True,
-            function_calling_llm=function_calling_llm,
-            output_log_file="crew_logs.json"
+            output_log_file="crew_logs.json",  # TODO: Remove this
         )
 
         result = crew.kickoff()

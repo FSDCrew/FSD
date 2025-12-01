@@ -7,10 +7,5 @@ general_llm = LLM(
     # model="openai/gpt-5-mini",
     # model="openai/gpt-5-nano",
     # reasoning_effort="none",
-    stop=None,
     seed=42,
-)
-
-function_calling_llm = LLM(
-    model="openai/gpt-4o-mini",
 )

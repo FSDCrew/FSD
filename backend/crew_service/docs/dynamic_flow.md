@@ -55,7 +55,7 @@ This means each run has a minimal state surface and enjoys precise type validati
 
 ## 4. Agent and Tool Wiring
 
-`agent_factory.build_crewai_agents` instantiates CrewAI `Agent` objects for every entry in `agents_config`. Tool names listed in `agents.yaml` are resolved to callables through `flow_utils.resolve_tools_for_agent`, which looks up each name in `TOOL_MAP`. Unknown tools are ignored so YAML typos cannot crash the service. The agents all share the LLM defined in `llm_registry.general_llm`, while Crew execution uses `llm_registry.function_calling_llm`.
+`agent_factory.build_crewai_agents` instantiates CrewAI `Agent` objects for every entry in `agents_config`. Tool names listed in `agents.yaml` are resolved to callables through `flow_utils.resolve_tools_for_agent`, which looks up each name in `TOOL_MAP`. Unknown tools are ignored so YAML typos cannot crash the service. The agents all share the LLM defined in `llm_registry.general_llm`.
 
 Inside each task step, prompt templates pulled from `tasks_config` are interpolated via `flow_utils.interpolate_task_description`. Any `{field_name}` placeholders are replaced with the current state value (or the placeholder `NOT PROVIDED BY USER` when a field is `None`).
 
