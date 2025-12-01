@@ -359,11 +359,12 @@ const updateCrewMutation = useMutation({
       const type = event.dataTransfer.getData("application/reactflow") as string;
       if (!type) return;
 
-      const reactFlowBounds = event.currentTarget.getBoundingClientRect();
-      const position = {
-        x: event.clientX - reactFlowBounds.left,
-        y: event.clientY - reactFlowBounds.top,
-      };
+      if (!reactFlowInstance) return;
+
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
 
       const nodeTypeConfig = nodeTypeConfigs.find((n) => n.type === type);
       if (!nodeTypeConfig) return;
