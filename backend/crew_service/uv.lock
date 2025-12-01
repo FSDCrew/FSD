@@ -594,7 +594,6 @@ dependencies = [
     { name = "crewai-tools" },
     { name = "fastapi", extra = ["standard"] },
     { name = "openapi-python-client" },
-    { name = "orshot" },
     { name = "playwright" },
     { name = "pydantic-settings" },
     { name = "pypandoc" },
@@ -607,7 +606,6 @@ requires-dist = [
     { name = "crewai-tools", specifier = "==0.76.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.121.0" },
     { name = "openapi-python-client", specifier = ">=0.27.1" },
-    { name = "orshot", specifier = ">=0.1.0" },
     { name = "playwright", specifier = ">=1.56.0" },
     { name = "pydantic-settings", specifier = ">=2.11.0" },
     { name = "pypandoc", specifier = ">=1.16.2" },
@@ -2479,18 +2477,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/77/92/25b886252c50ed64be68c937b562b2f2333b45afe72d53d719e46a565a50/orjson-3.11.4-cp314-cp314-win32.whl", hash = "sha256:d63076d625babab9db5e7836118bdfa086e60f37d8a174194ae720161eb12394", size = 136065, upload-time = "2025-10-24T15:50:13.025Z" },
     { url = "https://files.pythonhosted.org/packages/63/b8/718eecf0bb7e9d64e4956afaafd23db9f04c776d445f59fe94f54bdae8f0/orjson-3.11.4-cp314-cp314-win_amd64.whl", hash = "sha256:0a54d6635fa3aaa438ae32e8570b9f0de36f3f6562c308d2a2a452e8b0592db1", size = 131310, upload-time = "2025-10-24T15:50:14.46Z" },
     { url = "https://files.pythonhosted.org/packages/1a/bf/def5e25d4d8bfce296a9a7c8248109bf58622c21618b590678f945a2c59c/orjson-3.11.4-cp314-cp314-win_arm64.whl", hash = "sha256:78b999999039db3cf58f6d230f524f04f75f129ba3d1ca2ed121f8657e575d3d", size = 126151, upload-time = "2025-10-24T15:50:15.878Z" },
-]
-
-[[package]]
-name = "orshot"
-version = "0.1.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/2b/af/8b7be1238bf6b2cebb3d1dee19e17beea1fe787e0c8616773c8234e55ebb/orshot-0.1.0.tar.gz", hash = "sha256:737f945d2757772acbc344b87296c129d45302c14e319cf85d9805b281eba5f3", size = 4080, upload-time = "2025-04-05T18:05:05.067Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/66/59/a66bf049c5fbc434f58824f41f2066266e001e030804e5352c2819ca68ad/orshot-0.1.0-py3-none-any.whl", hash = "sha256:4b611b1da5ea0e5fb7df3622eb0d332625ff0074cedac5341cccbd2d923df1d4", size = 4546, upload-time = "2025-04-05T18:05:04.085Z" },
 ]
 
 [[package]]

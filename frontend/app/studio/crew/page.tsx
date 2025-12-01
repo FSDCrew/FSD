@@ -29,6 +29,29 @@ import "@xyflow/react/dist/style.css";
 import { createCrewCrewPost, updateCrewCrewPut, getCrewByIdCrewCrewIdGet, getAllCrewsCrewGet, replaceAllTasksForCrewTaskCrewIdSavePut, type CrewRead, type TaskCreate } from "@/lib/api/crud";
 import { client } from "@/lib/api/crud/client.gen";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
 
 const nodeTypes = {
   start: StartNode,
@@ -1059,12 +1082,76 @@ const updateCrewMutation = useMutation({
               </Button>
             </>
           ) : (
-            <Button
-              onClick={handleRun}
-              variant="default"
-            >
-              Run Flow
-            </Button>
+            <Dialog>
+              <form>
+                <DialogTrigger asChild>
+                  <Button variant="outline">Kickoff</Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[800px]">
+                  <DialogHeader>
+                    <DialogTitle>Required Inputs for Kickoff</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4">
+                    <div className="grid gap-3">
+                      <Label htmlFor="name-1">Theme</Label>
+                      <Textarea placeholder="Type your theme here." />
+                    </div>
+                    <div className="grid gap-3">
+                      <Label htmlFor="username-1">Brand Description</Label>
+                      <Textarea placeholder="Type your brand description here." />
+                    </div>
+                    <div className="grid gap-3">
+                      <Label htmlFor="username-1">Target Audience</Label>
+                      <Textarea placeholder="Type your target audience here." />
+                    </div>
+                    <div className="grid gap-3">
+                      <Label htmlFor="username-1">Template Id</Label>
+                      <Select>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Template Id" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1201">1201</SelectItem>
+                          <SelectItem value="1909">1909</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-3">
+                      <Label>Orshot Schema</Label>
+                      <div className="flex gap-2 items-start">
+                        <div className="flex-1">
+                          <Label htmlFor="orshot-field" className="text-xs mb-1 block">Field</Label>
+                          <Textarea id="orshot-field" placeholder="Type your field here." className="min-h-[60px]" />
+                        </div>
+                        <div className="flex-1">
+                          <Label htmlFor="orshot-datatype" className="text-xs mb-1 block">Data Type</Label>
+                          <Select>
+                            <SelectTrigger id="orshot-datatype" className="w-full h-[60px]">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="image">IMAGE</SelectItem>
+                              <SelectItem value="text">TEXT</SelectItem>
+                              <SelectItem value="background">BACKGROUND</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex-1">
+                          <Label htmlFor="orshot-description" className="text-xs mb-1 block">Description</Label>
+                          <Textarea id="orshot-description" placeholder="Type your description here." className="min-h-[60px]" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline">Cancel</Button>
+                    </DialogClose>
+                    <Button type="submit">Kickoff!</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </form>
+            </Dialog>
           )}
         </div>
       </main>
