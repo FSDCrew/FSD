@@ -35,6 +35,7 @@ tools:
     input:
       html_str: string
       file_name: string (optional)
+      crew_run_id: string (optional)
     examples:
         - html_str: """
           <table>
@@ -47,6 +48,7 @@ tools:
     input:
       markdown: string
       file_name: string (optional)
+      crew_run_id: string (optional)
     examples:
       - markdown: "# Title\n\n- [x] done\n- [ ] todo\n"
       - markdown: |

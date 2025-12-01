@@ -31,7 +31,10 @@ class GenerateSocialMediaScheduleInput(BaseModel):
         ...,
         description="The end date of the campaign in the same formats as start_date"
     )
-
+    crew_run_id: str = Field(
+        ...,
+        description="The crew run ID of the campaign"
+    )
 
 class GenerateSocialMediaSchedule(BaseTool):
     name: str = "generate_social_media_schedule"
@@ -47,6 +50,7 @@ class GenerateSocialMediaSchedule(BaseTool):
         start_date: str,
         end_date: str,
         content_strategy_json: str,
+        crew_run_id: str,
     ) -> SocialMediaSchedule:
         """
         AI Agent can use this tool to generate SocialMediaSchedule
@@ -67,7 +71,7 @@ class GenerateSocialMediaSchedule(BaseTool):
         campaign_week_plans = generate_campaign_week_plans(start_date, end_date, content_strategy.phases)
         campaign_schedule_items = generate_schedule_items(campaign_week_plans, content_strategy)
         html_table_str = schedule_items_to_html_table(campaign_schedule_items)
-        _ = html_table_to_excel(html_table_str, "social_media_schedule.xlsx")
+        _ = html_table_to_excel(html_table_str, "social_media_schedule.xlsx", crew_run_id)
         return SocialMediaSchedule(
             items=campaign_schedule_items,
         )
