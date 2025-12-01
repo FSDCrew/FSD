@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     """
     INTERNAL_CREW_API_KEY: str
     CRUD_SERVICE_URL: str
+    
+    CREWAI_TRACING_ENABLED: bool = False
         
     QUEUE_POLL_INTERVAL_SECONDS: int
     JOB_VISIBILITY_TIMEOUT_SECONDS: int
@@ -23,6 +25,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     
     HEADLESS: bool
+    PLAYWRIGHT_TIMEOUT_MS: int = 30000
     
     BRIGHT_DATA_API_KEY: str
     BRIGHT_DATA_ZONE: str

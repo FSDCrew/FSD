@@ -1,7 +1,114 @@
-from crewai.tools import tool
-from bs4 import BeautifulSoup
-import xlsxwriter
+import base64
+import logging
 import os
+from pathlib import Path
+
+import xlsxwriter
+from bs4 import BeautifulSoup
+from crewai.tools import tool
+
+from app.api.crud_client.models.artifact_type import ArtifactType
+from app.lib.tools.utils.artifact import get_default_artifact_service
+from app.lib.tools.utils.file_utils import cleanup_temp_file, TEMP_DIR
+
+
+@tool("HTML Table to Excel Converter")
+def html_table_to_excel_tool(
+    html_str: str,
+    file_name: str,
+    crew_run_id: str,
+):
+    """
+    AI Agent can use this tool to convert an HTML table string into an Excel (.xlsx) file
+    with row/col spans preserved as merged cells.
+
+    Args:
+        html_str: The HTML table string to convert to Excel.
+        file_name: The name of the Excel file to create.
+        crew_run_id: Optional crew run identifier used to store the Excel file as an
+            artifact in the CRUD service.
+    """
+    return html_table_to_excel(html_str, file_name, crew_run_id)
+
+
+def html_table_to_excel(
+    html_str: str,
+    file_name: str,
+    crew_run_id: str,
+) -> str:
+    """
+    Core function: converts an HTML table string into an Excel (.xlsx) file
+    with row/col spans preserved as merged cells.
+
+    Returns:
+        The original html_str (current behavior). If you prefer, you could
+        change this to return `output_path` instead.
+    """
+    upload_file_name, output_path = _prepare_temp_output_path(
+        file_name, "html_table_to_excel.xlsx", ".xlsx", crew_run_id
+    )
+
+    grid, merges = _parse_html_table_with_spans(html_str)
+
+    try:
+        workbook = None
+        try:
+            # Write with XlsxWriter and apply merges
+            workbook = xlsxwriter.Workbook(output_path)
+            worksheet = workbook.add_worksheet("Schedule")
+
+            header_fmt = workbook.add_format(
+                {"bold": True, "align": "center", "valign": "vcenter", "border": 1}
+            )
+            cell_fmt = workbook.add_format(
+                {"text_wrap": True, "valign": "top", "border": 1}
+            )
+
+            # Collect all cells that will be merged
+            merged_cells = set()
+            for r1, c1, r2, c2, _ in merges:
+                for r in range(r1, r2 + 1):
+                    for c in range(c1, c2 + 1):
+                        merged_cells.add((r, c))
+
+            # Write non-merged cells
+            for r, row in enumerate(grid):
+                for c, val in enumerate(row):
+                    if (r, c) in merged_cells:
+                        continue
+                    fmt = header_fmt if r == 0 else cell_fmt
+                    worksheet.write(r, c, val, fmt)
+
+            # Apply merges
+            max_row = len(grid) - 1
+            max_col = len(grid[0]) - 1 if grid else 0
+
+            for r1, c1, r2, c2, val in merges:
+                r2 = min(r2, max_row)
+                c2 = min(c2, max_col)
+                fmt = header_fmt if r1 == 0 else cell_fmt
+                worksheet.merge_range(r1, c1, r2, c2, val, fmt)
+
+            # Autosize columns
+            if grid:
+                for c in range(len(grid[0])):
+                    max_len = max(
+                        (len(str(grid[r][c])) for r in range(len(grid))), default=10
+                    )
+                    worksheet.set_column(c, c, min(60, max(12, max_len * 0.9)))
+        finally:
+            if workbook is not None:
+                workbook.close()
+
+        if crew_run_id:
+            return _save_excel_artifact(
+                output_path, crew_run_id, upload_file_name
+            )
+
+        return html_str
+    finally:
+        cleanup_temp_file(output_path)
+
 
 def _parse_html_table_with_spans(html: str):
     """
@@ -14,15 +121,13 @@ def _parse_html_table_with_spans(html: str):
     if table is None:
         raise ValueError("No <table> found in HTML.")
 
-    # Build a grid honoring row/col spans
     grid = []
     merges = []
     col_count = 0
-    occupied = {}  # (r, c) -> True    tracks cells covered by prior rowspans
+    occupied = {}  # (r, c) -> True
 
     rows = table.find_all("tr")
     for r_idx, tr in enumerate(rows):
-        # Ensure grid has this row
         while len(grid) <= r_idx:
             grid.append([])
         row = grid[r_idx]
@@ -31,10 +136,9 @@ def _parse_html_table_with_spans(html: str):
         c_idx = 0
         while c_idx < col_count:
             if (r_idx, c_idx) in occupied:
-                # Placeholder for a covered cell (will be filled with "")
-                row.append("")
+                row.append("")  # covered cell
             else:
-                row.append(None)  # free slot to fill
+                row.append(None)  # free slot
             c_idx += 1
 
         cells = tr.find_all(["td", "th"])
@@ -44,9 +148,8 @@ def _parse_html_table_with_spans(html: str):
             while True:
                 if len(row) <= c_ptr:
                     row.append(None)
-                # Skip columns occupied by a rowspan from above
                 if (r_idx, c_ptr) in occupied:
-                    if row[c_ptr] == None:
+                    if row[c_ptr] is None:
                         row[c_ptr] = ""
                     c_ptr += 1
                     continue
@@ -56,137 +159,116 @@ def _parse_html_table_with_spans(html: str):
             rs = int(str(cell.get("rowspan", "1")))
             cs = int(str(cell.get("colspan", "1")))
 
-
-            # Make sure grid rows have enough columns
             needed_cols = c_ptr + cs
             col_count = max(col_count, needed_cols)
             while len(row) < needed_cols:
                 row.append(None)
 
-            # Place the top-left value
+            # Place top-left value
             row[c_ptr] = text
 
-            # Mark merge if span>1
+            # Record merge range if spanning
             if rs > 1 or cs > 1:
                 r1, c1 = r_idx, c_ptr
                 r2, c2 = r_idx + rs - 1, c_ptr + cs - 1
                 merges.append((r1, c1, r2, c2, text))
 
-                # Ensure grid has enough rows to accommodate this rowspan
+                # Ensure enough rows for rowspan
                 max_row_needed = r_idx + rs
                 while len(grid) < max_row_needed:
                     grid.append([])
 
-            # Mark covered cells (rightwards in this row)
+            # Mark covered cells in this row
             for dc in range(cs):
                 if dc == 0:
                     continue
                 if row[c_ptr + dc] is None:
                     row[c_ptr + dc] = ""
-            # Mark occupied for future rows (downwards)
+
+            # Mark occupied for future rows
             for dr in range(1, rs):
                 rr = r_idx + dr
-                # Ensure this row exists in grid and is properly initialized
                 while len(grid) <= rr:
                     grid.append([])
                 future_row = grid[rr]
-                # Ensure future row has enough columns and mark occupied cells
                 while len(future_row) < col_count:
                     future_row.append(None)
                 for dc in range(cs):
                     cc = c_ptr + dc
                     occupied[(rr, cc)] = True
-                    # Mark the occupied cell as empty string in the grid
-                    if cc < len(future_row):
+                    if cc < len(future_row) and future_row[cc] is None:
                         future_row[cc] = ""
 
             c_ptr += cs
 
-        # Replace remaining None with "" and pad to col_count
+        # Clean up row
         for i in range(len(row)):
             if row[i] is None:
                 row[i] = ""
         while len(row) < col_count:
             row.append("")
 
-    # Ensure all rows have equal columns and are properly initialized
-    # This handles cases where rowspans extended beyond actual HTML rows
-    for r_idx, r in enumerate(grid):
-        # Initialize any cells that are None
-        for c_idx in range(len(r)):
-            if r[c_idx] is None:
-                r[c_idx] = ""
-        # Pad to col_count
+    # Final pass to normalize all rows
+    for r in grid:
+        for i in range(len(r)):
+            if r[i] is None:
+                r[i] = ""
         while len(r) < col_count:
             r.append("")
-    
+
     return grid, merges
 
-@tool("HTML Table to Excel Converter")
-def html_table_to_excel_tool(
-    html_str: str,
-    # output_path: str | None = None
+
+def _save_excel_artifact(
+    output_path: str, crew_run_id: str, upload_file_name: str
 ) -> str:
-    """
-    Converts an HTML table string into an Excel (.xlsx) file with row/col spans preserved as merged cells.
-    Only the first <table> is processed.
-    """
-    # output_path = output_path or "./output/html_table_to_excel.xlsx"
-    output_path = "./output/html_table_to_excel.xlsx" # TODO: remove this
+    """Save generated Excel file as an artifact and return its S3 URL or error."""
+    artifact_service = get_default_artifact_service()
+
     try:
-        grid, merges = _parse_html_table_with_spans(html_str)
+        with open(output_path, "rb") as f:
+            file_content_base64 = base64.b64encode(f.read()).decode("utf-8")
+    except OSError as exc:
+        error = f"Error: Unable to read generated Excel file: {exc}"
+        logging.error("html_table_to_excel: %s", error)
+        return error
 
-        # Ensure output dir exists
-        outdir = os.path.dirname(output_path) or "."
-        os.makedirs(outdir, exist_ok=True)
+    save_result = artifact_service.save_artifact(
+        crew_run_id=crew_run_id,
+        file_name=upload_file_name,
+        file_content_base64=file_content_base64,
+        artifact_type=ArtifactType.DOCUMENT,
+    )
+    if not save_result.is_success or not save_result.artifact:
+        return save_result.error or "Error: Failed to save Excel artifact."
 
-        # Write with XlsxWriter and apply merges
-        workbook = xlsxwriter.Workbook(output_path)
-        worksheet = workbook.add_worksheet("Schedule")
+    s3_result = artifact_service.get_artifact_s3_url(
+        artifact_id=save_result.artifact.id,
+        crew_run_id=crew_run_id,
+    )
+    if not s3_result.is_success or not s3_result.url:
+        return s3_result.error or "Error: Failed to obtain Excel artifact S3 URL."
 
-        # Optional formatting
-        header_fmt = workbook.add_format({"bold": True, "align": "center", "valign": "vcenter", "border": 1})
-        cell_fmt = workbook.add_format({"text_wrap": True, "valign": "top", "border": 1})
+    return s3_result.url
 
-        # Build a set of ALL cells that are part of merge ranges (including top-left)
-        # These will be handled by merge_range, not written individually
-        merged_cells = set()
-        for r1, c1, r2, c2, val in merges:
-            for r in range(r1, r2 + 1):
-                for c in range(c1, c2 + 1):
-                    merged_cells.add((r, c))
 
-        # Write cells (skip ALL cells that are part of merge ranges)
-        # merge_range will handle writing merged cells
-        for r, row in enumerate(grid):
-            for c, val in enumerate(row):
-                if (r, c) in merged_cells:
-                    continue  # Skip all cells that will be merged
-                # Heuristic: first row as header if <th> used in HTML; if not sure, just use cell_fmt for all
-                fmt = cell_fmt
-                if r == 0:  # treat first row as header for simplicity
-                    fmt = header_fmt
-                worksheet.write(r, c, val, fmt)
+def _prepare_temp_output_path(
+    file_name: str | None,
+    default_name: str,
+    suffix: str,
+    crew_run_id: str | None,
+) -> tuple[str, str]:
+    """Return (upload_file_name, local_temp_path) inside .temp."""
+    suffix = suffix if suffix.startswith(".") else f".{suffix}"
+    base_name = (
+        default_name if not file_name or not file_name.strip() else file_name.strip()
+    )
+    candidate = Path(base_name).name
+    candidate_path = Path(candidate)
+    if candidate_path.suffix.lower() != suffix.lower():
+        candidate_path = candidate_path.with_suffix(suffix)
 
-        # Apply merges (XlsxWriter uses inclusive ranges, 0-based)
-        # merge_range will write the value and format to the merged range
-        max_row = len(grid) - 1
-        max_col = len(grid[0]) - 1 if grid else 0
-        for r1, c1, r2, c2, val in merges:
-            # Clamp merge range to actual grid bounds (safety check)
-            r2 = min(r2, max_row)
-            c2 = min(c2, max_col)
-            # Pick header vs cell format based on r1 (top-left row)
-            fmt = header_fmt if r1 == 0 else cell_fmt
-            worksheet.merge_range(r1, c1, r2, c2, val, fmt)
-
-        # Autosize columns a bit
-        for c in range(len(grid[0]) if grid else 0):
-            # simple width guess
-            max_len = max((len(str(grid[r][c])) for r in range(len(grid))), default=10)
-            worksheet.set_column(c, c, min(60, max(12, max_len * 0.9)))
-
-        workbook.close()
-        return html_str
-    except Exception as e:
-        return f"Error converting HTML Table to Excel: {e}"
+    upload_name = candidate_path.name
+    local_name = upload_name if not crew_run_id else f"{crew_run_id}_{upload_name}"
+    TEMP_DIR.mkdir(parents=True, exist_ok=True)
+    return upload_name, str(TEMP_DIR / local_name)

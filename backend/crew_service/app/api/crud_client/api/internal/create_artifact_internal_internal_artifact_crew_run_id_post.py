@@ -24,7 +24,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/artifact/{crew_run_id}".format(
+        "url": "/internal/artifact/{crew_run_id}".format(
             crew_run_id=crew_run_id,
         ),
     }
@@ -74,9 +74,9 @@ def sync_detailed(
     body: ArtifactServerCreate,
     x_internal_api_key: None | str | Unset = UNSET,
 ) -> Response[ArtifactRead | HTTPValidationError]:
-    """Create Artifact
+    """Create Artifact Internal
 
-     Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
+     Internal-only endpoint for Base64 artifact uploads.
 
     Args:
         crew_run_id (UUID):
@@ -111,9 +111,9 @@ def sync(
     body: ArtifactServerCreate,
     x_internal_api_key: None | str | Unset = UNSET,
 ) -> ArtifactRead | HTTPValidationError | None:
-    """Create Artifact
+    """Create Artifact Internal
 
-     Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
+     Internal-only endpoint for Base64 artifact uploads.
 
     Args:
         crew_run_id (UUID):
@@ -143,9 +143,9 @@ async def asyncio_detailed(
     body: ArtifactServerCreate,
     x_internal_api_key: None | str | Unset = UNSET,
 ) -> Response[ArtifactRead | HTTPValidationError]:
-    """Create Artifact
+    """Create Artifact Internal
 
-     Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
+     Internal-only endpoint for Base64 artifact uploads.
 
     Args:
         crew_run_id (UUID):
@@ -178,9 +178,9 @@ async def asyncio(
     body: ArtifactServerCreate,
     x_internal_api_key: None | str | Unset = UNSET,
 ) -> ArtifactRead | HTTPValidationError | None:
-    """Create Artifact
+    """Create Artifact Internal
 
-     Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
+     Internal-only endpoint for Base64 artifact uploads.
 
     Args:
         crew_run_id (UUID):

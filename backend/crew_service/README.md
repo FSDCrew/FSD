@@ -20,7 +20,6 @@ A FastAPI + CrewAI service that turns crew definitions from the CRUD Service int
 | `app/config/agents.yaml` & `tasks.yaml` | Declarative definition of agents, tools, task IO, and flow state schema. |
 | `app/lib/tools/` | Playwright/Bright Data powered CrewAI tools invoked by agents. |
 | `scripts/` | Helper scripts for running the API, worker, and regenerating the CRUD client. |
-| `output/` | Default location for task artifacts referenced by `tasks.yaml` (`output_file` entries). |
 
 ## Tech Stack
 
