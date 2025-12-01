@@ -7,29 +7,9 @@ import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import StartNode from "@/components/StartNode";
 import CustomNode from "@/components/CustomNode";
-
-interface PreDefinedTask {
-  key: string;
-  name: string;
-  task_description: string;
-}
-
-interface NodeTypeConfig {
-  type: string;
-  name: string;
-  color: string;
-  description: string;
-}
-// UPDATE THIS WHEN MORE TASKS KEYS ARE ADDED!
-const taskColorMap: Record<string, string> = {
-  marketing_research: "#c878e0ff",
-  content_strategy: "#389e7eff",
-  social_media_schedule: "#cc6262ff", 
-};
-
-const getTaskColor = (taskKey: string): string => {
-  return taskColorMap[taskKey] || "#6B7280"; // default 
-};
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import {
   ReactFlow,
   MiniMap,
@@ -58,20 +38,57 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
 
 
+interface PreDefinedTask {
+  key: string;
+  name: string;
+  task_description: string;
+}
+
+interface NodeTypeConfig {
+  type: string;
+  name: string;
+  color: string;
+  description: string;
+}
+// UPDATE THIS WHEN MORE TASKS KEYS ARE ADDED!
+const taskColorMap: Record<string, string> = {
+  marketing_research: "#c878e0ff",
+  content_strategy: "#389e7eff",
+  social_media_schedule: "#cc6262ff", 
+};
+
+const getTaskColor = (taskKey: string): string => {
+  return taskColorMap[taskKey] || "#6B7280"; // default 
+};
+
+const kickoffFormSchema = z.object({
+  theme: z.string().min(1, { message: "Theme is required" }),
+  brandDescription: z.string().min(1, { message: "Brand description is required" }),
+  targetAudience: z.string().min(1, { message: "Target audience is required" }),
+  templateId: z.string().min(1, { message: "Template ID is required" }),
+  orshotField: z.string().min(1, { message: "Orshot field is required" }),
+  orshotDataType: z.string().min(1, { message: "Data type is required" }),
+  orshotDescription: z.string().min(1, { message: "Description is required" }),
+});
 
 const createNodeTypes = (nodeConfigs: NodeTypeConfig[]) => {
   const dynamicTypes = nodeConfigs.reduce((acc, config) => {
@@ -131,6 +148,27 @@ export default function CrewPage() {
     message: string;
     type: "success" | "error" | "info";
   } | null>(null);
+  
+  // Initialize kickoff form
+  const kickoffForm = useForm<z.infer<typeof kickoffFormSchema>>({
+    resolver: zodResolver(kickoffFormSchema),
+    defaultValues: {
+      theme: "",
+      brandDescription: "",
+      targetAudience: "",
+      templateId: "",
+      orshotField: "",
+      orshotDataType: "",
+      orshotDescription: "",
+    },
+  });
+
+  function onKickoffSubmit(values: z.infer<typeof kickoffFormSchema>) {
+    console.log("Kickoff form values:", values);
+    showNotification("Kickoff started successfully!", "success");
+    handleRun();
+    kickoffForm.reset();
+  }
   
   useEffect(() => {
     const fetchPreDefinedTasks = async () => {
@@ -1101,74 +1139,144 @@ const updateCrewMutation = useMutation({
             </>
           ) : (
             <Dialog>
-              <form>
-                <DialogTrigger asChild>
-                  <Button variant="outline">Kickoff</Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[800px]">
-                  <DialogHeader>
-                    <DialogTitle>Required Inputs for Kickoff</DialogTitle>
-                  </DialogHeader>
-                  <div className="grid gap-4">
-                    <div className="grid gap-3">
-                      <Label htmlFor="name-1">Theme</Label>
-                      <Textarea placeholder="Type your theme here." />
-                    </div>
-                    <div className="grid gap-3">
-                      <Label htmlFor="username-1">Brand Description</Label>
-                      <Textarea placeholder="Type your brand description here." />
-                    </div>
-                    <div className="grid gap-3">
-                      <Label htmlFor="username-1">Target Audience</Label>
-                      <Textarea placeholder="Type your target audience here." />
-                    </div>
-                    <div className="grid gap-3">
-                      <Label htmlFor="username-1">Template Id</Label>
-                      <Select>
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Template Id" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1201">1201</SelectItem>
-                          <SelectItem value="1909">1909</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-3">
-                      <Label>Orshot Schema</Label>
-                      <div className="flex gap-2 items-start">
-                        <div className="flex-1">
-                          <Label htmlFor="orshot-field" className="text-xs mb-1 block">Field</Label>
-                          <Textarea id="orshot-field" placeholder="Type your field here." className="min-h-[60px]" />
-                        </div>
-                        <div className="flex-1">
-                          <Label htmlFor="orshot-datatype" className="text-xs mb-1 block">Data Type</Label>
-                          <Select>
-                            <SelectTrigger id="orshot-datatype" className="w-full h-[60px]">
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
+              <DialogTrigger asChild>
+                <Button variant="outline">Kickoff</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[800px]">
+                <DialogHeader>
+                  <DialogTitle>Required Inputs for Kickoff</DialogTitle>
+                </DialogHeader>
+                <Form {...kickoffForm}>
+                  <form onSubmit={kickoffForm.handleSubmit(onKickoffSubmit)} className="space-y-4">
+                    <FormField
+                      control={kickoffForm.control}
+                      name="theme"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Theme</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Type your theme here." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={kickoffForm.control}
+                      name="brandDescription"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Brand Description</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Type your brand description here." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={kickoffForm.control}
+                      name="targetAudience"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Target Audience</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Type your target audience here." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={kickoffForm.control}
+                      name="templateId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Template ID</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Select template" />
+                              </SelectTrigger>
+                            </FormControl>
                             <SelectContent>
-                              <SelectItem value="image">IMAGE</SelectItem>
-                              <SelectItem value="text">TEXT</SelectItem>
-                              <SelectItem value="background">BACKGROUND</SelectItem>
+                              <SelectItem value="1201">1201</SelectItem>
+                              <SelectItem value="1909">1909</SelectItem>
                             </SelectContent>
                           </Select>
-                        </div>
-                        <div className="flex-1">
-                          <Label htmlFor="orshot-description" className="text-xs mb-1 block">Description</Label>
-                          <Textarea id="orshot-description" placeholder="Type your description here." className="min-h-[60px]" />
-                        </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="space-y-3">
+                      <Label className="text-base font-semibold">Orshot Schema</Label>
+                      <div className="flex gap-2 items-start">
+                        <FormField
+                          control={kickoffForm.control}
+                          name="orshotField"
+                          render={({ field }) => (
+                            <FormItem className="flex-1">
+                              <FormLabel className="text-xs">Field</FormLabel>
+                              <FormControl>
+                                <Textarea placeholder="Type your field here." className="min-h-[60px]" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={kickoffForm.control}
+                          name="orshotDataType"
+                          render={({ field }) => (
+                            <FormItem className="flex-1">
+                              <FormLabel className="text-xs">Data Type</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger className="w-full h-[60px]">
+                                    <SelectValue placeholder="Select type" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="image">IMAGE</SelectItem>
+                                  <SelectItem value="text">TEXT</SelectItem>
+                                  <SelectItem value="background">BACKGROUND</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={kickoffForm.control}
+                          name="orshotDescription"
+                          render={({ field }) => (
+                            <FormItem className="flex-1">
+                              <FormLabel className="text-xs">Description</FormLabel>
+                              <FormControl>
+                                <Textarea placeholder="Type your description here." className="min-h-[60px]" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </div>
                     </div>
-                  </div>
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline">Cancel</Button>
-                    </DialogClose>
-                    <Button type="submit">Kickoff!</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </form>
+                    
+                    <DialogFooter>
+                      <DialogClose asChild>
+                        <Button type="button" variant="outline">Cancel</Button>
+                      </DialogClose>
+                      <Button type="submit">Kickoff!</Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
             </Dialog>
           )}
         </div>
