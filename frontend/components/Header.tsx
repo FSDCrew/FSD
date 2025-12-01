@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import LogoutButton from "./LogoutButton";
 import { Button } from "./ui/button";
+import Image from "next/image";
 
 export default function Header() {
   const router = useRouter();
@@ -15,7 +16,13 @@ export default function Header() {
   return (
     <header className="w-full flex items-center justify-between py-4 px-6 border-b border-border bg-card">
       <div className="flex items-center gap-2">
-        <h1 className="text-xl font-bold">FSD Studio</h1>
+        <Image 
+          src="/logo-black.png" 
+          alt="Company Logo" 
+          width={120} 
+          height={40}
+          className="mx-auto"
+        />
       </div>
       <nav className="flex items-center gap-4">
         <Button
