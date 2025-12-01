@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List
 
 from crewai import Agent as CrewAIAgent, Crew, Task as CrewAITask
-from app.api.crud_client.models.task_read import TaskRead
+from app.api.crud_client.models.task_read import TaskInfo
 from config import agents_config, tasks_config
 
 logger = logging.getLogger(__name__)
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class CrewAIService:
     """Service for building CrewAI crews from TaskRead objects."""
     
-    def build_crew(self, tasks: List[TaskRead]) -> Crew:
+    def build_crew(self, tasks: List[TaskInfo]) -> Crew:
         """Build a CrewAI crew from TaskRead objects."""
         agent_keys_in_tasks = {task['agent_key'] for task in tasks if 'agent_key' in task and task['agent_key']}    
         crewai_agents = self._build_agents_map(agent_keys_in_tasks)
@@ -49,7 +49,7 @@ class CrewAIService:
         )
         return agent
 
-    def _build_tasks(self, tasks: List[TaskRead], agents_map: Dict[str, CrewAIAgent]) -> List[CrewAITask]:
+    def _build_tasks(self, tasks: List[TaskInfo], agents_map: Dict[str, CrewAIAgent]) -> List[CrewAITask]:
         """Build a list of CrewAI Task objects from TaskRead objects."""
         sorted_tasks = sorted(tasks, key=lambda t: t.order)
         crewai_tasks: List[CrewAITask] = []
@@ -67,7 +67,7 @@ class CrewAIService:
         
         return crewai_tasks
 
-    def _create_task(self, task_read: TaskRead, agent: CrewAIAgent) -> CrewAITask | None:
+    def _create_task(self, task_read: TaskInfo, agent: CrewAIAgent) -> CrewAITask | None:
         """Create a CrewAI Task from TaskRead object using tasks_config."""
         task_config = tasks_config.get(task_read.key) if task_read.key else None
         if not task_config:

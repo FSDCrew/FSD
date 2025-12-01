@@ -18,6 +18,7 @@ from app.api.crud_client.models.update_crew_run_output_internal_internal_crew_ru
     UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput as CrewRunOutputUpdate,
 )
 from app.dependencies import get_flow_service
+from app.models.models import TaskInfo
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -58,54 +59,15 @@ class JobExecutor:
                 self._heartbeat_loop(queue_id, lease_token)
             )
             
-            try:
-                crew_run_result = await get_crew_run_func.asyncio(
-                    crew_run_id=crew_run_id,
-                    client=self.crud_client,
-                )
-                if not crew_run_result:
-                    raise ValueError(f"Crew run {crew_run_id} not found")
-                
-                if isinstance(crew_run_result, HTTPValidationError):
-                    raise ValueError(f"Validation error retrieving crew run {crew_run_id}: {crew_run_result}")
-            except errors.UnexpectedStatus as e:
-                if e.status_code == 404:
-                    raise ValueError(f"Crew run {crew_run_id} not found") from e
-                raise
+            crew_run = await self._get_crew_run(crew_run_id)
             
-            stored_inputs = {}
-            from app.api.crud_client.types import Unset
-            if (
-                not isinstance(crew_run_result.run_metadata, Unset)
-                and crew_run_result.run_metadata is not None
-                and crew_run_result.run_metadata.inputs
-            ):
-                stored_inputs = crew_run_result.run_metadata.inputs.to_dict()
-            
+            stored_inputs = crew_run.run_metadata.inputs.to_dict()           
             stored_inputs['crew_run_id'] = str(crew_run_id)
 
-            try:
-                crew_result = await get_crew_by_id_func.asyncio(
-                    crew_id=crew_id,
-                    client=self.crud_client,
-                )
-                if not crew_result:
-                    raise ValueError(f"Crew {crew_id} not found")
-                
-                if isinstance(crew_result, HTTPValidationError):
-                    raise ValueError(f"Validation error retrieving crew {crew_id}: {crew_result}")
-            except errors.UnexpectedStatus as e:
-                if e.status_code == 404:
-                    raise ValueError(f"Crew {crew_id} not found") from e
-                raise
-            
-            tasks = crew_result.tasks
-            if len(tasks) == 0:
-                raise ValueError(f"Crew {crew_id} has no tasks")
+            tasks = [TaskInfo.model_validate(task.to_dict()) for task in crew_run.run_metadata.tasks_snapshot]
             
             # Build Flow from tasks
             FlowStateModel, FlowClass, _ = self.flow_service.build_flow(tasks)
-            
             flow = FlowClass()
             
             # Create a task from the thread execution so we can track and wait for it
@@ -121,40 +83,8 @@ class JobExecutor:
                     logger.warning("Thread did not finish within timeout, proceeding with shutdown")
                 raise
 
-            # Extract final output from flow state or result
-            # Convert result to serializable format
-            result_data = None
-            if result:
-                if isinstance(result, BaseModel):
-                    result_data = result.model_dump(mode='json')
-                elif hasattr(result, '__dict__'):
-                    result_data = str(result)
-                elif isinstance(result, (str, int, float, bool, dict, list)):
-                    result_data = result
-                else:
-                    result_data = str(result)
+            result_data = self._build_result_payload(result, flow, FlowStateModel)
             
-            if hasattr(flow, 'state'):
-                state_dict = {}
-                for field_name in FlowStateModel.model_fields.keys():
-                    value = getattr(flow.state, field_name, None)
-                    if value is not None:
-                        if isinstance(value, BaseModel):
-                            state_dict[field_name] = value.model_dump(mode='json')
-                        elif isinstance(value, (str, int, float, bool, dict, list)):
-                            state_dict[field_name] = value
-                        else:
-                            state_dict[field_name] = str(value)
-                
-                if state_dict:
-                    if result_data is None:
-                        result_data = {}
-                    if isinstance(result_data, dict):
-                        result_data["flow_state"] = state_dict
-                    else:
-                        result_data = {"result": result_data, "flow_state": state_dict}
-            
-            # Update crew run output
             output_body = CrewRunOutputUpdate()
             output_body.additional_properties = {"result": result_data}
             
@@ -176,7 +106,7 @@ class JobExecutor:
                     await heartbeat_task
                 except asyncio.CancelledError:
                     pass
-
+    
     async def _heartbeat_loop(
         self,
         queue_id: UUID,
@@ -202,3 +132,67 @@ class JobExecutor:
         except asyncio.CancelledError:
             raise
 
+    async def _get_crew_run(self, crew_run_id: UUID):
+        try:
+            response = await get_crew_run_func.asyncio(
+                crew_run_id=crew_run_id,
+                client=self.crud_client,
+            )
+            if not response:
+                raise ValueError(f"Crew run {crew_run_id} not found")
+            
+            if isinstance(response, HTTPValidationError):
+                raise ValueError(f"Validation error retrieving crew run {crew_run_id}: {response}")
+            
+            return response
+        except errors.UnexpectedStatus as e:
+            if e.status_code == 404:
+                raise ValueError(f"Crew run {crew_run_id} not found") from e
+            raise
+
+    def _build_result_payload(self, result, flow, flow_state_model):
+        result_data = self._serialize_value(result)
+        state_dict = self._extract_flow_state(flow, flow_state_model)
+        
+        if not state_dict:
+            return result_data
+        
+        if result_data is None:
+            return {"flow_state": state_dict}
+        
+        if isinstance(result_data, dict):
+            result_data["flow_state"] = state_dict
+            return result_data
+        
+        return {"result": result_data, "flow_state": state_dict}
+    
+    def _extract_flow_state(self, flow, flow_state_model):
+        if not flow_state_model or not hasattr(flow, 'state'):
+            return None
+        
+        state_dict = {}
+        for field_name in flow_state_model.model_fields.keys():
+            value = getattr(flow.state, field_name, None)
+            if value is None:
+                continue
+            serialized_value = self._serialize_value(value)
+            if serialized_value is not None:
+                state_dict[field_name] = serialized_value
+        
+        return state_dict or None
+    
+    @staticmethod
+    def _serialize_value(value):
+        if value is None:
+            return None
+        
+        if isinstance(value, BaseModel):
+            return value.model_dump(mode='json')
+        
+        if hasattr(value, '__dict__'):
+            return str(value)
+        
+        if isinstance(value, (str, int, float, bool, dict, list)):
+            return value
+        
+        return str(value)
