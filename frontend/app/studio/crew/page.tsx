@@ -39,6 +39,12 @@ import {
 import "@xyflow/react/dist/style.css";
 import { createCrewCrewPost, updateCrewCrewPut, getCrewByIdCrewCrewIdGet, getAllCrewsCrewGet, replaceAllTasksForCrewTaskCrewIdSavePut, type CrewRead, type TaskCreate } from "@/lib/api/crud";
 import { client } from "@/lib/api/crud/client.gen";
+import { getRequiredInputsCrewCrewIdRequiredInputsGet, crewKickoffCrewKickoffPost, type RequiredInputField, type RequiredInputsResponse } from "@/lib/api/crew";
+import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon, Minus } from "lucide-react";
+import { format } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -59,15 +65,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-
 
 interface PreDefinedTask {
   key: string;
@@ -92,16 +89,6 @@ const getTaskColor = (taskKey: string): string => {
   return taskColorMap[taskKey] || "#6B7280"; // default 
 };
 
-const kickoffFormSchema = z.object({
-  theme: z.string().min(1, { message: "Theme is required" }),
-  brandDescription: z.string().min(1, { message: "Brand description is required" }),
-  targetAudience: z.string().min(1, { message: "Target audience is required" }),
-  templateId: z.string().min(1, { message: "Template ID is required" }),
-  orshotField: z.string().min(1, { message: "Orshot field is required" }),
-  orshotDataType: z.string().min(1, { message: "Data type is required" }),
-  orshotDescription: z.string().min(1, { message: "Description is required" }),
-});
-
 const createNodeTypes = (nodeConfigs: NodeTypeConfig[]) => {
   const dynamicTypes = nodeConfigs.reduce((acc, config) => {
     acc[config.type] = CustomNode;
@@ -122,6 +109,7 @@ const START_NODE: Node = {
   draggable: true,
   deletable: false,
   selectable: true,
+  connectable: true,
 };
 
 const initialNodes: Node[] = [START_NODE];
@@ -153,31 +141,127 @@ export default function CrewPage() {
   const [nodeTypeConfigs, setNodeTypeConfigs] = useState<NodeTypeConfig[]>([]);
   const [preDefinedTasks, setPreDefinedTasks] = useState<PreDefinedTask[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+  const [requiredInputs, setRequiredInputs] = useState<RequiredInputField[]>([]);
+  const [isLoadingRequiredInputs, setIsLoadingRequiredInputs] = useState(false);
+  const [kickoffDialogOpen, setKickoffDialogOpen] = useState(false);
+  const [dynamicFormData, setDynamicFormData] = useState<Record<string, any>>({});
+  const [orshotSchemaFields, setOrshotSchemaFields] = useState<Array<{field: string, dataType: string, description: string}>>([{field: "", dataType: "", description: ""}]);
   
   
   const nodeTypes = React.useMemo(() => createNodeTypes(nodeTypeConfigs), [nodeTypeConfigs]);
   const [selectedRun, setSelectedRun] = useState<any | null>(null);
   
-  // Initialize kickoff form
-  const kickoffForm = useForm<z.infer<typeof kickoffFormSchema>>({
-    resolver: zodResolver(kickoffFormSchema),
-    defaultValues: {
-      theme: "",
-      brandDescription: "",
-      targetAudience: "",
-      templateId: "",
-      orshotField: "",
-      orshotDataType: "",
-      orshotDescription: "",
-    },
-  });
+  // Fetch required inputs when dialog is opened
+  const fetchRequiredInputs = useCallback(async () => {
+    const crewId = searchParams.get("id");
+    if (!crewId) {
+      toast.error("No crew ID found");
+      return;
+    }
+    
+    setIsLoadingRequiredInputs(true);
+    try {
+      const response = await getRequiredInputsCrewCrewIdRequiredInputsGet({
+        path: { crew_id: crewId }
+      });
+      
+      if (response.data) {
+        setRequiredInputs(response.data.fields);
+        // Initialize form data with empty values
+        const initialData: Record<string, any> = {};
+        response.data.fields.forEach(field => {
+          if (field.type_info.is_list) {
+            initialData[field.field_name] = [];
+          } else {
+            initialData[field.field_name] = "";
+          }
+        });
+        setDynamicFormData(initialData);
+      }
+    } catch (error) {
+      console.error("Error fetching required inputs:", error);
+      toast.error("Failed to fetch required inputs");
+    } finally {
+      setIsLoadingRequiredInputs(false);
+    }
+  }, [searchParams]);
 
-  function onKickoffSubmit(values: z.infer<typeof kickoffFormSchema>) {
-    console.log("Kickoff form values:", values);
-    showNotification("Kickoff started successfully!", "success");
-    handleRun();
-    kickoffForm.reset();
-  }
+  const handleKickoffDialogOpen = (open: boolean) => {
+    setKickoffDialogOpen(open);
+    if (open) {
+      fetchRequiredInputs();
+    }
+  };
+
+  const handleDynamicFormChange = (fieldName: string, value: any) => {
+    setDynamicFormData(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  const onKickoffSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const crewId = searchParams.get("id");
+    if (!crewId) {
+      toast.error("No crew ID found");
+      return;
+    }
+    
+    // Validate required fields
+    const missingFields = requiredInputs
+      .filter(field => field.required && !dynamicFormData[field.field_name])
+      .map(field => field.field_name);
+    
+    if (missingFields.length > 0) {
+      toast.error(`Please fill in required fields: ${missingFields.join(", ")}`);
+      return;
+    }
+    
+    // Transform orshot_schema if it exists
+    const submitData = { ...dynamicFormData };
+    if (orshotSchemaFields.some(f => f.field && f.dataType && f.description)) {
+      submitData.orshot_schema = orshotSchemaFields.filter(f => f.field && f.dataType && f.description);
+    }
+    
+    try {
+      console.log("Kickoff form values:", submitData);
+      
+      const response = await crewKickoffCrewKickoffPost({
+        body: {
+          crew_id: crewId,
+          inputs: submitData
+        }
+      });
+      
+      if (response.data) {
+        toast.success("Crew run started successfully!");
+        setKickoffDialogOpen(false);
+        
+        // Refresh crew runs
+        try {
+          const crewResponse = await getCrewByIdCrewCrewIdGet({ 
+            path: { crew_id: crewId }
+          });
+          
+          const crewData = crewResponse.data;
+          if (crewData) {
+            const crewDataWithRuns = crewData as CrewRead & { crew_runs?: any[] };
+            if (crewDataWithRuns.crew_runs) {
+              setCrewRuns(crewDataWithRuns.crew_runs);
+              setRunsRefreshKey(prev => prev + 1);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to refresh crew runs:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error starting crew run:", error);
+      toast.error("Failed to start crew run. Please try again.");
+    }
+  };
   
   useEffect(() => {
     const fetchPreDefinedTasks = async () => {
@@ -458,6 +542,7 @@ const updateCrewMutation = useMutation({
           borderRadius: "8px",
           minWidth: "120px",
         },
+        connectable: true,
       };
 
       setNodes((nds) => nds.concat(newNode));
@@ -534,6 +619,7 @@ const updateCrewMutation = useMutation({
                   borderRadius: "8px",
                   minWidth: "120px",
                 },
+                connectable: true,
               } as Node;
             });
             
@@ -556,6 +642,7 @@ const updateCrewMutation = useMutation({
             const startNodeWithPosition = {
               ...START_NODE,
               position: savedPositions['start-node'] || START_NODE.position,
+              connectable: true,
             };
             setNodes([startNodeWithPosition, ...loadedNodes]);
             setLastSavedNodes([startNodeWithPosition, ...loadedNodes]);
@@ -1155,135 +1242,239 @@ const updateCrewMutation = useMutation({
               </Button>
             </>
           ) : (
-            <Dialog>
+            <Dialog open={kickoffDialogOpen} onOpenChange={handleKickoffDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline">Kickoff</Button>
+                <Button variant="outline">Prepare Kickoff</Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[800px]">
+              <DialogContent className="max-w-[95vw] w-full sm:max-w-[90vw] lg:max-w-[800px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Required Inputs for Kickoff</DialogTitle>
                 </DialogHeader>
-                <Form {...kickoffForm}>
-                  <form onSubmit={kickoffForm.handleSubmit(onKickoffSubmit)} className="space-y-4">
-                    <FormField
-                      control={kickoffForm.control}
-                      name="theme"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Theme</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Type your theme here." {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={kickoffForm.control}
-                      name="brandDescription"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Brand Description</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Type your brand description here." {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={kickoffForm.control}
-                      name="targetAudience"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Target Audience</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Type your target audience here." {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={kickoffForm.control}
-                      name="templateId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Template ID</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Select template" />
+                {isLoadingRequiredInputs ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="text-gray-500">Loading form...</div>
+                  </div>
+                ) : (
+                  <form onSubmit={onKickoffSubmit} className="space-y-4">
+                    {requiredInputs.map((field) => {
+                      const typeInfo = field.type_info as any;
+                      
+                      // Handle orshot_schema as a special case with dynamic rows
+                      if (field.field_name === "orshot_schema" && typeInfo.is_list) {
+                        return (
+                          <div key={field.field_name} className="space-y-3">
+                            <Label>
+                              {field.field_name.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+                              {field.required && <span className="text-red-500 ml-1">*</span>}
+                            </Label>
+                            {orshotSchemaFields.map((schemaField, index) => (
+                              <div key={index} className="flex gap-2 items-start">
+                                <div className="flex-1">
+                                  <Label className="text-xs">Field</Label>
+                                  <Input
+                                    placeholder="e.g., headline"
+                                    value={schemaField.field}
+                                    onChange={(e) => {
+                                      const newFields = [...orshotSchemaFields];
+                                      newFields[index].field = e.target.value;
+                                      setOrshotSchemaFields(newFields);
+                                    }}
+                                  />
+                                </div>
+                                <div className="w-[160px]">
+                                  <Label className="text-xs">Data Type</Label>
+                                  <Select
+                                    value={schemaField.dataType}
+                                    onValueChange={(value) => {
+                                      const newFields = [...orshotSchemaFields];
+                                      newFields[index].dataType = value;
+                                      setOrshotSchemaFields(newFields);
+                                    }}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="TEXT">TEXT</SelectItem>
+                                      <SelectItem value="IMAGE">IMAGE</SelectItem>
+                                      <SelectItem value="BACKGROUND">BACKGROUND</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="flex-1">
+                                  <Label className="text-xs">Description</Label>
+                                  <Textarea
+                                    placeholder="e.g., Main title"
+                                    value={schemaField.description}
+                                    onChange={(e) => {
+                                      const newFields = [...orshotSchemaFields];
+                                      newFields[index].description = e.target.value;
+                                      setOrshotSchemaFields(newFields);
+                                    }}
+                                    rows={3}
+                                    className="resize-y"
+                                  />
+                                </div>
+                                <div className="flex items-center pt-6">
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="icon"
+                                    className={`h-8 w-8 rounded-full flex-shrink-0 bg-gray-600 ${index === 0 ? 'invisible' : ''}`}
+                                    onClick={() => {
+                                      const newFields = orshotSchemaFields.filter((_, i) => i !== index);
+                                      setOrshotSchemaFields(newFields);
+                                    }}
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setOrshotSchemaFields([...orshotSchemaFields, {field: "", dataType: "", description: ""}]);
+                              }}
+                            >
+                              + Add Row
+                            </Button>
+                          </div>
+                        );
+                      }
+                      
+                      // Handle enum fields (like templateId)
+                      if (typeInfo.is_enum && typeInfo.enum_values) {
+                        // If it's a list of enums, allow multiple selections
+                        if (typeInfo.is_list) {
+                          const selectedValues = dynamicFormData[field.field_name] || [];
+                          
+                          return (
+                            <div key={field.field_name} className="space-y-2">
+                              <Label>
+                                {field.field_name === "templateId" 
+                                  ? "Template Id" 
+                                  : field.field_name.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+                                {field.required && <span className="text-red-500 ml-1">*</span>}
+                              </Label>
+                              <div className="flex flex-wrap gap-2">
+                                {typeInfo.enum_values.map((value: any) => {
+                                  const isSelected = selectedValues.includes(value);
+                                  return (
+                                    <Button
+                                      key={String(value)}
+                                      type="button"
+                                      variant={isSelected ? "default" : "outline"}
+                                      size="sm"
+                                      onClick={() => {
+                                        const newValues = isSelected
+                                          ? selectedValues.filter((v: any) => v !== value)
+                                          : [...selectedValues, value];
+                                        handleDynamicFormChange(field.field_name, newValues);
+                                      }}
+                                    >
+                                      {String(value)}
+                                    </Button>
+                                  );
+                                })}
+                              </div>
+                              {selectedValues.length > 0 && (
+                                <div className="text-sm text-muted-foreground">
+                                  Selected: {selectedValues.join(", ")}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        
+                        // Single enum selection
+                        return (
+                          <div key={field.field_name} className="space-y-2">
+                            <Label>
+                              {field.field_name.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+                              {field.required && <span className="text-red-500 ml-1">*</span>}
+                            </Label>
+                            <Select
+                              value={dynamicFormData[field.field_name] ? String(dynamicFormData[field.field_name]) : ""}
+                              onValueChange={(value) => handleDynamicFormChange(field.field_name, value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder={field.placeholder || `Select ${field.field_name}`} />
                               </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="1201">1201</SelectItem>
-                              <SelectItem value="1909">1909</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <div className="space-y-3">
-                      <Label className="text-base font-semibold">Orshot Schema</Label>
-                      <div className="flex gap-2 items-start">
-                        <FormField
-                          control={kickoffForm.control}
-                          name="orshotField"
-                          render={({ field }) => (
-                            <FormItem className="flex-1">
-                              <FormLabel className="text-xs">Field</FormLabel>
-                              <FormControl>
-                                <Textarea placeholder="Type your field here." className="min-h-[60px]" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={kickoffForm.control}
-                          name="orshotDataType"
-                          render={({ field }) => (
-                            <FormItem className="flex-1">
-                              <FormLabel className="text-xs">Data Type</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger className="w-full h-[60px]">
-                                    <SelectValue placeholder="Select type" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="image">IMAGE</SelectItem>
-                                  <SelectItem value="text">TEXT</SelectItem>
-                                  <SelectItem value="background">BACKGROUND</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={kickoffForm.control}
-                          name="orshotDescription"
-                          render={({ field }) => (
-                            <FormItem className="flex-1">
-                              <FormLabel className="text-xs">Description</FormLabel>
-                              <FormControl>
-                                <Textarea placeholder="Type your description here." className="min-h-[60px]" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
+                              <SelectContent>
+                                {typeInfo.enum_values.map((value: any) => (
+                                  <SelectItem key={String(value)} value={String(value)}>
+                                    {String(value)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      }
+                      
+                      // Handle date fields
+                      if (typeInfo.type === 'date' || field.field_name.includes('date')) {
+                        return (
+                          <div key={field.field_name} className="space-y-2">
+                            <Label>
+                              {field.field_name.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+                              {field.required && <span className="text-red-500 ml-1">*</span>}
+                            </Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={`w-full justify-start text-left font-normal ${
+                                    !dynamicFormData[field.field_name] && "text-muted-foreground"
+                                  }`}
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {dynamicFormData[field.field_name] ? (
+                                    format(new Date(dynamicFormData[field.field_name]), "PPP")
+                                  ) : (
+                                    <span>Select date</span>
+                                  )}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={dynamicFormData[field.field_name] ? new Date(dynamicFormData[field.field_name]) : undefined}
+                                  onSelect={(date) => {
+                                    if (date) {
+                                      handleDynamicFormChange(field.field_name, date.toISOString());
+                                    }
+                                  }}
+                                  captionLayout="dropdown"
+                                  fromYear={2020}
+                                  toYear={2030}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        );
+                      }
+                      
+                      // Handle basic string fields
+                      return (
+                        <div key={field.field_name} className="space-y-2">
+                          <Label>
+                            {field.field_name.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+                            {field.required && <span className="text-red-500 ml-1">*</span>}
+                          </Label>
+                          <Textarea
+                            placeholder={field.placeholder || `Enter ${field.field_name}`}
+                            value={dynamicFormData[field.field_name] || ""}
+                            onChange={(e) => handleDynamicFormChange(field.field_name, e.target.value)}
+                            rows={3}
+                          />
+                        </div>
+                      );
+                    })}
                     
                     <DialogFooter>
                       <DialogClose asChild>
@@ -1292,7 +1483,7 @@ const updateCrewMutation = useMutation({
                       <Button type="submit">Kickoff!</Button>
                     </DialogFooter>
                   </form>
-                </Form>
+                )}
               </DialogContent>
             </Dialog>
           )}
