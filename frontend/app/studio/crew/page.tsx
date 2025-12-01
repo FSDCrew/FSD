@@ -1,16 +1,35 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import ResearchNode from "@/components/ResearchNode";
-import CopywritingNode from "@/components/CopywritingNode";
-import OrshotNode from "@/components/OrshotNode";
-import SurveyNode from "@/components/SurveyNode";
-import SchedulerNode from "@/components/SchedulerNode";
 import StartNode from "@/components/StartNode";
+import CustomNode from "@/components/CustomNode";
+
+interface PreDefinedTask {
+  key: string;
+  name: string;
+  task_description: string;
+}
+
+interface NodeTypeConfig {
+  type: string;
+  name: string;
+  color: string;
+  description: string;
+}
+// UPDATE THIS WHEN MORE TASKS KEYS ARE ADDED!
+const taskColorMap: Record<string, string> = {
+  marketing_research: "#c878e0ff",
+  content_strategy: "#389e7eff",
+  social_media_schedule: "#cc6262ff", 
+};
+
+const getTaskColor = (taskKey: string): string => {
+  return taskColorMap[taskKey] || "#6B7280"; // default 
+};
 import {
   ReactFlow,
   MiniMap,
@@ -53,13 +72,17 @@ import {
 } from "@/components/ui/select"
 
 
-const nodeTypes = {
-  start: StartNode,
-  research: ResearchNode,
-  copywriting: CopywritingNode,
-  orshot: OrshotNode,
-  survey: SurveyNode,
-  scheduler: SchedulerNode,
+
+const createNodeTypes = (nodeConfigs: NodeTypeConfig[]) => {
+  const dynamicTypes = nodeConfigs.reduce((acc, config) => {
+    acc[config.type] = CustomNode;
+    return acc;
+  }, {} as Record<string, any>);
+
+  return {
+    start: StartNode, 
+    ...dynamicTypes,
+  };
 };
 
 const START_NODE: Node = {
@@ -75,56 +98,12 @@ const START_NODE: Node = {
 const initialNodes: Node[] = [START_NODE];
 const initialEdges: Edge[] = [];
 
-type TaskType = "research" | "copywriting" | "orshot" | "survey" | "scheduler";
-
 interface NodeData extends Record<string, unknown> {
   label: string;
-  taskType: TaskType;
-  description: string;
-  expectedOutput: string;
-  crewInput: {
-    topic: string;
-  };
-  taskInput?: {
-    designTemplate?: string;
-    numOfWeeks?: number;
-  };
+  taskType: string;
   onChange?: (field: string, value: string) => void;
   onDelete?: () => void;
 }
-
-const nodeTypeConfigs = [
-  {
-    type: "research" as TaskType,
-    label: "Research Node",
-    color: "#4b82dbff",
-    icon: "🔍",
-  },
-  {
-    type: "copywriting" as TaskType,
-    label: "Copywriting Node",
-    color: "#7357b5ff",
-    icon: "✍️",
-  },
-  {
-    type: "orshot" as TaskType,
-    label: "Orshot Node",
-    color: "#dc5699ff",
-    icon: "🎨",
-  },
-  {
-    type: "survey" as TaskType,
-    label: "Survey Node",
-    color: "#51a88bff",
-    icon: "📊",
-  },
-  {
-    type: "scheduler" as TaskType,
-    label: "Scheduler Node",
-    color: "#f4ad34ff",
-    icon: "📅",
-  },
-];
 
 export default function CrewPage() {
   const router = useRouter();
@@ -141,12 +120,45 @@ export default function CrewPage() {
   const [showRunsHistory, setShowRunsHistory] = useState(false);
   const [runsRefreshKey, setRunsRefreshKey] = useState(0);
   const [crewRuns, setCrewRuns] = useState<any[]>([]);
+  const [hoveredNodeType, setHoveredNodeType] = useState<string | null>(null);
+  const [nodeTypeConfigs, setNodeTypeConfigs] = useState<NodeTypeConfig[]>([]);
+  const [preDefinedTasks, setPreDefinedTasks] = useState<PreDefinedTask[]>([]);
+  
+  
+  const nodeTypes = React.useMemo(() => createNodeTypes(nodeTypeConfigs), [nodeTypeConfigs]);
   const [selectedRun, setSelectedRun] = useState<any | null>(null);
   const [notification, setNotification] = useState<{
     message: string;
     type: "success" | "error" | "info";
   } | null>(null);
   
+  useEffect(() => {
+    const fetchPreDefinedTasks = async () => {
+      try {
+        const response = await fetch('http://localhost:8001/tasks/pre-defined');
+        if (response.ok) {
+          const tasks: PreDefinedTask[] = await response.json();
+          setPreDefinedTasks(tasks); 
+          const configs = tasks.map((task) => ({
+            type: task.key,
+            name: task.name,
+            color: getTaskColor(task.key), 
+            description: task.task_description
+          }));
+          setNodeTypeConfigs(configs);
+        } else {
+          console.error('Failed to fetch pre-defined tasks');
+          setNodeTypeConfigs([]);
+        }
+      } catch (error) {
+        console.error('Error fetching pre-defined tasks:', error);
+        setNodeTypeConfigs([]);
+      }
+    };
+
+    fetchPreDefinedTasks();
+  }, []);
+
   // React Flow state
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -192,26 +204,27 @@ export default function CrewPage() {
   
 const queryClient = useQueryClient();
 
-//convert nodes to TaskCreate format with linear order
-const convertNodesToTasks = (nodes: Node[], edges: Edge[]): TaskCreate[] => {
+//convert nodes to ordered predefined tasks for backend
+const convertNodesToOrderedTasks = (nodes: Node[], edges: Edge[]) => {
   const connectionMap = new Map<string, string>();
   edges.forEach(edge => {
     connectionMap.set(edge.source, edge.target);
   });
-  const orderedTasks: TaskCreate[] = [];
+  const orderedTasks: any[] = [];
   let currentNodeId = connectionMap.get('start-node');
   let order = 1; 
   while (currentNodeId) {
     const node = nodes.find(n => n.id === currentNodeId);
     if (!node) break;
-    const nodeData = node.data as NodeData;
-    orderedTasks.push({
-      key: node.id,
-      description: nodeData.description || "",
-      expected_output: nodeData.expectedOutput || "",
-      order: order,
-      agent_key: nodeData.taskType || "default",
-    });
+    // Find the original predefined task using taskType from node data
+    const taskType = node.data.taskType as string;
+    const originalTask = preDefinedTasks.find(task => task.key === taskType);
+    if (originalTask) {
+      orderedTasks.push({
+        ...originalTask,
+        order: order,
+      });
+    }
     order++;
     currentNodeId = connectionMap.get(currentNodeId);
   }
@@ -231,7 +244,7 @@ const createCrewMutation = useMutation({
     }
     if (nodes.length > 0) {
       try {
-        const tasks = convertNodesToTasks(nodes, edges);
+        const tasks = convertNodesToOrderedTasks(nodes, edges);
         await replaceAllTasksForCrewTaskCrewIdSavePut({
           body: tasks,
           path: { crew_id: crewData.id }
@@ -271,7 +284,7 @@ const updateCrewMutation = useMutation({
     
     await updateCrewCrewPut({ body: crewData });
     
-    const tasks = convertNodesToTasks(nodes, edges);
+    const tasks = convertNodesToOrderedTasks(nodes, edges);
     await replaceAllTasksForCrewTaskCrewIdSavePut({
       body: tasks,
       path: { crew_id: crewData.id }
@@ -302,26 +315,11 @@ const updateCrewMutation = useMutation({
   }
 });
 
-  // Function to update node data from within the node component
   const handleNodeDataChange = useCallback((nodeId: string, field: string, value: string) => {
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === nodeId) {
           const currentData = node.data as NodeData;
-          
-          if (field.includes('.')) {
-            const [parent, child] = field.split('.');
-            return {
-              ...node,
-              data: {
-                ...currentData,
-                [parent]: {
-                  ...(currentData[parent] as Record<string, unknown>),
-                  [child]: value,
-                },
-              },
-            };
-          }
           
           return {
             ...node,
@@ -351,7 +349,7 @@ const updateCrewMutation = useMutation({
     deleted.forEach((node) => handleDeleteNode(node.id));
   }, [handleDeleteNode]);
 
-  const onDragStart = (event: React.DragEvent, nodeType: TaskType) => {
+  const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData("application/reactflow", nodeType);
     event.dataTransfer.effectAllowed = "move";
   };
@@ -365,7 +363,7 @@ const updateCrewMutation = useMutation({
     (event: React.DragEvent) => {
       event.preventDefault();
 
-      const type = event.dataTransfer.getData("application/reactflow") as TaskType;
+      const type = event.dataTransfer.getData("application/reactflow") as string;
       if (!type) return;
 
       const reactFlowBounds = event.currentTarget.getBoundingClientRect();
@@ -377,32 +375,29 @@ const updateCrewMutation = useMutation({
       const nodeTypeConfig = nodeTypeConfigs.find((n) => n.type === type);
       if (!nodeTypeConfig) return;
 
-      const nodeId = `${type}-${Date.now()}`;
+      const existingNode = nodes.find(n => {
+        const nodeData = n.data as NodeData;
+        return nodeData.taskType === type && n.id !== 'start-node';
+      });
+      if (existingNode) {
+        showNotification(`Task "${nodeTypeConfig.name}" is already on the canvas. Each task type can only be added once.`, "error");
+        return;
+      }
+
+      const nodeId = type; 
       
       const newNode: Node = {
         id: nodeId,
         type: type,
         position,
         data: {
-          label: nodeTypeConfig.label,
+          label: nodeTypeConfig.name,
           taskType: type,
-          icon: nodeTypeConfig.icon,
-          description: "",
-          expectedOutput: "",
-          crewInput: {
-            topic: "",
-          },
-          taskInput:
-            type === "orshot"
-              ? { designTemplate: "" }
-              : type === "scheduler"
-              ? { numOfWeeks: 1 }
-              : undefined,
           onChange: (field: string, value: string) => handleNodeDataChange(nodeId, field, value),
           onDelete: () => handleDeleteNode(nodeId),
         } as NodeData,
         style: {
-          background: nodeTypeConfig.color,
+          background: getTaskColor(type),
           color: "white",
           border: "2px solid #222",
           borderRadius: "8px",
@@ -413,7 +408,7 @@ const updateCrewMutation = useMutation({
       setNodes((nds) => nds.concat(newNode));
       setHasUnsavedChanges(true);
     },
-    [setNodes, handleNodeDataChange, handleDeleteNode]
+    [setNodes, handleNodeDataChange, handleDeleteNode, nodeTypeConfigs, nodes]
   );
 
 
@@ -431,7 +426,7 @@ const updateCrewMutation = useMutation({
     setDescription(cardDescription);
     setLastSavedTitle(cardTitle);
 
-    if (cardId) {
+    if (cardId && nodeTypeConfigs.length > 0) {
       const savedMode = localStorage.getItem(`crew_mode_${cardId}`);
       if (savedMode === "view" || savedMode === "edit") {
         setMode(savedMode);
@@ -459,7 +454,7 @@ const updateCrewMutation = useMutation({
             
             // Convert backend tasks to React Flow nodes
             const loadedNodes = sortedTasks.map((task, index) => {
-              const nodeTypeConfig = nodeTypeConfigs.find((n) => n.type === task.agent_key as TaskType);
+              const nodeTypeConfig = nodeTypeConfigs.find((n) => n.type === task.key);
               
               const defaultPosition = { 
                 x: 300 + (index * 300), 
@@ -469,20 +464,16 @@ const updateCrewMutation = useMutation({
               
               return {
                 id: task.key,
-                type: task.agent_key as TaskType,
+                type: task.key,
                 position: position,
                 data: {
-                  label: nodeTypeConfig?.label || task.agent_key,
-                  taskType: task.agent_key as TaskType,
-                  icon: nodeTypeConfig?.icon || "📝",
-                  description: task.description,
-                  expectedOutput: task.expected_output,
-                  crewInput: { topic: "" },
+                  label: nodeTypeConfig?.name || task.key,
+                  taskType: task.key,
                   onChange: (field: string, value: string) => handleNodeDataChange(task.key, field, value),
                   onDelete: () => handleDeleteNode(task.key),
                 } as NodeData,
                 style: {
-                  background: nodeTypeConfig?.color || "#6b7280",
+                  background: getTaskColor(task.key),
                   color: "white",
                   border: "2px solid #222",
                   borderRadius: "8px",
@@ -534,7 +525,7 @@ const updateCrewMutation = useMutation({
     if (cardTitle === "Untitled") {
       setIsEditingTitle(true);
     }
-  }, [router, searchParams, setNodes, setEdges]);
+  }, [router, searchParams, setNodes, setEdges, nodeTypeConfigs]);
 
   // Fit view when ReactFlow instance is ready and nodes are loaded
   useEffect(() => {
@@ -630,7 +621,6 @@ const updateCrewMutation = useMutation({
     onSuccess: async () => {
       showNotification("Flow execution started! Run created successfully.", "success");
       
-      // Refetch crew data to get updated crew_runs
       const cardId = searchParams.get("id");
       if (cardId) {
         try {
@@ -643,7 +633,6 @@ const updateCrewMutation = useMutation({
             const crewDataWithRuns = crewData as CrewRead & { crew_runs?: any[] };
             if (crewDataWithRuns.crew_runs) {
               setCrewRuns(crewDataWithRuns.crew_runs);
-              // Force refresh of runs history display
               setRunsRefreshKey(prev => prev + 1);
             }
           }
@@ -903,26 +892,55 @@ const updateCrewMutation = useMutation({
         <div className="mb-8 flex gap-4">
           {/* Node Palette Sidebar - Only show in edit mode */}
           {mode === "edit" && (
-            <div className="w-64 flex-shrink-0 bg-[#1a1a1a] border-2 border-white rounded-lg p-4">
-              <h3 className="text-lg font-semibold mb-4 text-white">Node Types</h3>
+            <div className="w-64 flex-shrink-0 bg-[#1a1a1a] border-2 border-white rounded-lg p-4 relative">
+              <h3 className="text-lg font-semibold mb-2 text-white">Node Types</h3>
+              <p className="text-xs text-gray-300 mb-4">Drag to canvas</p>
+              
               <div className="space-y-3">
-                {nodeTypeConfigs.map((nodeType) => (
-                  <div
-                    key={nodeType.type}
-                    draggable
-                    onDragStart={(e) => onDragStart(e, nodeType.type)}
-                    className="flex items-center gap-3 p-3 rounded-lg border-2 border-transparent hover:border-white cursor-move transition-colors bg-[#3a3a3a] hover:bg-[#2a2a2a]"
-                  >
-                    <span className="text-2xl">{nodeType.icon}</span>
-                    <div>
-                      <div className="font-medium text-sm text-white">{nodeType.label}</div>
-                      <div className="text-xs text-gray-300">
-                        Drag to canvas
+                {nodeTypeConfigs.length > 0 ? (
+                  nodeTypeConfigs.map((nodeType) => (
+                    <div
+                      key={nodeType.type}
+                      draggable
+                      onDragStart={(e) => onDragStart(e, nodeType.type)}
+                      onMouseEnter={() => setHoveredNodeType(nodeType.type)}
+                      onMouseLeave={() => setHoveredNodeType(null)}
+                      className="flex items-center gap-3 p-3 rounded-lg border-2 border-transparent hover:border-white cursor-move transition-colors bg-[#3a3a3a] hover:bg-[#2a2a2a] relative"
+                    >
+                      <div>
+                        <div className="font-medium text-sm text-white">{nodeType.name}</div>
                       </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-center text-white py-8">
+                    Loading node types...
                   </div>
-                ))}
+                )}
               </div>
+              
+              {/* Hover Card */}
+              {hoveredNodeType && (
+                <div 
+                  className="absolute left-full top-0 ml-4 w-80 border-2 border-white rounded-lg p-4 shadow-lg z-50"
+                  style={{
+                    backgroundColor: getTaskColor(hoveredNodeType)
+                  }}
+                >
+                  {(() => {
+                    const nodeType = nodeTypeConfigs.find(n => n.type === hoveredNodeType);
+                    if (!nodeType) return null;
+                    return (
+                      <>
+                        <h4 className="font-semibold text-white mb-2">{nodeType.name}</h4>
+                        <p className="text-sm text-white leading-relaxed opacity-90">
+                          {nodeType.description}
+                        </p>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           )}
 

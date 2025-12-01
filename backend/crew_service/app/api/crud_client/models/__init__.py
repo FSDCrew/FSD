@@ -22,7 +22,6 @@ from .queue_status import QueueStatus
 from .task_create import TaskCreate
 from .task_info import TaskInfo
 from .task_read import TaskRead
-from .task_update import TaskUpdate
 from .update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put_output import (
     UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput,
 )
@@ -51,7 +50,6 @@ __all__ = (
     "TaskCreate",
     "TaskInfo",
     "TaskRead",
-    "TaskUpdate",
     "UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput",
     "UpdateStatusRequest",
     "User",
