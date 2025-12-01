@@ -1,13 +1,20 @@
 import Link from "next/link";
+import Image from 'next/image'
 
 export default function Home() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center space-y-8 p-8">
-        <div>
-          <h1 className="text-5xl font-bold mb-4">FSD Studio</h1>
+        <div className="flex flex-col items-center space-y-4">
+          <Image 
+            src="/logo-black.png" 
+            alt="Company Logo" 
+            width={300} 
+            height={100}
+            className="mx-auto"
+          />
           <p className="text-xl text-muted-foreground">
-            Your creative dashboard for managing projects
+            Your Marketing Studio
           </p>
         </div>
 

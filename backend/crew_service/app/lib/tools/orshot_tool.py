@@ -1,21 +1,15 @@
-import json
 import os
+
 import requests
-import time
-from crewai.tools import tool, BaseTool
-from app.api.crud_client import AuthenticatedClient, errors
-from uuid import UUID
+from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 from typing import Type
-from app.api.crud_client.api.artifact import create_artifact_artifact_crew_run_id_post, get_artifact_artifact_artifact_id_get
-from app.api.crud_client.models.artifact_server_create import ArtifactServerCreate
+
 from app.api.crud_client.models.artifact_type import ArtifactType
-from app.api.crud_client.models.artifact_read import ArtifactRead
-from config import settings
+from app.lib.tools.utils.artifact import get_default_artifact_service
 
 ORSHOT_API_KEY = os.getenv("ORSHOT_API_KEY")
 ORSHOT_API_URL = os.getenv("ORSHOT_API_URL", "https://api.orshot.com/v1/studio/render")
-CRUD_SERVICE_URL = os.getenv("CRUD_SERVICE_URL")
 
 class OrshotToolInput(BaseModel):
     templateId: int = Field(..., description="The ID of the Orshot template")
@@ -87,35 +81,24 @@ class OrshotRenderTool(BaseTool):
             if "," in base64_content:
                 base64_content = base64_content.split(",")[1]
 
-            client = AuthenticatedClient(
-                base_url=settings.CRUD_SERVICE_URL,
-                token=settings.INTERNAL_CREW_API_KEY
-            )
-            
-            artifact_body = ArtifactServerCreate(
-                type_=ArtifactType.IMAGE,
+            artifact_service = get_default_artifact_service()
+            save_result = artifact_service.save_artifact(
+                crew_run_id=crew_run_id,
                 file_name=f"orshot_render_{templateId}.png",
-                file_content_base64=base64_content
+                file_content_base64=base64_content,
+                artifact_type=ArtifactType.IMAGE,
             )
+            if not save_result.is_success or not save_result.artifact:
+                return save_result.error or "Error: Error saving artifact to CRUD service."
 
-            create_result = create_artifact_artifact_crew_run_id_post.sync(
-                crew_run_id=UUID(crew_run_id),
-                client=client,
-                body=artifact_body
+            s3_result = artifact_service.get_artifact_s3_url(
+                artifact_id=save_result.artifact.id,
+                crew_run_id=crew_run_id,
             )
+            if not s3_result.is_success or not s3_result.url:
+                return s3_result.error or "Error: Error obtaining S3 URL from artifact."
 
-            if not create_result:
-                return "Error: Error saving artifact to CRUD service."
-            if isinstance(create_result, ArtifactRead):
-                s3_url = get_artifact_artifact_artifact_id_get.sync(
-                    artifact_id=create_result.id,
-                    client=client
-                )
-            
-            if s3_url:
-                return s3_url
-            else:
-                return "Error: Error obtaining S3 URL from artifact."
+            return s3_result.url
 
         except Exception as e:
             return f"Error: Error executing Orshot render: {str(e)}"
