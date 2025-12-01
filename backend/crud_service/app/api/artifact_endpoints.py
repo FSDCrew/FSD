@@ -1,50 +1,14 @@
-from fastapi import APIRouter, Depends, Path, HTTPException, status
+from fastapi import APIRouter, Depends, Path
 from uuid import UUID
-import io
-import base64
 
-from app.models.models import ArtifactRead, ArtifactServerCreate, User
+from app.models.models import User
 from app.services.artifact_service import ArtifactService
-from app.dependencies import get_artifact_service, get_current_user, get_crew_run_owner_id, require_internal_api_key
+from app.dependencies import get_artifact_service, get_current_user, require_internal_api_key
 
 artifact_router = APIRouter(
     prefix="/artifact",
     tags=["artifact"],
 )
-
-@artifact_router.post(
-    "/{crew_run_id}",
-    status_code=201,
-    response_model=ArtifactRead
-)
-async def create_artifact(
-    artifact_upload: ArtifactServerCreate, 
-    crew_run_id: UUID = Path(..., description="Crew Run ID to associate the artifact with", example="123e4567-e89b-12d3-a456-426614174000"),
-    crew_run_owner_id: UUID = Depends(get_crew_run_owner_id),
-    artifact_service: ArtifactService = Depends(get_artifact_service),
-):
-    """
-    Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
-    """
-
-    try:
-        file_bytes = base64.b64decode(artifact_upload.file_content_base64)
-        file_stream = io.BytesIO(file_bytes)
-        
-        uploaded_file = {
-            'file': file_stream,
-            'filename': artifact_upload.file_name, 
-            'content_type': 'application/octet-stream'
-        }
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Base64 content: {e}")
-
-    return await artifact_service.create_artifact(
-        uploaded_file=uploaded_file,
-        artifact_type=artifact_upload.type,
-        crew_run_id=crew_run_id,
-        user_id=crew_run_owner_id
-    )
 
 @artifact_router.get(
     "/{artifact_id}",
