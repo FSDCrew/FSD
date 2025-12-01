@@ -245,6 +245,12 @@ variable "amplify_build_spec" {
       phases:
         preBuild:
           commands:
+            - rm -rf node_modules
+            - rm -f package-lock.json
+            - npm cache clean --force
+            - nvm install 20.19.0 
+            - nvm use 20.19.0
+            - node -v
             - 'echo "Starting build from: $PWD"'
             - npm install
         build:
@@ -256,7 +262,6 @@ variable "amplify_build_spec" {
           - "**/*"
       cache:
         paths:
-          - node_modules/**/*
           - .next/cache/**/*
   EOT
 }
