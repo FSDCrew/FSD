@@ -11,7 +11,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.crew_run_create_output_type_0 import CrewRunCreateOutputType0
-    from ..models.crew_run_metadata import CrewRunMetadata
+    from ..models.crew_run_metadata_create import CrewRunMetadataCreate
 
 
 T = TypeVar("T", bound="CrewRunCreate")
@@ -22,20 +22,21 @@ class CrewRunCreate:
     """
     Attributes:
         crew_id (UUID):
+        run_metadata (CrewRunMetadataCreate):
         output (CrewRunCreateOutputType0 | None | Unset):
-        run_metadata (CrewRunMetadata | None | Unset):
     """
 
     crew_id: UUID
+    run_metadata: CrewRunMetadataCreate
     output: CrewRunCreateOutputType0 | None | Unset = UNSET
-    run_metadata: CrewRunMetadata | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.crew_run_create_output_type_0 import CrewRunCreateOutputType0
-        from ..models.crew_run_metadata import CrewRunMetadata
 
         crew_id = str(self.crew_id)
+
+        run_metadata = self.run_metadata.to_dict()
 
         output: dict[str, Any] | None | Unset
         if isinstance(self.output, Unset):
@@ -45,35 +46,28 @@ class CrewRunCreate:
         else:
             output = self.output
 
-        run_metadata: dict[str, Any] | None | Unset
-        if isinstance(self.run_metadata, Unset):
-            run_metadata = UNSET
-        elif isinstance(self.run_metadata, CrewRunMetadata):
-            run_metadata = self.run_metadata.to_dict()
-        else:
-            run_metadata = self.run_metadata
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "crew_id": crew_id,
+                "run_metadata": run_metadata,
             }
         )
         if output is not UNSET:
             field_dict["output"] = output
-        if run_metadata is not UNSET:
-            field_dict["run_metadata"] = run_metadata
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.crew_run_create_output_type_0 import CrewRunCreateOutputType0
-        from ..models.crew_run_metadata import CrewRunMetadata
+        from ..models.crew_run_metadata_create import CrewRunMetadataCreate
 
         d = dict(src_dict)
         crew_id = UUID(d.pop("crew_id"))
+
+        run_metadata = CrewRunMetadataCreate.from_dict(d.pop("run_metadata"))
 
         def _parse_output(data: object) -> CrewRunCreateOutputType0 | None | Unset:
             if data is None:
@@ -92,27 +86,10 @@ class CrewRunCreate:
 
         output = _parse_output(d.pop("output", UNSET))
 
-        def _parse_run_metadata(data: object) -> CrewRunMetadata | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                run_metadata_type_0 = CrewRunMetadata.from_dict(data)
-
-                return run_metadata_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(CrewRunMetadata | None | Unset, data)
-
-        run_metadata = _parse_run_metadata(d.pop("run_metadata", UNSET))
-
         crew_run_create = cls(
             crew_id=crew_id,
-            output=output,
             run_metadata=run_metadata,
+            output=output,
         )
 
         crew_run_create.additional_properties = d

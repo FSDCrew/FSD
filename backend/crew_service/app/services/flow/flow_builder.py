@@ -8,8 +8,7 @@ from crewai.flow.flow import Flow, listen, start
 from opentelemetry import baggage
 from pydantic import BaseModel
 
-from app.api.crud_client.models.task_read import TaskRead
-from app.models.models import CUSTOM_TYPE_REGISTRY, FlowDependencyGraph
+from app.models.models import CUSTOM_TYPE_REGISTRY, FlowDependencyGraph, TaskInfo
 from app.services.flow.agent_factory import build_crewai_agents
 from app.services.flow.dependency_graph import (
     build_flow_dependency_graph,
@@ -31,7 +30,7 @@ from config import logger, settings, tasks_config
 
 
 def build_task_step_function(
-    task_record: TaskRead,
+    task_record: TaskInfo,
     step_index: int,
     crew_agents: Dict[str, CrewAIAgent],
     graph: FlowDependencyGraph,
@@ -172,7 +171,7 @@ def _resolve_task_output_model(
 
 def build_dynamic_flow_class(
     FlowStateModel: Type[BaseModel],
-    flow_tasks: List[TaskRead],
+    flow_tasks: List[TaskInfo],
     crew_agents: Dict[str, CrewAIAgent],
     graph: FlowDependencyGraph,
 ) -> Type[Flow]:
@@ -276,7 +275,7 @@ def build_dynamic_flow_class(
 
 
 def create_flow_from_tasks(
-    incoming_tasks: List[TaskRead],
+    incoming_tasks: List[TaskInfo],
 ) -> Tuple[Type[BaseModel], Type[Flow], Dict[str, List[str]]]:
     """Build a dynamic FlowState model and Flow class from a list of TaskRead."""
 

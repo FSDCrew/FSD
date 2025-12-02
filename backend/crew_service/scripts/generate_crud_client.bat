@@ -39,4 +39,3 @@ openapi-python-client generate ^
 
 echo Client generated successfully at %CLIENT_DIR%
 pause
-

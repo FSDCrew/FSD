@@ -47,7 +47,7 @@ def load_agents_config() -> Dict[str, Dict[str, Any]]:
     agents_config_path = Path(__file__).parent / "app" / "config" / "agents.yaml"
     try:
         if agents_config_path.exists():
-            with open(agents_config_path, 'r') as f:
+            with open(agents_config_path, 'r', encoding='utf-8') as f:
                 agents_data = yaml.safe_load(f) or {}
                 for key, agent_config in agents_data.items():
                     if isinstance(agent_config, dict):
@@ -68,9 +68,10 @@ def load_tasks_and_state_fields_config() -> Dict[str, Dict[str, Any]]:
         if tasks_config_path.exists():
             with open(tasks_config_path, 'r', encoding="utf-8") as f:
                 tasks_data = yaml.safe_load(f) or {}
-                for key, task_config in tasks_data.items():
-                    if isinstance(task_config, dict):
-                        task_config['key'] = key
+                if "tasks" in tasks_data and isinstance(tasks_data["tasks"], dict):
+                    for task_key, task_config in tasks_data["tasks"].items():
+                        if isinstance(task_config, dict):
+                            task_config['key'] = task_key
                 return tasks_data
         else:
             logger.warning(f"Tasks config file not found: {tasks_config_path}")

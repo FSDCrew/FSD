@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CrewRead, getAllCrewsCrewGet, syncUserUserSyncPost, deleteCrewCrewCrewIdDelete } from "@/lib/api/crud";
-import { client } from "@/lib/api/crud/client.gen";
+import { CrewRead, getAllCrewsCrewGet, deleteCrewCrewCrewIdDelete } from "@/lib/api/crud";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,12 +23,6 @@ export default function StudioPage() {
   const router = useRouter();
   const { isAuthenticated, token } = useAuth();
   const queryClient = useQueryClient();
-  
-  const { data: user } = useQuery({
-    queryKey: ['user'],
-    queryFn: () => syncUserUserSyncPost(),
-    enabled: isAuthenticated,
-  })
 
   const { data, isLoading } = useQuery({
     queryKey: ['crews'],

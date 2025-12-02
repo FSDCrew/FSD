@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Literal, Optional, Type
 import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, field_validator
 
 
 class CrewRun(BaseModel):
@@ -20,13 +20,33 @@ class CrewRunCreateRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class TaskFieldRead(BaseModel):
+    """Describes a state field that a task consumes."""
+
+    field: str
+    cardinality: str
+
+
+class TaskFieldWrite(BaseModel):
+    """Describes a state field that a task produces."""
+
+    field: str
+    mode: str
+
+
 class TaskInfo(BaseModel):
-    """Task information exposed to the frontend."""
+    """Full task definition surfaced via /tasks/pre-defined."""
 
     key: str
     name: str
     task_description: str
+    description: str
+    expected_output: str
+    agent: str
+    reads: List[TaskFieldRead]
+    writes: List[TaskFieldWrite]
 
+    model_config = ConfigDict(extra="allow")
 
 # ============================================================================
 # Flow Models and Types
@@ -84,6 +104,12 @@ class MarketingResearchReport(BaseModel):
         }
 
 
+class PostType(str, Enum):
+    """Enum for Instagram post types."""
+    POST = "POST"
+    STORY = "STORY"
+
+
 class StrategyPhase(BaseModel):
     """
     Non-date-specific strategic phase definition.
@@ -100,9 +126,9 @@ class StrategyPhase(BaseModel):
     objectives: List[str] = Field(
         ..., description="Strategic objectives for the phase."
     )
-    recommended_content_types: List[str] = Field(
+    recommended_content_types: List[PostType] = Field(
         ...,
-        description="Content formats recommended here (e.g., posts, reels, stories).",
+        description="Content formats recommended here (e.g., POST, STORY).",
     )
     posting_cadence: Dict[str, int] = Field(
         ...,
@@ -134,7 +160,7 @@ class ContentStrategy(BaseModel):
         description="Full content strategy rendered as markdown"
     )
 
-    global_settings: Dict[str, Any] = Field(
+    global_settings: Optional[Dict[str, Any]] = Field(
         ...,
         description="High-level settings: tone, voice, brand alignment, messaging principles, content pillars"
     )
@@ -159,7 +185,7 @@ class ContentStrategy(BaseModel):
                         "duration_in_weeks": 2,
                         "themes": ["Brand Intro", "Problem Awareness"],
                         "objectives": ["Build recognition", "Warm up audience"],
-                        "recommended_content_types": ["posts", "reels", "stories"],
+                        "recommended_content_types": ["POST", "STORY"],
                         "posting_cadence": {"posts_per_week": 3, "stories_per_week": 2},
                         "messaging_guidelines": ["Highlight core value", "Use simple, clear language"]
                     }
@@ -181,39 +207,55 @@ class CampaignWeekPlan(BaseModel):
     phase_themes: List[str]
     phase_objectives: List[str]
     posting_cadence: Dict[str, int]
-    recommended_content_types: List[str]
+    recommended_content_types: List[PostType]
     messaging_guidelines: Optional[List[str]] = None
 
 
 class ScheduleItem(BaseModel):
     """
-    Represents a single scheduled Instagram content unit (post, story, reel).
+    Represents a single scheduled Instagram content unit (post or story).
     This is derived from the HTML table but stored in a structured way
     for UI, analytics, or downstream processing.
     """
+    id: int = Field(
+        ..., 
+        description="Unique identifier for this schedule item within the schedule."
+    )
     phase_name: Optional[str] = Field(
         default=None,
         description="Name of the strategy phase this item belongs to, if available."
     )
-    week: int = Field(..., description="Week number within the campaign (1-based).")
-    date: datetime.date = Field(..., description="Calendar date for this content.")
-    post_type: Literal["Post", "Story", "Reel"] = Field(
-        ...,
-        description="Type of content."
+    week: Optional[int] = Field(
+        default=None, 
+        description="Week number within the campaign."
     )
-    theme_concept: str = Field(..., description="Theme or concept for this content unit.")
-    objective: str = Field(..., description="Objective for this content (e.g., awareness, engagement, CTA).")
-    description: str = Field(..., description="Detailed description to guide copy and visual creation.")
-    notes: Optional[str] = Field(
-        default=None,
-        description="Optional notes such as tags, CTA, stickers, collaborators, or audio suggestions."
+    date: datetime.date = Field(
+        ..., 
+        description="Calendar date for the post's content."
+    )
+    post_type: PostType = Field(
+        ...,
+        description="Type of content (POST or STORY)."
+    )
+    theme_concept: str = Field(
+        ..., 
+        description="Theme or concept for the post's content."
+    )
+    objective: str = Field(
+        ..., 
+        description="Objective for of the post's content (e.g., awareness, engagement, CTA)."
+    )
+    description: str = Field(
+        ..., 
+        description="Detailed description to of the post's content. Will be used to guide copy and visual creation if tasks are added."
     )
     
     model_config = ConfigDict(
         extra="forbid",
         json_schema_extra={
             "additionalProperties": False
-        }
+        },
+        use_enum_values=True
     )
 
 
@@ -222,30 +264,44 @@ class SocialMediaSchedule(BaseModel):
     Represents the final social media posting schedule.
 
     - `html_table`: The fully-formed HTML table that is compatible with the html_table_to_excel tool.
-    - `items`: Structured representation of each scheduled post/story/reel.
+    - `items`: Structured representation of each scheduled post/story.
     """
     items: List[ScheduleItem] = Field(
         ...,
         description="Flattened list of scheduled content items, one per row of the schedule (excluding header)."
     )
 
+    @field_validator('items')
+    @classmethod
+    def validate_unique_ids(cls, v: List[ScheduleItem]) -> List[ScheduleItem]:
+        """Ensure all schedule items have unique ids."""
+        ids = [item.id for item in v]
+        if len(ids) != len(set(ids)):
+            duplicates = [id_val for id_val in ids if ids.count(id_val) > 1]
+            raise ValueError(
+                f"Duplicate ids found in schedule items: {set(duplicates)}. "
+                "Each schedule item must have a unique id."
+            )
+        return v
+
     class Config:
         json_schema_extra = {
             "example": {
                 "items": [
                     {
+                        "id": 1,
                         "week": 1,
                         "phase_name": "Awareness",
-                        "post_type": "Post",
+                        "post_type": "POST",
                         "date": "2025-11-01",
                         "theme_concept": "Welcome to Semester & Campus Life",
                         "objective": "Kickstart engagement; introduce semester vibe",
-                        "description": "Vibrant shots of campus, student groups & iconic spots.",
-                        "notes": "Use Canva template; include hashtag #CampusLife"
+                        "description": "Vibrant shots of campus, student groups & iconic spots."
                     }
                 ]
             }
         }
+
 
 class AllowedTemplateId(IntEnum):
     """
@@ -268,10 +324,6 @@ class OrshotSchemaField(BaseModel):
     Represents a single configurable field in an Orshot Template.
     User inputs a list of these objects to define the 'rules' for the template.
     """
-    field: str = Field(..., description="The exact parameter key to modify in the Orshot template (e.g., 'headline', 'background_image')")
-    dataType: OrshotDataType = Field(..., description="The data type of this field: 'TEXT', 'IMAGE' or 'BACKGROUND'")
-    description: str = Field(..., description="Contextual description of the field (e.g., 'Main title, max 20 chars', 'Product shot in portrait mode')")
-
     field: str = Field(
         ...,
         description="The exact parameter key to modify in the Orshot template (e.g., 'headline', 'background_image')",
@@ -286,22 +338,154 @@ class OrshotSchemaField(BaseModel):
 
     model_config = ConfigDict(use_enum_values=True)
 
-
+# Used for Flow Service to resolve custom types from YAML
 CUSTOM_TYPE_REGISTRY: Dict[str, Type[BaseModel] | Type[IntEnum]] = {
     "MarketingResearchReport": MarketingResearchReport,
     
     # Content Strategy
     "ContentStrategy": ContentStrategy,
     "StrategyPhase": StrategyPhase,
+    
     # Social Media
     "SocialMediaSchedule": SocialMediaSchedule,
     "ScheduleItem": ScheduleItem,
-    
     
     # Orshot
     "AllowedTemplateId": AllowedTemplateId,
     "OrshotSchemaField": OrshotSchemaField,
 }
+
+
+def get_custom_type_schemas() -> Dict[str, Dict[str, Any]]:
+    """
+    Generate JSON schemas for all custom types in CUSTOM_TYPE_REGISTRY.
+    
+    Returns:
+        Dictionary mapping type names to their JSON schemas
+    """
+    schemas = {}
+    for type_name, type_class in CUSTOM_TYPE_REGISTRY.items():
+        if issubclass(type_class, BaseModel):
+            try:
+                schemas[type_name] = type_class.model_json_schema()
+            except Exception:
+                schemas[type_name] = {}
+        elif issubclass(type_class, (Enum, IntEnum)):
+            schemas[type_name] = {
+                "type": "enum",
+                "values": [member.value for member in type_class]
+            }
+    return schemas
+
+
+# ============================================================================
+# Required Inputs Response Models
+# ============================================================================
+
+class FieldTypeInfo(BaseModel):
+    """
+    Represents type information for a field, enabling frontend form rendering.
+    
+    Handles:
+    - Basic types (string, int, float, bool, date)
+    - Custom models (MarketingResearchReport, ContentStrategy, etc.)
+    - Enums (AllowedTemplateId, OrshotDataType)
+    - Lists of any type (list[string], list[OrshotSchemaField], etc.)
+    - Nested types (custom models containing enums)
+    """
+    type: str = Field(..., description="Type name (e.g., 'string', 'MarketingResearchReport', 'AllowedTemplateId')")
+    is_list: bool = Field(default=False, description="Whether this is a list type")
+    inner_type: Optional[str] = Field(default=None, description="Inner type for lists (e.g., 'string' for list[string])")
+    is_enum: bool = Field(default=False, description="Whether this is an enum type")
+    enum_values: Optional[List[Any]] = Field(default=None, description="List of enum values (for enums)")
+    is_custom_model: bool = Field(default=False, description="Whether this is a custom Pydantic model")
+    model_schema: Optional[Dict[str, Any]] = Field(default=None, description="JSON schema for custom models (for nested form rendering)")
+    
+    @model_serializer
+    def serialize_model(self) -> Dict[str, Any]:
+        """Exclude None values for related fields, but always include boolean flags."""
+        data: Dict[str, Any] = {
+            "type": self.type,
+            "is_list": self.is_list,
+            "is_enum": self.is_enum,
+            "is_custom_model": self.is_custom_model,
+        }
+        
+        # Only include inner_type if is_list is True and it's not None
+        if self.is_list and self.inner_type is not None:
+            data["inner_type"] = self.inner_type
+        
+        # Only include enum_values if is_enum is True and it's not None
+        if self.is_enum and self.enum_values is not None:
+            data["enum_values"] = self.enum_values
+        
+        # Only include model_schema if is_custom_model is True and it's not None
+        if self.is_custom_model and self.model_schema is not None:
+            data["model_schema"] = self.model_schema
+        
+        return data
+
+
+class RequiredInputField(BaseModel):
+    """Represents a single required input field."""
+    field_name: str = Field(..., description="Name of the field")
+    type_info: FieldTypeInfo = Field(..., description="Type information for this field")
+    field_kind: str = Field(..., description="Field kind: 'context' or 'data'")
+    required: bool = Field(default=True, description="Whether this field is required (cannot be left blank)")
+    placeholder: Optional[str] = Field(default=None, description="Placeholder text for the input field")
+
+
+class RequiredInputsResponse(BaseModel):
+    """Response model for required inputs endpoint."""
+    fields: List[RequiredInputField] = Field(..., description="List of required input fields")
+
+# Used for Frontend to resolve custom types
+class CustomTypesResponse(BaseModel):
+    """
+    Response model exposing all custom types for OpenAPI schema generation.
+    
+    This model is used solely to ensure custom types appear in the OpenAPI schema
+    so that client generation tools (e.g., openapi-ts) can generate TypeScript types.
+    All fields are optional and default to None since this is only for schema exposure.
+    """
+    marketing_research_report: Optional[MarketingResearchReport] = Field(
+        default=None,
+        description="MarketingResearchReport type schema reference"
+    )
+    
+    # Content Strategy
+    strategy_phase: Optional[StrategyPhase] = Field(
+        default=None,
+        description="StrategyPhase type schema reference"
+    )
+    content_strategy: Optional[ContentStrategy] = Field(
+        default=None,
+        description="ContentStrategy type schema reference"
+    )
+    
+    # Social Media
+    schedule_item: Optional[ScheduleItem] = Field(
+        default=None,
+        description="ScheduleItem type schema reference"
+    )
+    social_media_schedule: Optional[SocialMediaSchedule] = Field(
+        default=None,
+        description="SocialMediaSchedule type schema reference"
+    )
+    
+    # Orshot
+    orshot_schema_field: Optional[OrshotSchemaField] = Field(
+        default=None,
+        description="OrshotSchemaField type schema reference"
+    )
+    allowed_template_id: Optional[AllowedTemplateId] = Field(
+        default=None,
+        description="AllowedTemplateId enum schema reference"
+    )
+    orshot_data_type: Optional[OrshotDataType] = Field(
+        default=None,
+        description="OrshotDataType enum schema reference"
+    )
 
 
 class FlowDependencyGraph:

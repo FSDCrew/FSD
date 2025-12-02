@@ -4,15 +4,23 @@ state:
     theme:
       type: string
       field_kind: context
+      required: true
+      placeholder: "Enter your campaign theme"
     brand_description:
       type: string
       field_kind: context
+      required: true
+      placeholder: "Describe your brand"
     target_audience_description:
       type: string
       field_kind: context
+      required: true
+      placeholder: "Describe your target audience"
     start_date:
       type: date
       field_kind: context
+      required: true
+      placeholder: "YYYY-MM-DD"
     end_date:
       type: date
       field_kind: context
@@ -22,6 +30,8 @@ state:
     templateId:
       type: list[AllowedTemplateId]
       field_kind: context
+      required: true
+      placeholder: "Select template IDs"
     orshot_schema:
       type: list[OrshotSchemaField]
       field_kind: context
@@ -30,18 +40,26 @@ state:
     discovery_datasets:
       type: list[DiscoveryDataset]
       field_kind: data
+      required: false
+      placeholder: "Add discovery dataset references"
 
     marketing_research:
       type: MarketingResearchReport
       field_kind: data
+      required: false
+      placeholder: "Provide marketing research data"
 
     content_strategy:
       type: ContentStrategy
       field_kind: data
+      required: false
+      placeholder: "Provide content strategy"
 
     social_media_schedule:
       type: SocialMediaSchedule
       field_kind: data
+      required: false
+      placeholder: "Provide social media schedule"
 
     image_assets:
       type: string
@@ -285,16 +303,16 @@ tasks:
 
     expected_output: >
       A SocialMediaSchedule object:
-        - `items`: A list of ScheduleItem objects, one for each post/story/reel in the schedule.
+        - `items`: A list of ScheduleItem objects, one for each post/story in the schedule.
           Each ScheduleItem must include:
+            - id (int, unique identifier for the schedule item - auto-generated if not provided)
             - week (int, 1-based week number within the campaign)
             - phase_name (string, matching one of the ContentStrategy phases)
-            - post_type (one of "Post", "Story", "Reel")
+            - post_type (one of "POST", "STORY")
             - date (YYYY-MM-DD format)
             - theme_concept (string)
             - objective (string)
             - description (string, typically 1–2 sentences)
-            - notes (optional string, e.g. CTAs, hashtags, mentions)
 
   copywriter:
     reads:
@@ -420,18 +438,18 @@ tasks:
 
     expected_output: >
       Generate markdown-formatted content with proper hashtag formatting (using backticks like `#hashtag`).
-      
+
       If content strategy is provided:
       - For each post: caption, hashtags, and phrases clearly labeled and organized with markdown headings.
-      
+
       If content strategy is missing:
       - A collection of creative ideas including sample captions, hashtag suggestions, and memorable phrases with clear markdown sections.
-      
+
       After generating the markdown, convert it to a Word document using the markdown_to_word_doc tool.
       Format as markdown without wrapping in ``` code blocks.
       Do NOT describe whether the output meets requirements.
       Only output the captions, hashtags, and phrases themselves in markdown format.
-  
+
   image_generator:
     reads:
       - field: theme

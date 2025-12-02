@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.crew_endpoints import crew_router
+from app.api.schemas_endpoints import schemas_router
 from app.api.status_endpoints import status_router
 from app.api.tasks_endpoints import tasks_router
 
@@ -20,6 +21,7 @@ def init_routers(app: FastAPI) -> None:
     app.include_router(status_router)
     app.include_router(crew_router)
     app.include_router(tasks_router)
+    app.include_router(schemas_router)
 
 
 def create_app() -> FastAPI:
