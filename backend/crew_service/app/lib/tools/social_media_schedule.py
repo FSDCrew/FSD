@@ -224,6 +224,7 @@ def generate_schedule_items(
 ) -> list[ScheduleItem]:
     """
     Generate the schedule items for each campaign week plan.
+    Auto-assigns sequential integer IDs starting from 1 if not provided.
     """
     campaign_schedule_items = []
     
@@ -271,8 +272,27 @@ def generate_schedule_items(
         else:
             parsed = response
         campaign_schedule_items.extend(parsed.schedule_items)
+    
+    # Auto-assign sequential IDs starting from 1 if not provided or if duplicates exist
+    existing_ids = set()
+    next_id = 1
+    updated_items = []
+    
+    for item in campaign_schedule_items:
+        if not hasattr(item, 'id') or item.id in existing_ids or item.id < 1:
+            # Create a new item with the assigned id
+            item_dict = item.model_dump()
+            item_dict['id'] = next_id
+            updated_items.append(ScheduleItem(**item_dict))
+            existing_ids.add(next_id)
+            next_id += 1
+        else:
+            updated_items.append(item)
+            existing_ids.add(item.id)
+            if item.id >= next_id:
+                next_id = item.id + 1
         
-    return campaign_schedule_items
+    return updated_items
 
 
 def schedule_items_to_html_table(items: List[ScheduleItem]) -> str:
@@ -293,7 +313,6 @@ def schedule_items_to_html_table(items: List[ScheduleItem]) -> str:
             "<th>Theme/Concept</th>"
             "<th>Objective</th>"
             "<th>Description</th>"
-            "<th>Notes</th>"
             "</tr>"
             "</thead>"
             "<tbody></tbody>"
@@ -335,7 +354,6 @@ def schedule_items_to_html_table(items: List[ScheduleItem]) -> str:
         "<th>Theme/Concept</th>"
         "<th>Objective</th>"
         "<th>Description</th>"
-        "<th>Notes</th>"
         "</tr>"
     )
     html_parts.append("</thead>")
@@ -375,7 +393,6 @@ def schedule_items_to_html_table(items: List[ScheduleItem]) -> str:
                 html_parts.append(f"<td>{escape(item.theme_concept)}</td>")
                 html_parts.append(f"<td>{escape(item.objective)}</td>")
                 html_parts.append(f"<td>{escape(item.description)}</td>")
-                html_parts.append(f"<td>{escape(item.notes or '')}</td>")
 
                 html_parts.append("</tr>")
 

@@ -3,12 +3,7 @@ from typing import Any, Dict, List, Literal, Optional, Type
 import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
-from pydantic import BaseModel, ConfigDict, Field, model_serializer
-from enum import Enum, IntEnum
-from typing import Any, Dict, List, Optional, Type
-
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, field_validator
 
 
 class CrewRun(BaseModel):
@@ -210,35 +205,57 @@ class CampaignWeekPlan(BaseModel):
     messaging_guidelines: Optional[List[str]] = None
 
 
+class PostType(str, Enum):
+    """Enum for Instagram post types."""
+    POST = "POST"
+    STORY = "STORY"
+
+
 class ScheduleItem(BaseModel):
     """
-    Represents a single scheduled Instagram content unit (post, story, reel).
+    Represents a single scheduled Instagram content unit (post or story).
     This is derived from the HTML table but stored in a structured way
     for UI, analytics, or downstream processing.
     """
+    id: int = Field(
+        ..., 
+        description="Unique identifier for this schedule item within the schedule."
+    )
     phase_name: Optional[str] = Field(
         default=None,
         description="Name of the strategy phase this item belongs to, if available."
     )
-    week: int = Field(..., description="Week number within the campaign (1-based).")
-    date: datetime.date = Field(..., description="Calendar date for this content.")
-    post_type: Literal["Post", "Story", "Reel"] = Field(
-        ...,
-        description="Type of content."
+    week: Optional[int] = Field(
+        default=None, 
+        description="Week number within the campaign."
     )
-    theme_concept: str = Field(..., description="Theme or concept for this content unit.")
-    objective: str = Field(..., description="Objective for this content (e.g., awareness, engagement, CTA).")
-    description: str = Field(..., description="Detailed description to guide copy and visual creation.")
-    notes: Optional[str] = Field(
-        default=None,
-        description="Optional notes such as tags, CTA, stickers, collaborators, or audio suggestions."
+    date: datetime.date = Field(
+        ..., 
+        description="Calendar date for the post's content."
+    )
+    post_type: PostType = Field(
+        ...,
+        description="Type of content (POST or STORY)."
+    )
+    theme_concept: str = Field(
+        ..., 
+        description="Theme or concept for the post's content."
+    )
+    objective: str = Field(
+        ..., 
+        description="Objective for of the post's content (e.g., awareness, engagement, CTA)."
+    )
+    description: str = Field(
+        ..., 
+        description="Detailed description to of the post's content. Will be used to guide copy and visual creation if tasks are added."
     )
     
     model_config = ConfigDict(
         extra="forbid",
         json_schema_extra={
             "additionalProperties": False
-        }
+        },
+        use_enum_values=True
     )
 
 
@@ -247,26 +264,39 @@ class SocialMediaSchedule(BaseModel):
     Represents the final social media posting schedule.
 
     - `html_table`: The fully-formed HTML table that is compatible with the html_table_to_excel tool.
-    - `items`: Structured representation of each scheduled post/story/reel.
+    - `items`: Structured representation of each scheduled post/story.
     """
     items: List[ScheduleItem] = Field(
         ...,
         description="Flattened list of scheduled content items, one per row of the schedule (excluding header)."
     )
 
+    @field_validator('items')
+    @classmethod
+    def validate_unique_ids(cls, v: List[ScheduleItem]) -> List[ScheduleItem]:
+        """Ensure all schedule items have unique ids."""
+        ids = [item.id for item in v]
+        if len(ids) != len(set(ids)):
+            duplicates = [id_val for id_val in ids if ids.count(id_val) > 1]
+            raise ValueError(
+                f"Duplicate ids found in schedule items: {set(duplicates)}. "
+                "Each schedule item must have a unique id."
+            )
+        return v
+
     class Config:
         json_schema_extra = {
             "example": {
                 "items": [
                     {
+                        "id": 1,
                         "week": 1,
                         "phase_name": "Awareness",
-                        "post_type": "Post",
+                        "post_type": "POST",
                         "date": "2025-11-01",
                         "theme_concept": "Welcome to Semester & Campus Life",
                         "objective": "Kickstart engagement; introduce semester vibe",
-                        "description": "Vibrant shots of campus, student groups & iconic spots.",
-                        "notes": "Use Canva template; include hashtag #CampusLife"
+                        "description": "Vibrant shots of campus, student groups & iconic spots."
                     }
                 ]
             }
