@@ -12,6 +12,7 @@ from app.models.models import (
     CrewRunCreate,
     CrewRunRead,
     HeartbeatRequest,
+    HeartbeatResponse,
     UpdateStatusRequest,
 )
 from app.dependencies import (
@@ -142,6 +143,7 @@ async def update_queue_status_internal(
 @internal_router.post(
     "/queue/{queue_id}/heartbeat",
     status_code=200,
+    response_model=HeartbeatResponse,
     dependencies=[Depends(require_internal_api_key)],
 )
 async def heartbeat_internal(

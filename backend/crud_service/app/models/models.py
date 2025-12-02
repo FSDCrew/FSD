@@ -74,6 +74,13 @@ class HeartbeatRequest(BaseModel):
     lease_token: str
 
 
+class HeartbeatResponse(BaseModel):
+    cancel_requested: bool
+    queue_id: UUID
+    visible_at: datetime
+    status: str
+
+
 class ArtifactBase(BaseModel):
     type: ArtifactType
     file_name: str | None
