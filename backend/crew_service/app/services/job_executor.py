@@ -45,13 +45,11 @@ class JobExecutor:
     ):
         """
         Execute a crew run:
-        1. Fetch crew_run to get stored inputs
-        2. Fetch crew configuration
-        3. Load agents and tasks from YAML
-        4. Build Flow
-        5. Run flow with inputs
-        6. Send output to CrudService
-        7. Handle heartbeat
+        1. Fetch crew_run to get stored inputs and tasks snapshot
+        2. Build flow from tasks snapshot
+        3. Run flow with inputs
+        4. Send output to CrudService
+        5. Handle heartbeat
         """
         heartbeat_task = None
         try:
