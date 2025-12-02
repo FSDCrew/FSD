@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_serializer
 from enum import Enum, IntEnum
 from typing import Any, Dict, List, Optional, Type
 
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class CrewRun(BaseModel):
     id: UUID
@@ -23,13 +25,33 @@ class CrewRunCreateRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class TaskFieldRead(BaseModel):
+    """Describes a state field that a task consumes."""
+
+    field: str
+    cardinality: str
+
+
+class TaskFieldWrite(BaseModel):
+    """Describes a state field that a task produces."""
+
+    field: str
+    mode: str
+
+
 class TaskInfo(BaseModel):
-    """Task information exposed to the frontend."""
+    """Full task definition surfaced via /tasks/pre-defined."""
 
     key: str
     name: str
     task_description: str
+    description: str
+    expected_output: str
+    agent: str
+    reads: List[TaskFieldRead]
+    writes: List[TaskFieldWrite]
 
+    model_config = ConfigDict(extra="allow")
 
 # ============================================================================
 # Flow Models and Types
@@ -250,6 +272,7 @@ class SocialMediaSchedule(BaseModel):
             }
         }
 
+
 class AllowedTemplateId(IntEnum):
     """
     Registry of supported Orshot Templates.
@@ -271,7 +294,6 @@ class OrshotSchemaField(BaseModel):
     Represents a single configurable field in an Orshot Template.
     User inputs a list of these objects to define the 'rules' for the template.
     """
-
     field: str = Field(
         ...,
         description="The exact parameter key to modify in the Orshot template (e.g., 'headline', 'background_image')",

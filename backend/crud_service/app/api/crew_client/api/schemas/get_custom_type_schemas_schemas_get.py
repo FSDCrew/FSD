@@ -1,23 +1,18 @@
 from http import HTTPStatus
 from typing import Any
-from uuid import UUID
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.http_validation_error import HTTPValidationError
+from ...models.custom_types_response import CustomTypesResponse
 from ...types import Response
 
 
-def _get_kwargs(
-    crew_id: UUID,
-) -> dict[str, Any]:
+def _get_kwargs() -> dict[str, Any]:
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/crew/crews/{crew_id}/required-inputs".format(
-            crew_id=crew_id,
-        ),
+        "url": "/schemas/",
     }
 
     return _kwargs
@@ -25,15 +20,11 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Any | HTTPValidationError | None:
+) -> CustomTypesResponse | None:
     if response.status_code == 200:
-        response_200 = response.json()
+        response_200 = CustomTypesResponse.from_dict(response.json())
+
         return response_200
-
-    if response.status_code == 422:
-        response_422 = HTTPValidationError.from_dict(response.json())
-
-        return response_422
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -43,7 +34,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[Any | HTTPValidationError]:
+) -> Response[CustomTypesResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -53,28 +44,25 @@ def _build_response(
 
 
 def sync_detailed(
-    crew_id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[Any | HTTPValidationError]:
-    """Get Required Inputs
+) -> Response[CustomTypesResponse]:
+    """Get Custom Type Schemas
 
-     Get required inputs for a crew based on its tasks and flow dependencies.
-
-    Args:
-        crew_id (UUID):
+     Exposes custom types in OpenAPI schema for client generation. Returns empty object. This endpoint
+    ensures all custom types (MarketingResearch, ContentStrategy, SocialMediaSchedule,
+    OrshotSchemaField, AllowedTemplateId, OrshotDataType) appear in the OpenAPI schema so tools like
+    openapi-ts can generate TypeScript types.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | HTTPValidationError]
+        Response[CustomTypesResponse]
     """
 
-    kwargs = _get_kwargs(
-        crew_id=crew_id,
-    )
+    kwargs = _get_kwargs()
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -84,54 +72,49 @@ def sync_detailed(
 
 
 def sync(
-    crew_id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Any | HTTPValidationError | None:
-    """Get Required Inputs
+) -> CustomTypesResponse | None:
+    """Get Custom Type Schemas
 
-     Get required inputs for a crew based on its tasks and flow dependencies.
-
-    Args:
-        crew_id (UUID):
+     Exposes custom types in OpenAPI schema for client generation. Returns empty object. This endpoint
+    ensures all custom types (MarketingResearch, ContentStrategy, SocialMediaSchedule,
+    OrshotSchemaField, AllowedTemplateId, OrshotDataType) appear in the OpenAPI schema so tools like
+    openapi-ts can generate TypeScript types.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | HTTPValidationError
+        CustomTypesResponse
     """
 
     return sync_detailed(
-        crew_id=crew_id,
         client=client,
     ).parsed
 
 
 async def asyncio_detailed(
-    crew_id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[Any | HTTPValidationError]:
-    """Get Required Inputs
+) -> Response[CustomTypesResponse]:
+    """Get Custom Type Schemas
 
-     Get required inputs for a crew based on its tasks and flow dependencies.
-
-    Args:
-        crew_id (UUID):
+     Exposes custom types in OpenAPI schema for client generation. Returns empty object. This endpoint
+    ensures all custom types (MarketingResearch, ContentStrategy, SocialMediaSchedule,
+    OrshotSchemaField, AllowedTemplateId, OrshotDataType) appear in the OpenAPI schema so tools like
+    openapi-ts can generate TypeScript types.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | HTTPValidationError]
+        Response[CustomTypesResponse]
     """
 
-    kwargs = _get_kwargs(
-        crew_id=crew_id,
-    )
+    kwargs = _get_kwargs()
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -139,28 +122,26 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    crew_id: UUID,
     *,
     client: AuthenticatedClient,
-) -> Any | HTTPValidationError | None:
-    """Get Required Inputs
+) -> CustomTypesResponse | None:
+    """Get Custom Type Schemas
 
-     Get required inputs for a crew based on its tasks and flow dependencies.
-
-    Args:
-        crew_id (UUID):
+     Exposes custom types in OpenAPI schema for client generation. Returns empty object. This endpoint
+    ensures all custom types (MarketingResearch, ContentStrategy, SocialMediaSchedule,
+    OrshotSchemaField, AllowedTemplateId, OrshotDataType) appear in the OpenAPI schema so tools like
+    openapi-ts can generate TypeScript types.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | HTTPValidationError
+        CustomTypesResponse
     """
 
     return (
         await asyncio_detailed(
-            crew_id=crew_id,
             client=client,
         )
     ).parsed
