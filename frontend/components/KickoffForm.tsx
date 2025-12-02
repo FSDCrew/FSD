@@ -14,16 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Minus } from "lucide-react";
 import { format } from "date-fns";
-import type { RequiredInputField } from "@/lib/api/crew";
-
-interface KickoffFormProps {
-  requiredInputs: RequiredInputField[];
-  dynamicFormData: Record<string, any>;
-  orshotSchemaFields: Array<{field: string, dataType: string, description: string}>;
-  onFormChange: (fieldName: string, value: any) => void;
-  onOrshotSchemaChange: (fields: Array<{field: string, dataType: string, description: string}>) => void;
-  onSubmit: (e: React.FormEvent) => void;
-}
+import type { KickoffFormProps } from "@/types/ComponentProps";
 
 export function KickoffForm({
   requiredInputs,

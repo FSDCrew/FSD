@@ -48,6 +48,9 @@ import { useCrewFlow } from "@/hooks/useCrewFlow";
 import { KickoffForm } from "@/components/KickoffForm";
 import { CrewRunsHistory } from "@/components/CrewRunsHistory";
 import { RunDetails } from "@/components/RunDetails";
+import { CrewApiService } from "@/services/CrewApiService";
+import { ToastNotificationService } from "@/services/ToastNotificationService";
+import type { InteractiveNodeData } from "@/types/NodeData";
 
 interface PreDefinedTask {
   key: string;
@@ -134,10 +137,14 @@ export default function CrewPage() {
 
   const nodeTypes = React.useMemo(() => createNodeTypes(nodeTypeConfigs), [nodeTypeConfigs]);
 
+  // Service instances
+  const crewApiService = React.useMemo(() => new CrewApiService(), []);
+  const notificationService = React.useMemo(() => new ToastNotificationService(), []);
+
   // Custom hooks
   const crewId = searchParams.get("id");
-  const crewForm = useCrewForm(crewId);
-  const crewFlow = useCrewFlow(nodes, edges, setNodes, setEdges, preDefinedTasks);
+  const crewForm = useCrewForm(crewId, crewApiService, notificationService);
+  const crewFlow = useCrewFlow(nodes, edges, setNodes, setEdges, preDefinedTasks, notificationService);
 
   // Fetch pre-defined tasks
   useEffect(() => {
@@ -256,7 +263,7 @@ export default function CrewPage() {
           taskType: type,
           onChange: (field: string, value: string) => crewFlow.handleNodeDataChange(type, field, value),
           onDelete: () => crewFlow.handleDeleteNode(type),
-        } as NodeData,
+        },
         style: {
           background: getTaskColor(type),
           color: "white",
@@ -545,7 +552,7 @@ export default function CrewPage() {
                   taskType: task.key,
                   onChange: (field: string, value: string) => crewFlow.handleNodeDataChange(task.key, field, value),
                   onDelete: () => crewFlow.handleDeleteNode(task.key),
-                } as NodeData,
+                },
                 style: {
                   background: getTaskColor(task.key),
                   color: "white",

@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
-import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 import type { Node, Edge } from "@xyflow/react";
+import type { INotificationService } from "@/services/interfaces/INotificationService";
+import type { BaseNodeData, InteractiveNodeData } from "@/types/NodeData";
 
 interface PreDefinedTask {
   key: string;
@@ -9,19 +10,13 @@ interface PreDefinedTask {
   task_description: string;
 }
 
-interface NodeData extends Record<string, unknown> {
-  label: string;
-  taskType: string;
-  onChange?: (field: string, value: string) => void;
-  onDelete?: () => void;
-}
-
 export function useCrewFlow(
   nodes: Node[],
   edges: Edge[],
   setNodes: (nodes: Node[] | ((nodes: Node[]) => Node[])) => void,
   setEdges: (edges: Edge[] | ((edges: Edge[]) => Edge[])) => void,
-  preDefinedTasks: PreDefinedTask[]
+  preDefinedTasks: PreDefinedTask[],
+  notificationService: INotificationService
 ) {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSavedNodes, setLastSavedNodes] = useState<Node[]>([]);
@@ -31,11 +26,10 @@ export function useCrewFlow(
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === nodeId) {
-          const currentData = node.data as NodeData;
           return {
             ...node,
             data: {
-              ...currentData,
+              ...node.data,
               [field]: value,
             },
           };
@@ -47,14 +41,14 @@ export function useCrewFlow(
   }, [setNodes]);
 
   const handleDeleteNode = useCallback((nodeId: string) => {
-    if (nodeId === 'start-node') {
-      toast.error("The START node cannot be deleted.");
+    if (nodeId === "start-node") {
+      notificationService.error("The START node cannot be deleted.");
       return;
     }
     setNodes((nds) => nds.filter((node) => node.id !== nodeId));
     setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
     setHasUnsavedChanges(true);
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, notificationService]);
 
   const convertNodesToOrderedTasks = useCallback((nodes: Node[], edges: Edge[]) => {
     const connectionMap = new Map<string, string>();
@@ -92,7 +86,7 @@ export function useCrewFlow(
     });
     
     if (!connectionMap.has('start-node')) {
-      toast.error("Please connect the START node to the first task in your flow.");
+      notificationService.error("Please connect the START node to the first task in your flow.");
       return false;
     }
 
@@ -107,12 +101,12 @@ export function useCrewFlow(
     }
 
     if (connectedCount !== taskNodes.length) {
-      toast.error(`Linear flow incomplete: ${connectedCount} of ${taskNodes.length} tasks are connected. Please connect all tasks in a single chain starting from START.`);
+      notificationService.error(`Linear flow incomplete: ${connectedCount} of ${taskNodes.length} tasks are connected. Please connect all tasks in a single chain starting from START.`);
       return false;
     }
 
     return true;
-  }, []);
+  }, [notificationService]);
 
   return {
     hasUnsavedChanges,

@@ -1,0 +1,71 @@
+import type { RequiredInputField } from "@/lib/api/crew";
+
+/**
+ * Props for the KickoffForm component
+ */
+export interface KickoffFormProps {
+  requiredInputs: RequiredInputField[];
+  dynamicFormData: Record<string, any>;
+  orshotSchemaFields: Array<{
+    field: string;
+    dataType: string;
+    description: string;
+  }>;
+  onFormChange: (fieldName: string, value: any) => void;
+  onOrshotSchemaChange: (fields: Array<{
+    field: string;
+    dataType: string;
+    description: string;
+  }>) => void;
+  onSubmit: (e: React.FormEvent) => void;
+}
+
+/**
+ * Represents a single crew run item
+ */
+export interface CrewRunItem {
+  id: string;
+  status: string;
+  created_at: string;
+  [key: string]: any;
+}
+
+/**
+ * Props for the CrewRunsHistory component
+ */
+export interface CrewRunsHistoryProps {
+  crewRuns: CrewRunItem[];
+  onSelectRun: (run: CrewRunItem) => void;
+}
+
+/**
+ * Props for the RunDetails component
+ */
+export interface RunDetailsProps {
+  selectedRun: CrewRunItem | null;
+  crewRuns: CrewRunItem[];
+  onClose: () => void;
+}
+
+/**
+ * Props for custom node components
+ */
+export interface CustomNodeProps {
+  data: {
+    label: string;
+    taskType: string;
+    onChange?: (field: string, value: string) => void;
+    onDelete?: () => void;
+  };
+  id: string;
+}
+
+/**
+ * Props for start node component
+ */
+export interface StartNodeProps {
+  data: {
+    label: string;
+  };
+  id: string;
+}

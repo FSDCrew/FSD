@@ -1,13 +1,12 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-
-interface RunDetailsProps {
-  selectedRun: any;
-  crewRuns: any[];
-  onClose: () => void;
-}
+import type { RunDetailsProps } from "@/types/ComponentProps";
 
 export function RunDetails({ selectedRun, crewRuns, onClose }: RunDetailsProps) {
+  if (!selectedRun) {
+    return null;
+  }
+
   return (
     <div className="bg-[#1a1a1a] border-2 border-white rounded-lg p-6">
       <div className="flex items-start justify-between mb-4">

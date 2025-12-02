@@ -1,10 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-
-interface CrewRunsHistoryProps {
-  crewRuns: any[];
-  onSelectRun: (run: any) => void;
-}
+import type { CrewRunsHistoryProps } from "@/types/ComponentProps";
 
 export function CrewRunsHistory({ crewRuns, onSelectRun }: CrewRunsHistoryProps) {
   return (
