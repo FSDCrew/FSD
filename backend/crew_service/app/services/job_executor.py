@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from uuid import UUID
+from datetime import datetime, timezone
 
 import httpx
 from pydantic import BaseModel
@@ -19,7 +20,7 @@ from app.api.crud_client.models.update_crew_run_output_internal_internal_crew_ru
 )
 from app.dependencies import get_flow_service
 from app.models.models import TaskInfo
-from config import settings
+from config import settings, tasks_config
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,32 @@ class JobExecutor:
 
             tasks = [TaskInfo.model_validate(task.to_dict()) for task in crew_run.run_metadata.tasks_snapshot]
             
+            # initialise outputs in crew run
+            initial_output_list = []
+            for i, task in enumerate(tasks):
+                task_yaml = tasks_config.get(task.key, {})
+                task_name = task_yaml.get("name", task.key)
+                
+                current_status = "started" if i == 0 else "queued"
+                
+                initial_output_list.append({
+                    "task_name": task_name, 
+                    "status": current_status,
+                    "order": task.order,
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                })
+            
+            init_body = CrewRunOutputUpdate()
+            init_body.additional_properties = {"task_outputs": initial_output_list}
+            
+            await update_crew_run_output_func.asyncio(
+                crew_run_id=crew_run_id,
+                client=self.crud_client,
+                body=init_body,
+            )
+            
+            logger.info(f"Initialized crew run {crew_run_id} output with {len(initial_output_list)} tasks")
+            
             # Build Flow from tasks
             FlowStateModel, FlowClass, _ = self.flow_service.build_flow(tasks)
             flow = FlowClass()
@@ -83,14 +110,14 @@ class JobExecutor:
 
             result_data = self._build_result_payload(result, flow, FlowStateModel)
             
-            output_body = CrewRunOutputUpdate()
-            output_body.additional_properties = {"result": result_data}
+            # output_body = CrewRunOutputUpdate()
+            # output_body.additional_properties = {"result": result_data}
             
-            await update_crew_run_output_func.asyncio(
-                crew_run_id=crew_run_id,
-                client=self.crud_client,
-                body=output_body,
-            )
+            # await update_crew_run_output_func.asyncio(
+            #     crew_run_id=crew_run_id,
+            #     client=self.crud_client,
+            #     body=output_body,
+            # )
         except asyncio.CancelledError:
             logger.info(f"Crew run {crew_run_id} execution cancelled")
             raise

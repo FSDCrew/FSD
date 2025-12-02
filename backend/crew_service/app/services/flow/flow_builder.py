@@ -1,13 +1,24 @@
 from __future__ import annotations
 
+import httpx
+from functools import partial
+
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, Type, cast
 
-from crewai import Agent as CrewAIAgent, Crew, Process, Task as CrewAITask
+from crewai import Agent as CrewAIAgent, Crew, Process, Task as CrewAITask, TaskOutput
 from crewai.flow.flow import Flow, listen, start
 from opentelemetry import baggage
 from pydantic import BaseModel
 
+from app.api.crud_client.api.internal import (
+    update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put as update_crew_run_output_func,
+    get_crew_run_by_id_internal_crew_run_crew_run_id_get as get_crew_run_func
+)
+from app.api.crud_client.models.update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put_output import (
+    UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput as CrewRunOutputUpdate,
+)
+from app.api.crud_client import AuthenticatedClient
 from app.models.models import CUSTOM_TYPE_REGISTRY, FlowDependencyGraph, TaskInfo
 from app.services.flow.agent_factory import build_crewai_agents
 from app.services.flow.dependency_graph import (
@@ -27,6 +38,67 @@ from app.services.flow.state_builder import (
     extract_inner_type_from_list,
 )
 from config import logger, settings, tasks_config
+
+
+def task_callback(output: TaskOutput, crew_run_id: str) -> None:
+    """Callback function executed upon Task completion to update outputs"""
+    
+    timeout = httpx.Timeout(30.0)
+    crud_client = AuthenticatedClient(
+        base_url=settings.CRUD_SERVICE_URL,
+        token=settings.INTERNAL_CREW_API_KEY,
+        timeout=timeout
+    )
+    
+    try:
+        # fetch crew run
+        crew_run_data = get_crew_run_func.sync(
+            crew_run_id=crew_run_id, 
+            client=crud_client
+        )
+        
+        current_output = crew_run_data.output
+        if current_output is None:
+            current_output = {}
+
+        elif not isinstance(current_output, dict):
+            if hasattr(current_output, "additional_properties"):
+                current_output = current_output.additional_properties
+            elif hasattr(current_output, "to_dict"):
+                current_output = current_output.to_dict()
+            else:
+                current_output = getattr(current_output, "__dict__", {})
+        
+        current_output_list = current_output.get("task_outputs", [])
+
+        target_task_name = output.name.strip()
+        
+        current_task_order = None
+        for item in current_output_list:
+            current_name = item.get("task_name", "").strip()
+            if current_name == target_task_name:
+                item["status"] = "completed"
+                item["timestamp"] = datetime.now().isoformat()
+                current_task_order = item.get("order")
+                break
+        
+        if current_task_order is not None:
+            for item in current_output_list:
+                if item.get("order") == current_task_order + 1:
+                    item["status"] = "started"
+                    item["timestamp"] = datetime.now().isoformat()
+        
+        body = CrewRunOutputUpdate()
+        body.additional_properties = {"task_outputs": current_output_list}
+        
+        update_crew_run_output_func.sync(
+            crew_run_id=crew_run_id,
+            client=crud_client,
+            body=body
+        )
+        print(f"Successfully updated task status for run {crew_run_id}")
+    except Exception as e:
+        logger.error(f"Failed to update task callback in DB: {e}")
 
 
 def build_task_step_function(
@@ -82,8 +154,10 @@ def build_task_step_function(
             step_inputs[field_name] = value
 
         crew_run_id = getattr(self.state, "crew_run_id", None)
+        bound_callback = None
         if crew_run_id is not None:
             step_inputs["crew_run_id"] = crew_run_id
+            bound_callback = partial(task_callback, crew_run_id=str(crew_run_id))
 
         description_template = task_yaml.get("description", "")
         formatted_description = interpolate_task_description(
@@ -108,6 +182,7 @@ def build_task_step_function(
             "agent": agent,
             "guardrails": guardrails_to_use,
             "guardrail_max_retries": 3,
+            "callback": bound_callback,
         }
 
         if output_pydantic_model:
