@@ -19,8 +19,10 @@ from .crew_run_read import CrewRunRead
 from .crew_run_read_output_type_0 import CrewRunReadOutputType0
 from .crew_update import CrewUpdate
 from .heartbeat_request import HeartbeatRequest
+from .heartbeat_response import HeartbeatResponse
 from .http_validation_error import HTTPValidationError
 from .queue_status import QueueStatus
+from .retry_feedback import RetryFeedback
 from .task_create import TaskCreate
 from .task_field_read import TaskFieldRead
 from .task_field_write import TaskFieldWrite
@@ -51,8 +53,10 @@ __all__ = (
     "CrewRunReadOutputType0",
     "CrewUpdate",
     "HeartbeatRequest",
+    "HeartbeatResponse",
     "HTTPValidationError",
     "QueueStatus",
+    "RetryFeedback",
     "TaskCreate",
     "TaskFieldRead",
     "TaskFieldWrite",

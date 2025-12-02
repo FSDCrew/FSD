@@ -6,38 +6,28 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.heartbeat_request import HeartbeatRequest
-from ...models.heartbeat_response import HeartbeatResponse
 from ...models.http_validation_error import HTTPValidationError
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
-    queue_id: UUID,
+    crew_run_id: UUID,
     *,
-    body: HeartbeatRequest,
-    visibility_timeout_seconds: int | Unset = 300,
+    body: str,
     x_internal_api_key: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
     if not isinstance(x_internal_api_key, Unset):
         headers["X-Internal-Api-Key"] = x_internal_api_key
 
-    params: dict[str, Any] = {}
-
-    params["visibility_timeout_seconds"] = visibility_timeout_seconds
-
-    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/internal/queue/{queue_id}/heartbeat".format(
-            queue_id=queue_id,
+        "url": "/internal/crew-run/{crew_run_id}/cancel".format(
+            crew_run_id=crew_run_id,
         ),
-        "params": params,
     }
 
-    _kwargs["json"] = body.to_dict()
+    _kwargs["json"] = body
 
     headers["Content-Type"] = "application/json"
 
@@ -47,10 +37,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> HTTPValidationError | HeartbeatResponse | None:
+) -> Any | HTTPValidationError | None:
     if response.status_code == 200:
-        response_200 = HeartbeatResponse.from_dict(response.json())
-
+        response_200 = response.json()
         return response_200
 
     if response.status_code == 422:
@@ -66,7 +55,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[HTTPValidationError | HeartbeatResponse]:
+) -> Response[Any | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -76,35 +65,32 @@ def _build_response(
 
 
 def sync_detailed(
-    queue_id: UUID,
+    crew_run_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: HeartbeatRequest,
-    visibility_timeout_seconds: int | Unset = 300,
+    body: str,
     x_internal_api_key: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | HeartbeatResponse]:
-    """Heartbeat Internal
+) -> Response[Any | HTTPValidationError]:
+    """Cancel Crew Run Internal
 
-     Extend the visibility timeout (lease renewal) for a claimed job.
+     Cancel a crew run via internal API.
 
     Args:
-        queue_id (UUID):
-        visibility_timeout_seconds (int | Unset):  Default: 300.
+        crew_run_id (UUID): Crew Run ID to cancel
         x_internal_api_key (None | str | Unset):
-        body (HeartbeatRequest):
+        body (str): User's JWT token for authentication
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | HeartbeatResponse]
+        Response[Any | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
-        queue_id=queue_id,
+        crew_run_id=crew_run_id,
         body=body,
-        visibility_timeout_seconds=visibility_timeout_seconds,
         x_internal_api_key=x_internal_api_key,
     )
 
@@ -116,70 +102,64 @@ def sync_detailed(
 
 
 def sync(
-    queue_id: UUID,
+    crew_run_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: HeartbeatRequest,
-    visibility_timeout_seconds: int | Unset = 300,
+    body: str,
     x_internal_api_key: None | str | Unset = UNSET,
-) -> HTTPValidationError | HeartbeatResponse | None:
-    """Heartbeat Internal
+) -> Any | HTTPValidationError | None:
+    """Cancel Crew Run Internal
 
-     Extend the visibility timeout (lease renewal) for a claimed job.
+     Cancel a crew run via internal API.
 
     Args:
-        queue_id (UUID):
-        visibility_timeout_seconds (int | Unset):  Default: 300.
+        crew_run_id (UUID): Crew Run ID to cancel
         x_internal_api_key (None | str | Unset):
-        body (HeartbeatRequest):
+        body (str): User's JWT token for authentication
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | HeartbeatResponse
+        Any | HTTPValidationError
     """
 
     return sync_detailed(
-        queue_id=queue_id,
+        crew_run_id=crew_run_id,
         client=client,
         body=body,
-        visibility_timeout_seconds=visibility_timeout_seconds,
         x_internal_api_key=x_internal_api_key,
     ).parsed
 
 
 async def asyncio_detailed(
-    queue_id: UUID,
+    crew_run_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: HeartbeatRequest,
-    visibility_timeout_seconds: int | Unset = 300,
+    body: str,
     x_internal_api_key: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | HeartbeatResponse]:
-    """Heartbeat Internal
+) -> Response[Any | HTTPValidationError]:
+    """Cancel Crew Run Internal
 
-     Extend the visibility timeout (lease renewal) for a claimed job.
+     Cancel a crew run via internal API.
 
     Args:
-        queue_id (UUID):
-        visibility_timeout_seconds (int | Unset):  Default: 300.
+        crew_run_id (UUID): Crew Run ID to cancel
         x_internal_api_key (None | str | Unset):
-        body (HeartbeatRequest):
+        body (str): User's JWT token for authentication
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | HeartbeatResponse]
+        Response[Any | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
-        queue_id=queue_id,
+        crew_run_id=crew_run_id,
         body=body,
-        visibility_timeout_seconds=visibility_timeout_seconds,
         x_internal_api_key=x_internal_api_key,
     )
 
@@ -189,37 +169,34 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    queue_id: UUID,
+    crew_run_id: UUID,
     *,
     client: AuthenticatedClient,
-    body: HeartbeatRequest,
-    visibility_timeout_seconds: int | Unset = 300,
+    body: str,
     x_internal_api_key: None | str | Unset = UNSET,
-) -> HTTPValidationError | HeartbeatResponse | None:
-    """Heartbeat Internal
+) -> Any | HTTPValidationError | None:
+    """Cancel Crew Run Internal
 
-     Extend the visibility timeout (lease renewal) for a claimed job.
+     Cancel a crew run via internal API.
 
     Args:
-        queue_id (UUID):
-        visibility_timeout_seconds (int | Unset):  Default: 300.
+        crew_run_id (UUID): Crew Run ID to cancel
         x_internal_api_key (None | str | Unset):
-        body (HeartbeatRequest):
+        body (str): User's JWT token for authentication
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | HeartbeatResponse
+        Any | HTTPValidationError
     """
 
     return (
         await asyncio_detailed(
-            queue_id=queue_id,
+            crew_run_id=crew_run_id,
             client=client,
             body=body,
-            visibility_timeout_seconds=visibility_timeout_seconds,
             x_internal_api_key=x_internal_api_key,
         )
     ).parsed

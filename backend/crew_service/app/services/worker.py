@@ -141,6 +141,8 @@ class Worker:
                 client=self.crud_client,
                 body=body
             )
+        except asyncio.CancelledError:
+            logger.info(f"Job {job.id} was cancelled")
         except Exception as e:
             logger.error(f"Job {job.id} failed: {e}", exc_info=True)
             

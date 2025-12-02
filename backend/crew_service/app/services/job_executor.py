@@ -10,8 +10,12 @@ from app.api.crud_client.api.internal import (
     get_crew_by_id_internal_crew_crew_id_get as get_crew_by_id_func,
     heartbeat_internal_internal_queue_queue_id_heartbeat_post as heartbeat_func,
     update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put as update_crew_run_output_func,
+    update_queue_status_internal_internal_queue_queue_id_status_put as update_queue_status_func,
 )
+from app.api.crud_client.models import HeartbeatResponse
 from app.api.crud_client.models.heartbeat_request import HeartbeatRequest
+from app.api.crud_client.models.queue_status import QueueStatus
+from app.api.crud_client.models.update_status_request import UpdateStatusRequest
 from app.api.crud_client.models.update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put_output import (
     UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput as CrewRunOutputUpdate,
 )
@@ -52,9 +56,10 @@ class JobExecutor:
         5. Handle heartbeat
         """
         heartbeat_task = None
+        execute_task = asyncio.current_task()
         try:
             heartbeat_task = asyncio.create_task(
-                self._heartbeat_loop(queue_id, lease_token)
+                self._heartbeat_loop(queue_id, lease_token, execute_task)
             )
             
             crew_run = await self.crew_service.get_crew_run(crew_run_id)
@@ -93,6 +98,19 @@ class JobExecutor:
             )
         except asyncio.CancelledError:
             logger.info(f"Crew run {crew_run_id} execution cancelled")
+            try:
+                body = UpdateStatusRequest(
+                    lease_token=lease_token,
+                    status=QueueStatus.CANCELLED
+                )
+                await update_queue_status_func.asyncio(
+                    queue_id=queue_id,
+                    client=self.crud_client,
+                    body=body
+                )
+                logger.info(f"Updated queue {queue_id} status to CANCELLED")
+            except Exception as update_error:
+                logger.error(f"Failed to update queue {queue_id} status to CANCELLED: {update_error}")
             raise
         except Exception as e:
             logger.error(f"Error executing crew run {crew_run_id}: {e}", exc_info=True)
@@ -108,7 +126,8 @@ class JobExecutor:
     async def _heartbeat_loop(
         self,
         queue_id: UUID,
-        lease_token: str
+        lease_token: str,
+        execute_task: asyncio.Task | None = None
     ):
         """Send periodic heartbeats to extend lease."""
         try:
@@ -119,15 +138,22 @@ class JobExecutor:
                     
                     timeout: int | Unset = settings.JOB_VISIBILITY_TIMEOUT_SECONDS
                     body = HeartbeatRequest(lease_token=lease_token)
-                    await heartbeat_func.asyncio(
+                    response = await heartbeat_func.asyncio(
                         queue_id=queue_id,
                         client=self.crud_client,
                         body=body,
                         visibility_timeout_seconds=timeout
                     )
+                    if isinstance(response, HeartbeatResponse) and response.cancel_requested:
+                        logger.info(f"Cancellation requested for queue {queue_id}")
+                        if execute_task and not execute_task.done():
+                            logger.info(f"Cancelling execute task for queue {queue_id}")
+                            execute_task.cancel()
+                        raise asyncio.CancelledError()
                 except Exception as e:
                     logger.error(f"Failed to send heartbeat: {e}", exc_info=True)
         except asyncio.CancelledError:
+            logger.info(f"Heartbeat loop for queue {queue_id} cancelled")
             raise
 
     def _build_result_payload(self, result, flow, flow_state_model):
