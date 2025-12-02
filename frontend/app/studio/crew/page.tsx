@@ -71,7 +71,7 @@ const taskColorMap: Record<string, string> = {
   content_strategy: "#389e7eff",
   social_media_schedule: "#cc6262ff", 
   copywriter: "#f59e0bff",
-  image_generator: "#e1f24cff",
+  image_generator: "#f531b7",
   orshot_render: "#5881c3ff",
 };
 
