@@ -104,6 +104,12 @@ class MarketingResearchReport(BaseModel):
         }
 
 
+class PostType(str, Enum):
+    """Enum for Instagram post types."""
+    POST = "POST"
+    STORY = "STORY"
+
+
 class StrategyPhase(BaseModel):
     """
     Non-date-specific strategic phase definition.
@@ -120,9 +126,9 @@ class StrategyPhase(BaseModel):
     objectives: List[str] = Field(
         ..., description="Strategic objectives for the phase."
     )
-    recommended_content_types: List[str] = Field(
+    recommended_content_types: List[PostType] = Field(
         ...,
-        description="Content formats recommended here (e.g., posts, reels, stories).",
+        description="Content formats recommended here (e.g., POST, STORY).",
     )
     posting_cadence: Dict[str, int] = Field(
         ...,
@@ -154,7 +160,7 @@ class ContentStrategy(BaseModel):
         description="Full content strategy rendered as markdown"
     )
 
-    global_settings: Dict[str, Any] = Field(
+    global_settings: Optional[Dict[str, Any]] = Field(
         ...,
         description="High-level settings: tone, voice, brand alignment, messaging principles, content pillars"
     )
@@ -179,7 +185,7 @@ class ContentStrategy(BaseModel):
                         "duration_in_weeks": 2,
                         "themes": ["Brand Intro", "Problem Awareness"],
                         "objectives": ["Build recognition", "Warm up audience"],
-                        "recommended_content_types": ["posts", "reels", "stories"],
+                        "recommended_content_types": ["POST", "STORY"],
                         "posting_cadence": {"posts_per_week": 3, "stories_per_week": 2},
                         "messaging_guidelines": ["Highlight core value", "Use simple, clear language"]
                     }
@@ -201,14 +207,8 @@ class CampaignWeekPlan(BaseModel):
     phase_themes: List[str]
     phase_objectives: List[str]
     posting_cadence: Dict[str, int]
-    recommended_content_types: List[str]
+    recommended_content_types: List[PostType]
     messaging_guidelines: Optional[List[str]] = None
-
-
-class PostType(str, Enum):
-    """Enum for Instagram post types."""
-    POST = "POST"
-    STORY = "STORY"
 
 
 class ScheduleItem(BaseModel):
