@@ -997,7 +997,10 @@ export function KickoffForm({
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={(e) => {
+      e.preventDefault();
+      onSubmit(e);
+    }} className="space-y-4">
       {requiredInputs.map((field) => renderField(field))}
     </form>
   );

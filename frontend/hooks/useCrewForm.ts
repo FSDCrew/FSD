@@ -13,6 +13,7 @@ export function useCrewForm(
   const [requiredInputs, setRequiredInputs] = useState<RequiredInputField[]>([]);
   const [isLoadingRequiredInputs, setIsLoadingRequiredInputs] = useState(false);
   const [dynamicFormData, setDynamicFormData] = useState<Record<string, any>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchRequiredInputs = useCallback(async () => {
     if (!crewId) {
@@ -66,11 +67,16 @@ export function useCrewForm(
   ) => {
     e.preventDefault();
 
+    if (isSubmitting) {
+      return;
+    }
+
     if (!crewId) {
       notificationService.error("No crew ID found");
       return;
     }
 
+    setIsSubmitting(true);
     const missingFields = requiredInputs
       .filter(field => {
         if (!field.required) return false;
@@ -150,8 +156,10 @@ export function useCrewForm(
     } catch (error) {
       console.error("Error starting crew run:", error);
       notificationService.error("Failed to start crew run. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [crewId, requiredInputs, dynamicFormData, crewApiService, notificationService]);
+  }, [crewId, requiredInputs, dynamicFormData, crewApiService, notificationService, isSubmitting]); // Add isSubmitting to dependencies
 
   return {
     requiredInputs,
@@ -160,5 +168,6 @@ export function useCrewForm(
     fetchRequiredInputs,
     handleDynamicFormChange,
     onKickoffSubmit,
+    isSubmitting,
   };
 }

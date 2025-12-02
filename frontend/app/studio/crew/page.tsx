@@ -395,6 +395,7 @@ export default function CrewPage() {
   };
 
   const handleKickoffSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     await crewForm.onKickoffSubmit(e, async () => {
       setKickoffDialogOpen(false);
       // Refresh crew runs
@@ -848,11 +849,17 @@ export default function CrewPage() {
                     />
                     <DialogFooter>
                       <DialogClose asChild>
-                        <Button type="button" variant="outline">
+                        <Button type="button" variant="outline" disabled={crewForm.isSubmitting}>
                           Cancel
                         </Button>
                       </DialogClose>
-                      <Button onClick={handleKickoffSubmit}>Kickoff!</Button>
+                      <Button
+                        type="submit"
+                        onClick={handleKickoffSubmit}
+                        disabled={crewForm.isSubmitting}
+                      >
+                        {crewForm.isSubmitting ? "Submitting..." : "Kickoff!"}
+                      </Button>
                     </DialogFooter>
                   </>
                 )}
