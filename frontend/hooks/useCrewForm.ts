@@ -3,6 +3,23 @@ import type { RequiredInputField } from "@/lib/api/crew";
 import type { INotificationService } from "@/services/interfaces/INotificationService";
 import { useRequiredInputs, useCrewKickoff } from "./useCrewApi";
 
+// Helper function to check if a field is nullable
+function checkIfFieldIsNullable(field: RequiredInputField, typeInfo: any): boolean {
+  // Check if type_info itself indicates nullable (e.g., has anyOf)
+  if (typeInfo.anyOf) {
+    return typeInfo.anyOf.some((s: any) => s.type === "null");
+  }
+  // Check if it's a custom model with nullable properties at the top level
+  if (typeInfo.model_schema?.properties) {
+    const properties = typeInfo.model_schema.properties;
+    // Check if any property is nullable
+    return Object.values(properties).some((propSchema: any) =>
+      propSchema.anyOf?.some((s: any) => s.type === "null")
+    );
+  }
+  return false;
+}
+
 export function useCrewForm(
   crewId: string | null,
   notificationService: INotificationService
@@ -38,7 +55,13 @@ export function useCrewForm(
       // Initialize with default values if no cache
       requiredInputsData.fields.forEach((field: RequiredInputField) => {
         const typeInfo = field.type_info as any;
-        if (typeInfo.is_list) {
+
+        // Check if field is nullable
+        const isNullable = checkIfFieldIsNullable(field, typeInfo);
+
+        if (isNullable) {
+          initialData[field.field_name] = null;
+        } else if (typeInfo.is_list) {
           initialData[field.field_name] = [];
         } else if (typeInfo.is_custom_model && typeInfo.model_schema) {
           initialData[field.field_name] = {};
@@ -190,7 +213,13 @@ export function useCrewForm(
       const initialData: Record<string, any> = {};
       requiredInputsData.fields.forEach((field: RequiredInputField) => {
         const typeInfo = field.type_info as any;
-        if (typeInfo.is_list) {
+
+        // Check if field is nullable
+        const isNullable = checkIfFieldIsNullable(field, typeInfo);
+
+        if (isNullable) {
+          initialData[field.field_name] = null;
+        } else if (typeInfo.is_list) {
           initialData[field.field_name] = [];
         } else if (typeInfo.is_custom_model && typeInfo.model_schema) {
           initialData[field.field_name] = {};
@@ -203,13 +232,13 @@ export function useCrewForm(
         }
       });
       setDynamicFormData(initialData);
-      
+
       // Clear localStorage cache
       const cacheKey = getCacheKey();
       if (cacheKey) {
         localStorage.removeItem(cacheKey);
       }
-      
+
       notificationService.success("Form reset successfully");
     }
   }, [requiredInputsData, notificationService, crewId]);

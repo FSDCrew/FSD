@@ -36,6 +36,45 @@ function formatFieldName(fieldName: string): string {
   return fieldName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
+// Reusable enable checkbox component for nullable fields
+function EnableCheckbox({
+  checked,
+  onChange,
+  onEnable,
+  label = "Enable",
+}: {
+  checked: boolean;
+  onChange: (value: any) => void;
+  onEnable: () => any;
+  label?: string;
+}) {
+  return (
+    <div className="flex items-center space-x-2">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => {
+          if (e.target.checked) {
+            onChange(onEnable());
+          } else {
+            onChange(null);
+          }
+        }}
+        className="h-4 w-4"
+      />
+      <Label className="text-xs">{label}</Label>
+    </div>
+  );
+}
+
+// Helper function to check if a $ref points to an enum
+function isEnumRef(ref: string, defs: Record<string, any>): boolean {
+  if (!ref || !defs) return false;
+  const refName = ref.replace("#/$defs/", "");
+  const def = defs[refName];
+  return def && def.enum !== undefined;
+}
+
 // Helper function to get enum values from $ref
 function getEnumValuesFromRef(ref: string, defs: Record<string, any>): any[] {
   if (!ref || !defs) return [];
@@ -61,7 +100,8 @@ function renderDynamicObject(
   value: any,
   onChange: (value: any) => void,
   required: boolean,
-  defs?: Record<string, any>
+  defs?: Record<string, any>,
+  skipLabel?: boolean
 ): React.ReactNode {
   const objValue = value || {};
   const isRequired = required;
@@ -105,10 +145,12 @@ function renderDynamicObject(
 
   return (
     <div key={propName} className="space-y-2">
-      <Label className="text-xs">
-        {propName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
-        {isRequired && <span className="text-red-500 ml-1">*</span>}
-      </Label>
+      {!skipLabel && (
+        <Label className="text-xs">
+          {propName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+          {isRequired && <span className="text-red-500 ml-1">*</span>}
+        </Label>
+      )}
       <div className="space-y-2 border rounded-lg p-3">
         {Object.entries(objValue).map(([key, val], index) => (
           <div key={index} className="flex gap-2 items-center">
@@ -197,7 +239,12 @@ function renderNestedCustomModelList(
     const item: any = {};
     Object.keys(properties).forEach((propName) => {
       const propSchema = properties[propName];
-      if (propSchema.type === "boolean") {
+      // Check if property is nullable
+      const isNullable = propSchema.anyOf?.some((s: any) => s.type === "null");
+
+      if (isNullable) {
+        item[propName] = null;
+      } else if (propSchema.type === "boolean") {
         item[propName] = false;
       } else if (propSchema.type === "number" || propSchema.type === "integer") {
         item[propName] = "";
@@ -323,6 +370,56 @@ function renderModelProperty(
       const isNull = value === null || value === undefined;
       const arrayValue = isNull ? [] : (Array.isArray(value) ? value : []);
 
+      // Check if the array schema has items.$ref pointing to an enum
+      if (arraySchema.items?.$ref && isEnumRef(arraySchema.items.$ref, defs || {})) {
+        const enumValues = getEnumValuesFromRef(arraySchema.items.$ref, defs || {});
+        return (
+          <div key={propName} className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">
+                {propName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+                {isRequired && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+              <EnableCheckbox
+                checked={!isNull}
+                onChange={onChange}
+                onEnable={() => []}
+              />
+            </div>
+            {!isNull && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {enumValues.map((enumValue: any) => {
+                    const isSelected = arrayValue.includes(enumValue);
+                    return (
+                      <Button
+                        key={String(enumValue)}
+                        type="button"
+                        variant={isSelected ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          const newValues = isSelected
+                            ? arrayValue.filter((v: any) => v !== enumValue)
+                            : [...arrayValue, enumValue];
+                          onChange(newValues.length > 0 ? newValues : null);
+                        }}
+                      >
+                        {String(enumValue)}
+                      </Button>
+                    );
+                  })}
+                </div>
+                {arrayValue.length > 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    Selected: {arrayValue.join(", ")}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      }
+
       // Check if the array schema has items.$ref or inline object definition (custom model array)
       if (arraySchema.items?.$ref || (arraySchema.items?.type === "object" && arraySchema.items?.properties)) {
         return (
@@ -332,21 +429,11 @@ function renderModelProperty(
                 {propName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
                 {isRequired && <span className="text-red-500 ml-1">*</span>}
               </Label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={!isNull}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      onChange([]);
-                    } else {
-                      onChange(null);
-                    }
-                  }}
-                  className="h-4 w-4"
-                />
-                <Label className="text-xs">Enable</Label>
-              </div>
+              <EnableCheckbox
+                checked={!isNull}
+                onChange={onChange}
+                onEnable={() => []}
+              />
             </div>
             {!isNull && renderNestedCustomModelList(
               propName,
@@ -369,21 +456,11 @@ function renderModelProperty(
               {propName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
               {isRequired && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={!isNull}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    onChange([]);
-                  } else {
-                    onChange(null);
-                  }
-                }}
-                className="h-4 w-4"
-              />
-              <Label className="text-xs">Enable</Label>
-            </div>
+            <EnableCheckbox
+              checked={!isNull}
+              onChange={onChange}
+              onEnable={() => []}
+            />
           </div>
           {!isNull && (
             <div className="space-y-2">
@@ -431,9 +508,130 @@ function renderModelProperty(
     }
   }
 
+  // Handle nullable objects with dynamic properties (object with additionalProperties | null)
+  if (propSchema.anyOf) {
+    const objectSchema = propSchema.anyOf.find((s: any) =>
+      s.type === "object" && s.additionalProperties !== undefined && s.additionalProperties !== false
+    );
+    const nullSchema = propSchema.anyOf.find((s: any) => s.type === "null");
+
+    if (objectSchema && nullSchema) {
+      const isNull = value === null || value === undefined;
+      return (
+        <div key={propName} className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">
+              {propName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+              {isRequired && <span className="text-red-500 ml-1">*</span>}
+            </Label>
+            <EnableCheckbox
+              checked={!isNull}
+              onChange={onChange}
+              onEnable={() => ({})}
+            />
+          </div>
+          {!isNull && renderDynamicObject(
+            propName,
+            objectSchema,
+            value || {},
+            onChange,
+            isRequired,
+            defs,
+            true // skipLabel since we already have a label above
+          )}
+        </div>
+      );
+    }
+  }
+
+  // Handle nullable primitives (string | null, integer | null, etc.)
+  if (propSchema.anyOf) {
+    const primitiveSchema = propSchema.anyOf.find((s: any) =>
+      s.type === "string" || s.type === "integer" || s.type === "number"
+    );
+    const nullSchema = propSchema.anyOf.find((s: any) => s.type === "null");
+
+    if (primitiveSchema && nullSchema) {
+      const isNull = value === null || value === undefined;
+      const primitiveType = primitiveSchema.type;
+
+      return (
+        <div key={propName} className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">
+              {propName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+              {isRequired && <span className="text-red-500 ml-1">*</span>}
+            </Label>
+            <EnableCheckbox
+              checked={!isNull}
+              onChange={onChange}
+              onEnable={() => ""}
+            />
+          </div>
+          {!isNull && (
+            primitiveType === "integer" || primitiveType === "number" ? (
+              <Input
+                type="number"
+                placeholder={placeholder}
+                value={value || ""}
+                onChange={(e) => onChange(e.target.value ? Number(e.target.value) : "")}
+              />
+            ) : (
+              <Input
+                placeholder={placeholder}
+                value={value || ""}
+                onChange={(e) => onChange(e.target.value)}
+              />
+            )
+          )}
+        </div>
+      );
+    }
+  }
+
   // Handle different property types
   switch (propType) {
     case "array":
+      // Check if array items reference an enum (for non-nullable arrays)
+      if (propSchema.items?.$ref && isEnumRef(propSchema.items.$ref, defs || {})) {
+        const enumValues = getEnumValuesFromRef(propSchema.items.$ref, defs || {});
+        const selectedValues = Array.isArray(value) ? value : [];
+        return (
+          <div key={propName} className="space-y-2">
+            <Label className="text-xs">
+              {propName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+              {isRequired && <span className="text-red-500 ml-1">*</span>}
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {enumValues.map((enumValue: any) => {
+                const isSelected = selectedValues.includes(enumValue);
+                return (
+                  <Button
+                    key={String(enumValue)}
+                    type="button"
+                    variant={isSelected ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      const newValues = isSelected
+                        ? selectedValues.filter((v: any) => v !== enumValue)
+                        : [...selectedValues, enumValue];
+                      onChange(newValues);
+                    }}
+                  >
+                    {String(enumValue)}
+                  </Button>
+                );
+              })}
+            </div>
+            {selectedValues.length > 0 && (
+              <div className="text-sm text-muted-foreground">
+                Selected: {selectedValues.join(", ")}
+              </div>
+            )}
+          </div>
+        );
+      }
+
       // Check if array items reference a custom model or have inline object definition (for non-nullable arrays)
       if (propSchema.items?.$ref || (propSchema.items?.type === "object" && propSchema.items?.properties)) {
         return renderNestedCustomModelList(
@@ -660,7 +858,12 @@ function renderCustomModelListField(
     const item: any = {};
     Object.keys(properties).forEach((propName) => {
       const propSchema = properties[propName];
-      if (propSchema.type === "boolean") {
+      // Check if property is nullable
+      const isNullable = propSchema.anyOf?.some((s: any) => s.type === "null");
+
+      if (isNullable) {
+        item[propName] = null;
+      } else if (propSchema.type === "boolean") {
         item[propName] = false;
       } else if (propSchema.type === "number" || propSchema.type === "integer") {
         item[propName] = "";
