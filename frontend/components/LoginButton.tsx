@@ -19,6 +19,7 @@ const LoginButton = () => {
     <>
       {!isAuthenticated ? (
         <Button
+          className="w-full"
           onClick={handleLogin}
         >
           Sign In
