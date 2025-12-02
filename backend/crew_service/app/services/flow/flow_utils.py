@@ -16,6 +16,7 @@ from app.lib.tools.open_instagram_posts import open_instagram_posts
 from app.lib.tools.orshot_tool import orshot_render_tool
 from app.lib.tools.search import open_pages, search_internet, search_instagram
 from app.lib.tools.social_media_schedule import generate_social_media_schedule_tool
+from app.lib.tools.generate_copywriting import generate_copywriting_tool, generate_batch_copywriting_tool
 from app.models.models import CUSTOM_TYPE_REGISTRY
 
 
@@ -201,6 +202,8 @@ TOOL_MAP = {
     "generate_image": generate_image_tool,
     "generate_imagen": generate_imagen_tool,
     "generate_social_media_schedule": generate_social_media_schedule_tool,
+    "generate_copywriting_for_item": generate_copywriting_tool,
+    "generate_copywriting_for_batch": generate_batch_copywriting_tool,
     "html_table_to_excel": html_table_to_excel_tool,
     "markdown_to_word_doc": markdown_to_word_doc,
     "open_instagram_posts": open_instagram_posts,
