@@ -2,10 +2,9 @@
 
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import type { BaseNodeData } from "@/types/NodeData";
 
-interface CustomNodeData extends Record<string, unknown> {
-  label: string;
-  taskType: string;
+interface CustomNodeData extends BaseNodeData {
   icon: string;
 }
 

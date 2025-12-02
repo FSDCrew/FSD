@@ -4,6 +4,9 @@ import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_serializer
+from enum import Enum, IntEnum
+from typing import Any, Dict, List, Optional, Type
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -305,22 +308,154 @@ class OrshotSchemaField(BaseModel):
 
     model_config = ConfigDict(use_enum_values=True)
 
-
+# Used for Flow Service to resolve custom types from YAML
 CUSTOM_TYPE_REGISTRY: Dict[str, Type[BaseModel] | Type[IntEnum]] = {
     "MarketingResearchReport": MarketingResearchReport,
     
     # Content Strategy
     "ContentStrategy": ContentStrategy,
     "StrategyPhase": StrategyPhase,
+    
     # Social Media
     "SocialMediaSchedule": SocialMediaSchedule,
     "ScheduleItem": ScheduleItem,
-    
     
     # Orshot
     "AllowedTemplateId": AllowedTemplateId,
     "OrshotSchemaField": OrshotSchemaField,
 }
+
+
+def get_custom_type_schemas() -> Dict[str, Dict[str, Any]]:
+    """
+    Generate JSON schemas for all custom types in CUSTOM_TYPE_REGISTRY.
+    
+    Returns:
+        Dictionary mapping type names to their JSON schemas
+    """
+    schemas = {}
+    for type_name, type_class in CUSTOM_TYPE_REGISTRY.items():
+        if issubclass(type_class, BaseModel):
+            try:
+                schemas[type_name] = type_class.model_json_schema()
+            except Exception:
+                schemas[type_name] = {}
+        elif issubclass(type_class, (Enum, IntEnum)):
+            schemas[type_name] = {
+                "type": "enum",
+                "values": [member.value for member in type_class]
+            }
+    return schemas
+
+
+# ============================================================================
+# Required Inputs Response Models
+# ============================================================================
+
+class FieldTypeInfo(BaseModel):
+    """
+    Represents type information for a field, enabling frontend form rendering.
+    
+    Handles:
+    - Basic types (string, int, float, bool, date)
+    - Custom models (MarketingResearchReport, ContentStrategy, etc.)
+    - Enums (AllowedTemplateId, OrshotDataType)
+    - Lists of any type (list[string], list[OrshotSchemaField], etc.)
+    - Nested types (custom models containing enums)
+    """
+    type: str = Field(..., description="Type name (e.g., 'string', 'MarketingResearchReport', 'AllowedTemplateId')")
+    is_list: bool = Field(default=False, description="Whether this is a list type")
+    inner_type: Optional[str] = Field(default=None, description="Inner type for lists (e.g., 'string' for list[string])")
+    is_enum: bool = Field(default=False, description="Whether this is an enum type")
+    enum_values: Optional[List[Any]] = Field(default=None, description="List of enum values (for enums)")
+    is_custom_model: bool = Field(default=False, description="Whether this is a custom Pydantic model")
+    model_schema: Optional[Dict[str, Any]] = Field(default=None, description="JSON schema for custom models (for nested form rendering)")
+    
+    @model_serializer
+    def serialize_model(self) -> Dict[str, Any]:
+        """Exclude None values for related fields, but always include boolean flags."""
+        data: Dict[str, Any] = {
+            "type": self.type,
+            "is_list": self.is_list,
+            "is_enum": self.is_enum,
+            "is_custom_model": self.is_custom_model,
+        }
+        
+        # Only include inner_type if is_list is True and it's not None
+        if self.is_list and self.inner_type is not None:
+            data["inner_type"] = self.inner_type
+        
+        # Only include enum_values if is_enum is True and it's not None
+        if self.is_enum and self.enum_values is not None:
+            data["enum_values"] = self.enum_values
+        
+        # Only include model_schema if is_custom_model is True and it's not None
+        if self.is_custom_model and self.model_schema is not None:
+            data["model_schema"] = self.model_schema
+        
+        return data
+
+
+class RequiredInputField(BaseModel):
+    """Represents a single required input field."""
+    field_name: str = Field(..., description="Name of the field")
+    type_info: FieldTypeInfo = Field(..., description="Type information for this field")
+    field_kind: str = Field(..., description="Field kind: 'context' or 'data'")
+    required: bool = Field(default=True, description="Whether this field is required (cannot be left blank)")
+    placeholder: Optional[str] = Field(default=None, description="Placeholder text for the input field")
+
+
+class RequiredInputsResponse(BaseModel):
+    """Response model for required inputs endpoint."""
+    fields: List[RequiredInputField] = Field(..., description="List of required input fields")
+
+# Used for Frontend to resolve custom types
+class CustomTypesResponse(BaseModel):
+    """
+    Response model exposing all custom types for OpenAPI schema generation.
+    
+    This model is used solely to ensure custom types appear in the OpenAPI schema
+    so that client generation tools (e.g., openapi-ts) can generate TypeScript types.
+    All fields are optional and default to None since this is only for schema exposure.
+    """
+    marketing_research_report: Optional[MarketingResearchReport] = Field(
+        default=None,
+        description="MarketingResearchReport type schema reference"
+    )
+    
+    # Content Strategy
+    strategy_phase: Optional[StrategyPhase] = Field(
+        default=None,
+        description="StrategyPhase type schema reference"
+    )
+    content_strategy: Optional[ContentStrategy] = Field(
+        default=None,
+        description="ContentStrategy type schema reference"
+    )
+    
+    # Social Media
+    schedule_item: Optional[ScheduleItem] = Field(
+        default=None,
+        description="ScheduleItem type schema reference"
+    )
+    social_media_schedule: Optional[SocialMediaSchedule] = Field(
+        default=None,
+        description="SocialMediaSchedule type schema reference"
+    )
+    
+    # Orshot
+    orshot_schema_field: Optional[OrshotSchemaField] = Field(
+        default=None,
+        description="OrshotSchemaField type schema reference"
+    )
+    allowed_template_id: Optional[AllowedTemplateId] = Field(
+        default=None,
+        description="AllowedTemplateId enum schema reference"
+    )
+    orshot_data_type: Optional[OrshotDataType] = Field(
+        default=None,
+        description="OrshotDataType enum schema reference"
+    )
 
 
 class FlowDependencyGraph:

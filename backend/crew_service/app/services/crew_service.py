@@ -85,7 +85,7 @@ class CrewService:
             full_tasks.append(full_task)
         return full_tasks
 
-    async def get_required_inputs(self, crew_id: UUID, user_token: str) -> Dict[str, str]:
+    async def get_required_inputs(self, crew_id: UUID, user_token: str):
         """Get required inputs for a crew based on its tasks and flow dependencies."""
         tasks = await self._get_crew_tasks(crew_id)
         tasks_full = self._load_full_task_definitions(tasks)

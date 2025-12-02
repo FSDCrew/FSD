@@ -4,15 +4,23 @@ state:
     theme:
       type: string
       field_kind: context
+      required: true
+      placeholder: "Enter your campaign theme"
     brand_description:
       type: string
       field_kind: context
+      required: true
+      placeholder: "Describe your brand"
     target_audience_description:
       type: string
       field_kind: context
+      required: true
+      placeholder: "Describe your target audience"
     start_date:
       type: date
       field_kind: context
+      required: true
+      placeholder: "YYYY-MM-DD"
     end_date:
       type: date
       field_kind: context
@@ -22,6 +30,8 @@ state:
     templateId:
       type: list[AllowedTemplateId]
       field_kind: context
+      required: true
+      placeholder: "Select template IDs"
     orshot_schema:
       type: list[OrshotSchemaField]
       field_kind: context
@@ -30,18 +40,26 @@ state:
     discovery_datasets:
       type: list[DiscoveryDataset]
       field_kind: data
+      required: false
+      placeholder: "Add discovery dataset references"
 
     marketing_research:
       type: MarketingResearchReport
       field_kind: data
+      required: false
+      placeholder: "Provide marketing research data"
 
     content_strategy:
       type: ContentStrategy
       field_kind: data
+      required: false
+      placeholder: "Provide content strategy"
 
     social_media_schedule:
       type: SocialMediaSchedule
       field_kind: data
+      required: false
+      placeholder: "Provide social media schedule"
 
     image_assets:
       type: string

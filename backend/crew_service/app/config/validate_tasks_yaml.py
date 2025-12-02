@@ -164,6 +164,14 @@ def validate_state_fields(data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
                 f"Allowed values: {sorted(ALLOWED_FIELD_KINDS)}"
             )
 
+        if "required" in field_def:
+            if not isinstance(field_def["required"], bool):
+                raise ValidationError(f"'required' for field 'state.fields.{field_name}' must be a boolean.")
+
+        if "placeholder" in field_def:
+            if not isinstance(field_def["placeholder"], str):
+                raise ValidationError(f"'placeholder' for field 'state.fields.{field_name}' must be a string.")
+
     return fields  # mapping: field_name -> field_def
 
 

@@ -11,7 +11,6 @@ const StartNode = memo(({ isConnectable }: NodeProps) => {
           padding: "20px 30px", 
           minWidth: "120px", 
           position: "relative",
-        //   background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
           background: "black",
           border: "3px solid #fff",
           borderRadius: "50px",
@@ -28,7 +27,6 @@ const StartNode = memo(({ isConnectable }: NodeProps) => {
           justifyContent: "center",
           gap: "8px"
         }}>
-          {/* <span style={{ fontSize: "20px" }}>🚀</span> */}
           <span>START</span>
         </div>
         <div style={{ 
@@ -38,7 +36,6 @@ const StartNode = memo(({ isConnectable }: NodeProps) => {
           marginTop: "4px",
           fontWeight: "500"
         }}>
-          {/* Connect tasks here */}
         </div>
       </div>
       <Handle
