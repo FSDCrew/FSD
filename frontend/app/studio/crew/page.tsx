@@ -282,9 +282,10 @@ export default function CrewPage() {
         style: {
           background: getTaskColor(type),
           color: "white",
-          border: "2px solid #222",
+          border: "1px solid rgba(0, 0, 0, 0.2)",
           borderRadius: "8px",
           minWidth: "120px",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
         },
         connectable: true,
       };
@@ -431,6 +432,11 @@ export default function CrewPage() {
       setShowUnsavedWarning(true);
     } else {
       setMode(newMode);
+      // Show run history by default when switching to view mode
+      if (newMode === "view") {
+        setShowRunsHistory(true);
+        setIsEditingTitle(false); // Close title editing when entering view mode
+      }
       if (crewId) {
         localStorage.setItem(`crew_mode_${crewId}`, newMode);
       }
@@ -459,6 +465,10 @@ export default function CrewPage() {
 
     if (pendingMode) {
       setMode(pendingMode);
+      // Show run history by default when switching to view mode
+      if (pendingMode === "view") {
+        setShowRunsHistory(true);
+      }
       if (crewId) {
         localStorage.setItem(`crew_mode_${crewId}`, pendingMode);
       }
@@ -510,18 +520,23 @@ export default function CrewPage() {
 
     const cardTitle = searchParams.get("title") || "Untitled";
     const cardId = searchParams.get("id");
+    const urlMode = searchParams.get("mode");
 
     setTitle(cardTitle);
     setLastSavedTitle(cardTitle);
 
-    if (cardId) {
-      const savedMode = localStorage.getItem(`crew_mode_${cardId}`);
-      if (savedMode === "view" || savedMode === "edit") {
-        setMode(savedMode);
+    // Set mode from URL parameter if provided
+    if (urlMode === "view" || urlMode === "edit") {
+      setMode(urlMode);
+      // Show run history by default when in view mode
+      if (urlMode === "view") {
+        setShowRunsHistory(true);
+        setIsEditingTitle(false); // Ensure title is not editable in view mode
       }
     }
 
-    if (cardTitle === "Untitled") {
+    // Only allow editing title if we're in edit mode (or no mode specified, defaults to edit)
+    if (cardTitle === "Untitled" && urlMode !== "view") {
       setIsEditingTitle(true);
     }
   }, [router, searchParams, token]);
@@ -555,9 +570,10 @@ export default function CrewPage() {
           style: {
             background: getTaskColor(task.key),
             color: "white",
-            border: "2px solid #222",
+            border: "1px solid rgba(0, 0, 0, 0.2)",
             borderRadius: "8px",
             minWidth: "120px",
+            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
           },
           connectable: true,
         } as Node;

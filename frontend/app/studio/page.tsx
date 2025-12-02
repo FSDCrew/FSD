@@ -34,9 +34,9 @@ export default function StudioPage() {
     router.push("/studio/crew?title=Untitled&description=");
   };
 
-  const handleEditCard = (crew: CrewRead) => {
-    // Navigate to crew page with existing card data
-    router.push(`/studio/crew?id=${crew.id}&title=${encodeURIComponent(crew.name)}`);
+  const handleEditCard = (crew: CrewRead, mode: "edit" | "view" = "edit") => {
+    // Navigate to crew page with existing card data and mode
+    router.push(`/studio/crew?id=${crew.id}&title=${encodeURIComponent(crew.name)}&mode=${mode}`);
   };
 
   const deleteMutation = useMutation({
@@ -85,19 +85,15 @@ export default function StudioPage() {
             {crews.map((crew) => (
               <div
                 key={crew.id}
-                className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer group"
-                onClick={() => handleEditCard(crew)}
+                className="bg-card border border-border rounded-lg p-6 hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-xl font-semibold text-card-foreground group-hover:text-primary transition-colors">
+                  <h3 className="text-xl font-semibold text-card-foreground">
                     {crew.name}
                   </h3>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
                         variant="ghost"
                         size="icon-sm"
                         className="text-muted-foreground hover:text-destructive"
@@ -120,7 +116,7 @@ export default function StudioPage() {
                         </svg>
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                    <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>Delete Crew</AlertDialogTitle>
                         <AlertDialogDescription>
@@ -130,11 +126,10 @@ export default function StudioPage() {
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction 
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          onClick={() => {
                             deleteMutation.mutate(crew.id);
                           }}
-                          className="bg-destructive text-white text-destructive-foreground hover:bg-destructive/90"
+                          className="bg-destructive text-white hover:bg-destructive/90"
                           disabled={deleteMutation.isPending}
                         >
                           {deleteMutation.isPending ? "Deleting..." : "Delete"}
@@ -143,8 +138,23 @@ export default function StudioPage() {
                     </AlertDialogContent>
                   </AlertDialog>
                 </div>
-                <div className="mt-4 text-sm text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                  Click to edit →
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    onClick={() => handleEditCard(crew, "edit")}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    onClick={() => handleEditCard(crew, "view")}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                  >
+                    View
+                  </Button>
                 </div>
               </div>
             ))}
