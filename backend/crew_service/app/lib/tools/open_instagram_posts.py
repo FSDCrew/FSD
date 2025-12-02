@@ -19,7 +19,6 @@ from config import settings
 # -------------------- Config --------------------
 DEFAULT_SLEEP_SECONDS = 0.5
 REQUEST_TIMEOUT = 20
-PLAYWRIGHT_TIMEOUT_MS = 9000
 
 # --- Instagram UI selectors (conservative) ---
 CAPTION_CSS_STRICT = (
@@ -206,7 +205,7 @@ async def _get_html(url: str) -> Optional[tuple[str, List[str]]]:
         carousel_interaction = _create_instagram_carousel_interaction()
         result = await fetch_page_with_playwright(
             url,
-            timeout_ms=PLAYWRIGHT_TIMEOUT_MS,
+            timeout_ms=settings.PLAYWRIGHT_TIMEOUT_MS,
             config=config,
             page_interaction=carousel_interaction,
         )

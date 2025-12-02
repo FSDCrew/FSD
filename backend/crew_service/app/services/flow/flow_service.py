@@ -1,23 +1,18 @@
-from typing import Any, Dict, List, Tuple, Type
 from enum import Enum, IntEnum
+from typing import Any, Dict, List, Tuple, Type
 
+from config import agents_config, tasks_config
 from crewai.flow.flow import Flow
 from pydantic import BaseModel
 
 from app.api.crud_client.models.task_read import TaskRead
-from app.models.models import (
-    CUSTOM_TYPE_REGISTRY,
-    FieldTypeInfo,
-    RequiredInputField,
-    RequiredInputsResponse,
-)
-from app.services.flow.flow_builder import (
+from app.models.models import CUSTOM_TYPE_REGISTRY, FieldTypeInfo, RequiredInputField, RequiredInputsResponse
+from app.services.flow.dependency_graph import (
     build_flow_dependency_graph,
-    create_flow_from_tasks,
     infer_initial_inputs,
 )
+from app.services.flow.flow_builder import create_flow_from_tasks
 from app.services.flow.flow_utils import validate_value_type
-from config import agents_config, tasks_config
 
 
 class FlowService:
@@ -35,7 +30,7 @@ class FlowService:
         Handles:
         - Basic types: "string", "int", "float", "bool", "date"
         - Lists: "list[string]", "list[OrshotSchemaField]", "list[AllowedTemplateId]"
-        - Custom models: "MarketingResearch", "ContentStrategy", etc.
+        - Custom models: "MarketingResearchReport", "ContentStrategy", etc.
         - Enums: "AllowedTemplateId", "OrshotDataType"
         - Unknown types: treated as Dict[str, Any]
         """
@@ -222,4 +217,3 @@ class FlowService:
                 raise ValueError(
                     f"Type validation failed for input field '{field_name}': {str(e)}"
                 ) from e
-

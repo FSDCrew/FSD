@@ -273,6 +273,28 @@ def validate_task_io(tasks: Dict[str, Dict[str, Any]], fields: Dict[str, Dict[st
                         "Field must exist in state.fields."
                     )
 
+                # Validate that write field types are valid
+                # If state field is a list, extract inner type and validate it
+                field_type = fields[field_name].get("type", "")
+                inner_type_str = field_type
+
+                # Extract inner type if field is a list
+                if field_type.startswith("list[") or field_type.startswith("List["):
+                    inner_type_str = field_type[5:-1].strip()
+                elif field_type.endswith("[]"):
+                    inner_type_str = field_type[:-2].strip()
+
+                # Validate inner type is a valid base type or custom type
+                # Base types: string, int, float, bool, date
+                # Custom types: ContentStrategy, MarketingResearch, etc. (from CUSTOM_TYPE_REGISTRY)
+                base_types = {"string", "int", "float", "bool", "date"}
+                # Note: Custom types are validated elsewhere, so we just check it's not empty
+                if not inner_type_str or not inner_type_str.strip():
+                    raise ValidationError(
+                        f"{entry_path} references field '{field_name}' with invalid list type '{field_type}'. "
+                        "List types must have a valid inner type (e.g., list[string], list[ContentStrategy])."
+                    )
+
                 # If a type is specified in writes, validate it matches declared field type
                 if "type" in entry and entry["type"] is not None:
                     write_type = entry["type"]

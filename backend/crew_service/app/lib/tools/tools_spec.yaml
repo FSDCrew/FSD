@@ -34,17 +34,21 @@ tools:
     description: Converts an HTML table string into an Excel (.xlsx) file with row/col spans preserved as merged cells.
     input:
       html_str: string
-      examples:
+      file_name: string (optional)
+      crew_run_id: string (optional)
+    examples:
         - html_str: """
           <table>
             <tr><td>Hello</td><td>World</td></tr>
             <tr><td>Hello</td><td>World</td></tr>
-          """, output_path: "./social_media_schedule.xlsx"
+          """, file_name: "social_media_schedule.xlsx"
 
   - name: markdown_to_word_doc
     description: Convert Markdown to a Word (.docx) file with GitHub-flavored Markdown features preserved. Automatically removes common leading indentation so pasted/triple-quoted Markdown isn't treated as a code block.
     input:
       markdown: string
+      file_name: string (optional)
+      crew_run_id: string (optional)
     examples:
       - markdown: "# Title\n\n- [x] done\n- [ ] todo\n"
       - markdown: |
@@ -62,3 +66,12 @@ tools:
       - start_date: "01-Nov-2024", end_date: "30-Nov-2024"
       - start_date: "2024-01-01", end_date: "2024-01-07"
       - start_date: "01/11/2024", end_date: "30/11/2024"
+
+  - name: verify_sum_equals_expected
+    description: Validates that the sum of a list of numbers equals an expected total and reports whether they match.
+    input:
+      expected_total: number | string
+      values: list[number | string]
+    examples:
+      - expected_total: 12, values: [3, 4, 5]
+      - expected_total: "10", values: [2.5, 2.5, 5]

@@ -3,6 +3,7 @@ import logging
 from uuid import UUID
 
 import httpx
+from pydantic import BaseModel
 
 from app.api.crud_client import AuthenticatedClient, errors
 from app.api.crud_client.api.internal import (
@@ -124,7 +125,9 @@ class JobExecutor:
             # Convert result to serializable format
             result_data = None
             if result:
-                if hasattr(result, '__dict__'):
+                if isinstance(result, BaseModel):
+                    result_data = result.model_dump(mode='json')
+                elif hasattr(result, '__dict__'):
                     result_data = str(result)
                 elif isinstance(result, (str, int, float, bool, dict, list)):
                     result_data = result
@@ -136,7 +139,9 @@ class JobExecutor:
                 for field_name in FlowStateModel.model_fields.keys():
                     value = getattr(flow.state, field_name, None)
                     if value is not None:
-                        if isinstance(value, (str, int, float, bool, dict, list)):
+                        if isinstance(value, BaseModel):
+                            state_dict[field_name] = value.model_dump(mode='json')
+                        elif isinstance(value, (str, int, float, bool, dict, list)):
                             state_dict[field_name] = value
                         else:
                             state_dict[field_name] = str(value)
