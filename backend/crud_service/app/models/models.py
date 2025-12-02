@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
 from uuid import UUID
@@ -49,6 +50,7 @@ class QueueStatus(Enum):
     CLAIMED = "CLAIMED"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
 
 
 class ClaimJobResponse(BaseModel):
@@ -118,15 +120,46 @@ class TaskInfo(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class TaskStatus(Enum):
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+class TaskStateSnapshot(BaseModel):
+    state: dict[str, Any]
+    completed_at: datetime
+    status: TaskStatus
+
+
+class RetryFeedback(BaseModel):
+    feedback: str
+    retry_task_key: str
+
+
 class CrewRunMetadataBase(BaseModel):
     inputs: dict[str, Any]
     tasks_snapshot: list[TaskInfo]
+    retry_feedback: Optional[list[RetryFeedback]] = None
 
 
 class CrewRunMetadataCreate(CrewRunMetadataBase):
     pass
 
 class CrewRunMetadataRead(CrewRunMetadataBase):
+    pass
+
+
+class CrewRunOutputBase(BaseModel):
+    result: dict[str, Any] | None = None
+    flow_state: dict[str, Any] | None = None
+    task_states: list[TaskStateSnapshot] = []
+
+
+class CrewRunOutputCreate(CrewRunOutputBase):
+    pass
+
+class CrewRunOutputRead(CrewRunOutputBase):
     pass
 
 class CrewRunBase(BaseModel):
