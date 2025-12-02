@@ -49,7 +49,7 @@ import { CrewRunsHistory } from "@/components/CrewRunsHistory";
 import { RunDetails } from "@/components/RunDetails";
 import { ToastNotificationService } from "@/services/ToastNotificationService";
 import { useCrewById } from "@/hooks/useCrewById";
-import type { InteractiveNodeData } from "@/types/NodeData";
+import type { InteractiveNodeData, NodeData } from "@/types/NodeData";
 
 interface PreDefinedTask {
   key: string;
@@ -64,13 +64,6 @@ interface NodeTypeConfig {
   description: string;
 }
 
-interface NodeData extends Record<string, unknown> {
-  label: string;
-  taskType: string;
-  onChange?: (field: string, value: string) => void;
-  onDelete?: () => void;
-}
-
 const taskColorMap: Record<string, string> = {
   marketing_research: "#c878e0ff",
   content_strategy: "#389e7eff",
@@ -81,6 +74,7 @@ const getTaskColor = (taskKey: string): string => {
   return taskColorMap[taskKey] || "#6B7280";
 };
 
+// Move createNodeTypes outside component to ensure stable reference
 const createNodeTypes = (nodeConfigs: NodeTypeConfig[]) => {
   const dynamicTypes = nodeConfigs.reduce((acc, config) => {
     acc[config.type] = CustomNode;
@@ -115,7 +109,6 @@ export default function CrewPage() {
 
   const [title, setTitle] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [hasDuplicateTitle, setHasDuplicateTitle] = useState(false);
   const [mode, setMode] = useState<"edit" | "view">("edit");
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [pendingMode, setPendingMode] = useState<"edit" | "view" | null>(null);
@@ -132,6 +125,7 @@ export default function CrewPage() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
+  const nodesLoadedRef = React.useRef(false);
 
   const nodeTypes = React.useMemo(() => createNodeTypes(nodeTypeConfigs), [nodeTypeConfigs]);
 
@@ -143,6 +137,14 @@ export default function CrewPage() {
   const { data: crewData, isLoading: isLoadingCrew } = useCrewById(crewId);
   const crewForm = useCrewForm(crewId, notificationService);
   const crewFlow = useCrewFlow(nodes, edges, setNodes, setEdges, preDefinedTasks, notificationService);
+
+  // Extract stable functions from crewFlow to avoid dependency issues
+  const {
+    handleNodeDataChange,
+    handleDeleteNode,
+    setLastSavedNodes: setLastSavedNodesFromFlow,
+    setLastSavedEdges: setLastSavedEdgesFromFlow,
+  } = crewFlow;
 
   // Extract crew runs from crew data
   const crewRuns = React.useMemo(() => {
@@ -221,9 +223,9 @@ export default function CrewPage() {
   // Handle node deletion
   const onNodesDelete = useCallback(
     (deleted: Node[]) => {
-      deleted.forEach((node) => crewFlow.handleDeleteNode(node.id));
+      deleted.forEach((node) => handleDeleteNode(node.id));
     },
-    [crewFlow]
+    [handleDeleteNode]
   );
 
   // Drag and drop handlers
@@ -268,8 +270,8 @@ export default function CrewPage() {
         data: {
           label: nodeTypeConfig.name,
           taskType: type,
-          onChange: (field: string, value: string) => crewFlow.handleNodeDataChange(type, field, value),
-          onDelete: () => crewFlow.handleDeleteNode(type),
+          onChange: (field: string, value: string) => handleNodeDataChange(type, field, value),
+          onDelete: () => handleDeleteNode(type),
         },
         style: {
           background: getTaskColor(type),
@@ -284,7 +286,7 @@ export default function CrewPage() {
       setNodes((nds) => nds.concat(newNode));
       crewFlow.setHasUnsavedChanges(true);
     },
-    [setNodes, crewFlow, nodeTypeConfigs, nodes, reactFlowInstance]
+    [setNodes, handleNodeDataChange, handleDeleteNode, crewFlow, nodeTypeConfigs, nodes, reactFlowInstance]
   );
 
   // Create crew mutation
@@ -434,8 +436,8 @@ export default function CrewPage() {
       ...node,
       data: {
         ...node.data,
-        onChange: (field: string, value: string) => crewFlow.handleNodeDataChange(node.id, field, value),
-        onDelete: () => crewFlow.handleDeleteNode(node.id),
+        onChange: (field: string, value: string) => handleNodeDataChange(node.id, field, value),
+        onDelete: () => handleDeleteNode(node.id),
       },
     }));
 
@@ -474,8 +476,8 @@ export default function CrewPage() {
       ...node,
       data: {
         ...node.data,
-        onChange: (field: string, value: string) => crewFlow.handleNodeDataChange(node.id, field, value),
-        onDelete: () => crewFlow.handleDeleteNode(node.id),
+        onChange: (field: string, value: string) => handleNodeDataChange(node.id, field, value),
+        onDelete: () => handleDeleteNode(node.id),
       },
     }));
 
@@ -486,14 +488,10 @@ export default function CrewPage() {
     router.push("/studio");
   };
 
-  // Check duplicate title
-  const checkDuplicateTitle = (newTitle: string) => {
-    const savedCards = localStorage.getItem("studio_cards");
-    const cards = savedCards ? JSON.parse(savedCards) : [];
-    const duplicate = cards.find((card: any) => card.title.trim().toLowerCase() === newTitle.trim().toLowerCase() && card.id !== crewId);
-    setHasDuplicateTitle(!!duplicate);
-    return !!duplicate;
-  };
+  // Reset nodes loaded ref when crewId changes
+  useEffect(() => {
+    nodesLoadedRef.current = false;
+  }, [crewId]);
 
   // Load crew data on mount
   useEffect(() => {
@@ -519,7 +517,8 @@ export default function CrewPage() {
 
   // Load crew tasks and nodes when crew data and node configs are available
   useEffect(() => {
-    if (crewData && crewData.tasks && nodeTypeConfigs.length > 0 && crewId) {
+    if (crewData && crewData.tasks && nodeTypeConfigs.length > 0 && crewId && !nodesLoadedRef.current) {
+      nodesLoadedRef.current = true;
       const sortedTasks = [...crewData.tasks].sort((a, b) => a.order - b.order);
       const savedPositionsStr = localStorage.getItem(`crew_positions_${crewId}`);
       const savedPositions = savedPositionsStr ? (JSON.parse(savedPositionsStr) as Record<string, { x: number; y: number }>) : {};
@@ -539,8 +538,8 @@ export default function CrewPage() {
           data: {
             label: nodeTypeConfig?.name || task.key,
             taskType: task.key,
-            onChange: (field: string, value: string) => crewFlow.handleNodeDataChange(task.key, field, value),
-            onDelete: () => crewFlow.handleDeleteNode(task.key),
+            onChange: (field: string, value: string) => handleNodeDataChange(task.key, field, value),
+            onDelete: () => handleDeleteNode(task.key),
           },
           style: {
             background: getTaskColor(task.key),
@@ -574,9 +573,9 @@ export default function CrewPage() {
         connectable: true,
       };
       setNodes([startNodeWithPosition, ...loadedNodes]);
-      crewFlow.setLastSavedNodes([startNodeWithPosition, ...loadedNodes]);
+      setLastSavedNodesFromFlow([startNodeWithPosition, ...loadedNodes]);
       setEdges(reconstructedEdges);
-      crewFlow.setLastSavedEdges(reconstructedEdges);
+      setLastSavedEdgesFromFlow(reconstructedEdges);
 
       if (reactFlowInstance) {
         setTimeout(() => {
@@ -584,7 +583,7 @@ export default function CrewPage() {
         }, 100);
       }
     }
-  }, [crewData, nodeTypeConfigs, crewId, setNodes, setEdges, crewFlow, reactFlowInstance]);
+  }, [crewData, nodeTypeConfigs, crewId, setNodes, setEdges, handleNodeDataChange, handleDeleteNode, setLastSavedNodesFromFlow, setLastSavedEdgesFromFlow, reactFlowInstance]);
 
   // Fit view when ReactFlow instance is ready
   useEffect(() => {
@@ -632,18 +631,16 @@ export default function CrewPage() {
                       const newTitle = e.target.value;
                       setTitle(newTitle);
                       crewFlow.setHasUnsavedChanges(true);
-                      checkDuplicateTitle(newTitle);
                     }}
                     onBlur={() => setIsEditingTitle(false)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") setIsEditingTitle(false);
                     }}
-                    className={`text-4xl font-bold bg-transparent border-b-2 focus:outline-none pb-2 ${hasDuplicateTitle ? "border-destructive" : "border-primary"}`}
+                    className="text-4xl font-bold bg-transparent border-b-2 focus:outline-none pb-2 border-primary"
                     autoFocus
                     placeholder="Enter title..."
                     style={{ width: "fit-content", minWidth: "300px" }}
                   />
-                  {hasDuplicateTitle && <span className="text-sm text-destructive mt-1">A crew with this title already exists</span>}
                 </div>
               ) : (
                 <h1

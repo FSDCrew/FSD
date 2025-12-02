@@ -916,9 +916,6 @@ export function KickoffForm({
   onFormChange,
   onSubmit,
 }: KickoffFormProps) {
-  console.log("requiredInputs", requiredInputs);
-  console.log("dynamicFormData", dynamicFormData);
-
   const renderField = (field: RequiredInputField): React.ReactNode => {
     const typeInfo = field.type_info as TypeInfo;
     const value = dynamicFormData[field.field_name];

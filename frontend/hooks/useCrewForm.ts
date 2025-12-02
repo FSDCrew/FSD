@@ -138,8 +138,6 @@ export function useCrewForm(
       }
     }
 
-    console.log("Kickoff form values:", submitData);
-
     kickoffMutation.mutate(
       { crewId, inputs: submitData },
       {
