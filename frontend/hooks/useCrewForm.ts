@@ -11,21 +11,36 @@ export function useCrewForm(
   const kickoffMutation = useCrewKickoff();
   const [dynamicFormData, setDynamicFormData] = useState<Record<string, any>>({});
 
+  const getCacheKey = () => crewId ? `kickoff_form_${crewId}` : null;
+
   const requiredInputs = requiredInputsData?.fields || [];
 
   // Initialize dynamicFormData when requiredInputs data is available
   useEffect(() => {
     if (requiredInputsData?.fields) {
-      const initialData: Record<string, any> = {};
+      const cacheKey = getCacheKey();
+      let initialData: Record<string, any> = {};
+
+      // Try to restore from localStorage first
+      if (cacheKey) {
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            initialData = JSON.parse(cached);
+            setDynamicFormData(initialData);
+            return;
+          }
+        } catch (error) {
+          console.error("Failed to restore cached form data:", error);
+        }
+      }
+
+      // Initialize with default values if no cache
       requiredInputsData.fields.forEach((field: RequiredInputField) => {
         const typeInfo = field.type_info as any;
         if (typeInfo.is_list) {
-          // For custom model lists, initialize with empty array
-          // For enum lists, initialize with empty array
-          // For primitive lists, initialize with empty array
           initialData[field.field_name] = [];
         } else if (typeInfo.is_custom_model && typeInfo.model_schema) {
-          // Initialize custom model with empty object
           initialData[field.field_name] = {};
         } else if (typeInfo.type === "boolean" || typeInfo.type === "bool") {
           initialData[field.field_name] = false;
@@ -38,6 +53,18 @@ export function useCrewForm(
       setDynamicFormData(initialData);
     }
   }, [requiredInputsData]);
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    const cacheKey = getCacheKey();
+    if (cacheKey && Object.keys(dynamicFormData).length > 0) {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(dynamicFormData));
+      } catch (error) {
+        console.error("Failed to cache form data:", error);
+      }
+    }
+  }, [dynamicFormData, crewId]);
 
   // Handle error from required inputs query
   useEffect(() => {
@@ -143,6 +170,11 @@ export function useCrewForm(
       {
         onSuccess: () => {
           notificationService.success("Crew run started successfully!");
+          // Clear localStorage cache on successful submission
+          const cacheKey = getCacheKey();
+          if (cacheKey) {
+            localStorage.removeItem(cacheKey);
+          }
           onSuccess();
         },
         onError: (error) => {
@@ -153,6 +185,46 @@ export function useCrewForm(
     );
   }, [crewId, requiredInputs, dynamicFormData, kickoffMutation, notificationService]);
 
+  const resetForm = useCallback(() => {
+    if (requiredInputsData?.fields) {
+      const initialData: Record<string, any> = {};
+      requiredInputsData.fields.forEach((field: RequiredInputField) => {
+        const typeInfo = field.type_info as any;
+        if (typeInfo.is_list) {
+          initialData[field.field_name] = [];
+        } else if (typeInfo.is_custom_model && typeInfo.model_schema) {
+          initialData[field.field_name] = {};
+        } else if (typeInfo.type === "boolean" || typeInfo.type === "bool") {
+          initialData[field.field_name] = false;
+        } else if (typeInfo.type === "number" || typeInfo.type === "integer" || typeInfo.type === "int" || typeInfo.type === "float") {
+          initialData[field.field_name] = "";
+        } else {
+          initialData[field.field_name] = "";
+        }
+      });
+      setDynamicFormData(initialData);
+      
+      // Clear localStorage cache
+      const cacheKey = getCacheKey();
+      if (cacheKey) {
+        localStorage.removeItem(cacheKey);
+      }
+      
+      notificationService.success("Form reset successfully");
+    }
+  }, [requiredInputsData, notificationService, crewId]);
+
+  const invalidateRequiredInputs = useCallback(() => {
+    // Clear form data and cache
+    setDynamicFormData({});
+    const cacheKey = getCacheKey();
+    if (cacheKey) {
+      localStorage.removeItem(cacheKey);
+    }
+    // Refetch required inputs
+    fetchRequiredInputs();
+  }, [fetchRequiredInputs, crewId]);
+
   return {
     requiredInputs,
     isLoadingRequiredInputs,
@@ -160,6 +232,8 @@ export function useCrewForm(
     fetchRequiredInputs,
     handleDynamicFormChange,
     onKickoffSubmit,
+    resetForm,
+    invalidateRequiredInputs,
     isSubmitting: kickoffMutation.isPending,
   };
 }

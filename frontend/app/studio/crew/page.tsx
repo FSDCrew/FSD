@@ -42,6 +42,7 @@ import {
 } from "@/lib/api/crud";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { RotateCcw } from "lucide-react";
 import { useCrewForm } from "@/hooks/useCrewForm";
 import { useCrewFlow } from "@/hooks/useCrewFlow";
 import { KickoffForm } from "@/components/KickoffForm";
@@ -356,6 +357,11 @@ export default function CrewPage() {
       crewFlow.setHasUnsavedChanges(false);
       queryClient.invalidateQueries({ queryKey: ["crews"] });
       toast.success("Crew updated successfully!");
+      
+      // Invalidate required inputs to refetch when tasks change
+      if (mode === "edit") {
+        crewForm.invalidateRequiredInputs();
+      }
     },
     onError: (error) => {
       console.error("Error updating crew:", error);
@@ -806,6 +812,16 @@ export default function CrewPage() {
                 <Button variant="outline">Kickoff</Button>
               </DialogTrigger>
               <DialogContent className="max-w-[95vw] w-full sm:max-w-[90vw] lg:max-w-[800px] max-h-[90vh] overflow-y-auto">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={crewForm.resetForm}
+                  className="absolute right-12 top-4 h-4 w-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+                  title="Reset form"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
                 <DialogHeader>
                   <DialogTitle>Required Inputs for Kickoff</DialogTitle>
                 </DialogHeader>
