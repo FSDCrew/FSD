@@ -1,19 +1,21 @@
 import asyncio
 import logging
-import httpx
 from uuid import UUID
 
-from config import settings
-from app.services.job_executor import JobExecutor
+import httpx
+
 from app.api.crud_client import AuthenticatedClient
+from app.api.crud_client import errors
 from app.api.crud_client.api.internal import (
     claim_next_job_internal_internal_queue_claim_post as claim_next_job_func,
     update_queue_status_internal_internal_queue_queue_id_status_put as update_queue_status_func,
 )
-from app.api.crud_client.models.update_status_request import UpdateStatusRequest
-from app.api.crud_client.models.queue_status import QueueStatus
 from app.api.crud_client.models.claim_job_response import ClaimJobResponse
-from app.api.crud_client import errors
+from app.api.crud_client.models.queue_status import QueueStatus
+from app.api.crud_client.models.update_status_request import UpdateStatusRequest
+from app.services.crew_service import CrewService
+from app.services.job_executor import JobExecutor
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +25,14 @@ class Worker:
     
     MAX_CONCURRENT_JOBS = 3
     
-    def __init__(self):
+    def __init__(self, crew_service: CrewService):
         timeout = httpx.Timeout(30.0)
         self.crud_client = AuthenticatedClient(
             base_url=settings.CRUD_SERVICE_URL,
             token = settings.INTERNAL_CREW_API_KEY,
             timeout=timeout
         )
-        self.job_executor = JobExecutor()
+        self.job_executor = JobExecutor(crew_service=crew_service)
         self.running_jobs: dict[UUID, tuple[asyncio.Task, str]] = {}  # { queue_id: (task, lease_token) }
         self._running = False
     

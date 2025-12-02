@@ -8,6 +8,7 @@ from app.api.crud_client import AuthenticatedClient, errors
 from app.api.crud_client.api.internal import (
     create_crew_run_internal_internal_crew_run_create_post as create_crew_run_func,
     get_crew_by_id_internal_crew_crew_id_get as get_crew_by_id_func,
+    get_crew_run_by_id_internal_crew_run_crew_run_id_get as get_crew_run_func,
 )
 from app.api.crud_client.models import (
     BodyCreateCrewRunInternalInternalCrewRunCreatePost as CrewRunCreateBody,
@@ -19,7 +20,7 @@ from app.api.crud_client.models import (
     TaskRead as CrudTaskRead,
 )
 
-from app.models.models import CrewRun, CrewRunCreateRequest, TaskInfo
+from app.models.models import CrewRun, CrewRunCreateRequest, CrewRunRetryRequest, TaskInfo
 from app.services.flow.flow_service import FlowService
 from config import settings, tasks_config
 
@@ -145,3 +146,34 @@ class CrewService:
             raise ValueError("Failed to create crew run: received None response")
 
         return CrewRun.model_validate(response.parsed.to_dict())
+
+    async def get_crew_run(self, crew_run_id: UUID):
+        """
+        Fetch a crew run by ID from the CRUD service.
+        
+        Args:
+            crew_run_id: UUID of the crew run to fetch
+            
+        Returns:
+            Crew run response object
+            
+        Raises:
+            ValueError: If crew run is not found or has validation errors
+        """
+        try:
+            response = await get_crew_run_func.asyncio(
+                crew_run_id=crew_run_id,
+                client=self.crud_client,
+            )
+            if not response:
+                raise ValueError(f"Crew run {crew_run_id} not found")
+            
+            if isinstance(response, HTTPValidationError):
+                raise ValueError(f"Validation error retrieving crew run {crew_run_id}: {response}")
+            
+            return response
+        except errors.UnexpectedStatus as e:
+            if e.status_code == 404:
+                raise ValueError(f"Crew run {crew_run_id} not found") from e
+            raise
+

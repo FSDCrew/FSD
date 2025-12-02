@@ -8,17 +8,16 @@ from pydantic import BaseModel
 from app.api.crud_client import AuthenticatedClient, errors
 from app.api.crud_client.api.internal import (
     get_crew_by_id_internal_crew_crew_id_get as get_crew_by_id_func,
-    get_crew_run_by_id_internal_crew_run_crew_run_id_get as get_crew_run_func,
     heartbeat_internal_internal_queue_queue_id_heartbeat_post as heartbeat_func,
     update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put as update_crew_run_output_func,
 )
 from app.api.crud_client.models.heartbeat_request import HeartbeatRequest
-from app.api.crud_client.models.http_validation_error import HTTPValidationError
 from app.api.crud_client.models.update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put_output import (
     UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput as CrewRunOutputUpdate,
 )
 from app.dependencies import get_flow_service
 from app.models.models import TaskInfo
+from app.services.crew_service import CrewService
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -27,7 +26,7 @@ logger = logging.getLogger(__name__)
 class JobExecutor:
     """Executes crew runs by building flows and running them."""
     
-    def __init__(self):
+    def __init__(self, crew_service: CrewService):
         timeout = httpx.Timeout(30.0)
         self.crud_client = AuthenticatedClient(
             base_url=settings.CRUD_SERVICE_URL,
@@ -35,6 +34,7 @@ class JobExecutor:
             timeout=timeout
         )
         self.flow_service = get_flow_service()
+        self.crew_service = crew_service
     
     async def execute(
         self,
@@ -57,7 +57,7 @@ class JobExecutor:
                 self._heartbeat_loop(queue_id, lease_token)
             )
             
-            crew_run = await self._get_crew_run(crew_run_id)
+            crew_run = await self.crew_service.get_crew_run(crew_run_id)
             
             stored_inputs = crew_run.run_metadata.inputs.to_dict()           
             stored_inputs['crew_run_id'] = str(crew_run_id)
@@ -128,24 +128,6 @@ class JobExecutor:
                 except Exception as e:
                     logger.error(f"Failed to send heartbeat: {e}", exc_info=True)
         except asyncio.CancelledError:
-            raise
-
-    async def _get_crew_run(self, crew_run_id: UUID):
-        try:
-            response = await get_crew_run_func.asyncio(
-                crew_run_id=crew_run_id,
-                client=self.crud_client,
-            )
-            if not response:
-                raise ValueError(f"Crew run {crew_run_id} not found")
-            
-            if isinstance(response, HTTPValidationError):
-                raise ValueError(f"Validation error retrieving crew run {crew_run_id}: {response}")
-            
-            return response
-        except errors.UnexpectedStatus as e:
-            if e.status_code == 404:
-                raise ValueError(f"Crew run {crew_run_id} not found") from e
             raise
 
     def _build_result_payload(self, result, flow, flow_state_model):
