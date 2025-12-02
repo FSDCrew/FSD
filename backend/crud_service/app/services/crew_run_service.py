@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.models import (
     CrewRunCreate,
     CrewRunRead,
+    QueueStatus,
 )
 from app.repositories.crew_run_repository import CrewRunRepository
 from app.repositories.queue_repository import QueueRepository
@@ -66,6 +67,36 @@ class CrewRunService:
         )
 
         return self._convert_db_to_read(full_crew_run)
+    
+    async def cancel_crew_run(self, crew_run_id: UUID, user_id: UUID) -> None:
+        """Cancels a crew run."""
+        crew_run = await self.get_crew_run_by_id_with_artifacts(crew_run_id, user_id)
+        crew = await self.crew_service.get_fully_loaded_crew_by_id_internal(crew_run.crew_id)
+        if crew_run is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Crew Run with ID {crew_run_id} not found."
+            )
+        if crew_run.queue_status in [QueueStatus.CANCELLED, QueueStatus.COMPLETED]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Crew Run with ID {crew_run_id} is already cancelled or completed."
+            )
+        
+        self.crew_service.is_crew_owner(crew.user_id, user_id)
+        
+        if crew_run.queue_status in [QueueStatus.QUEUED, QueueStatus.FAILED]:
+            await self.queue_repository.cancel_queued_job(crew_run_id, QueueStatus.CANCELLED)
+            await self.session.commit()
+        elif crew_run.queue_status == QueueStatus.CLAIMED:
+            await self.queue_repository.cancel_claimed_job(crew_run_id)
+            await self.session.commit()
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Crew Run with ID {crew_run_id} is not queued, claimed or failed."
+            )
+        return
 
     async def get_crew_run_by_id_with_artifacts(
         self, crew_run_id: UUID, user_id: UUID

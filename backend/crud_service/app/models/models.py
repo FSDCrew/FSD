@@ -60,6 +60,7 @@ class ClaimJobResponse(BaseModel):
     status: QueueStatus
     lease_token: str
     visible_at: str
+    cancel_requested: bool | None = False
 
     model_config = ConfigDict(from_attributes=True)
 
