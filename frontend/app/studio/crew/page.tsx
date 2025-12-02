@@ -36,7 +36,6 @@ import "@xyflow/react/dist/style.css";
 import {
   createCrewCrewPost,
   updateCrewCrewPut,
-  getCrewByIdCrewCrewIdGet,
   getAllCrewsCrewGet,
   replaceAllTasksForCrewTaskCrewIdSavePut,
   type CrewRead,
@@ -48,8 +47,8 @@ import { useCrewFlow } from "@/hooks/useCrewFlow";
 import { KickoffForm } from "@/components/KickoffForm";
 import { CrewRunsHistory } from "@/components/CrewRunsHistory";
 import { RunDetails } from "@/components/RunDetails";
-import { CrewApiService } from "@/services/CrewApiService";
 import { ToastNotificationService } from "@/services/ToastNotificationService";
+import { useCrewById } from "@/hooks/useCrewById";
 import type { InteractiveNodeData } from "@/types/NodeData";
 
 interface PreDefinedTask {
@@ -122,7 +121,6 @@ export default function CrewPage() {
   const [pendingMode, setPendingMode] = useState<"edit" | "view" | null>(null);
   const [showRunsHistory, setShowRunsHistory] = useState(false);
   const [runsRefreshKey, setRunsRefreshKey] = useState(0);
-  const [crewRuns, setCrewRuns] = useState<any[]>([]);
   const [hoveredNodeType, setHoveredNodeType] = useState<string | null>(null);
   const [nodeTypeConfigs, setNodeTypeConfigs] = useState<NodeTypeConfig[]>([]);
   const [preDefinedTasks, setPreDefinedTasks] = useState<PreDefinedTask[]>([]);
@@ -138,13 +136,22 @@ export default function CrewPage() {
   const nodeTypes = React.useMemo(() => createNodeTypes(nodeTypeConfigs), [nodeTypeConfigs]);
 
   // Service instances
-  const crewApiService = React.useMemo(() => new CrewApiService(), []);
   const notificationService = React.useMemo(() => new ToastNotificationService(), []);
 
   // Custom hooks
   const crewId = searchParams.get("id");
-  const crewForm = useCrewForm(crewId, crewApiService, notificationService);
+  const { data: crewData, isLoading: isLoadingCrew } = useCrewById(crewId);
+  const crewForm = useCrewForm(crewId, notificationService);
   const crewFlow = useCrewFlow(nodes, edges, setNodes, setEdges, preDefinedTasks, notificationService);
+
+  // Extract crew runs from crew data
+  const crewRuns = React.useMemo(() => {
+    if (crewData) {
+      const crewDataWithRuns = crewData as CrewRead & { crew_runs?: any[] };
+      return crewDataWithRuns.crew_runs || [];
+    }
+    return [];
+  }, [crewData]);
 
   // Fetch pre-defined tasks
   useEffect(() => {
@@ -389,31 +396,16 @@ export default function CrewPage() {
   // Handle kickoff dialog
   const handleKickoffDialogOpen = (open: boolean) => {
     setKickoffDialogOpen(open);
-    if (open) {
-      crewForm.fetchRequiredInputs();
-    }
+    // Required inputs will be fetched automatically by useRequiredInputs hook when dialog opens
   };
 
   const handleKickoffSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await crewForm.onKickoffSubmit(e, async () => {
       setKickoffDialogOpen(false);
-      // Refresh crew runs
-      if (crewId) {
-        try {
-          const crewResponse = await getCrewByIdCrewCrewIdGet({ path: { crew_id: crewId } });
-          const crewData = crewResponse.data;
-          if (crewData) {
-            const crewDataWithRuns = crewData as CrewRead & { crew_runs?: any[] };
-            if (crewDataWithRuns.crew_runs) {
-              setCrewRuns(crewDataWithRuns.crew_runs);
-              setRunsRefreshKey((prev) => prev + 1);
-            }
-          }
-        } catch (error) {
-          console.error("Failed to refresh crew runs:", error);
-        }
-      }
+      // Crew runs will be refreshed automatically via query invalidation in useCrewKickoff hook
+      // Force refresh of runs history component
+      setRunsRefreshKey((prev) => prev + 1);
     });
   };
 
@@ -513,101 +505,86 @@ export default function CrewPage() {
     setTitle(cardTitle);
     setLastSavedTitle(cardTitle);
 
-    if (cardId && nodeTypeConfigs.length > 0) {
+    if (cardId) {
       const savedMode = localStorage.getItem(`crew_mode_${cardId}`);
       if (savedMode === "view" || savedMode === "edit") {
         setMode(savedMode);
       }
-
-      const loadCrewData = async () => {
-        try {
-          const response = await getCrewByIdCrewCrewIdGet({
-            path: { crew_id: cardId },
-          });
-
-          const crewData = response.data;
-          if (crewData && crewData.tasks) {
-            const crewDataWithRuns = crewData as CrewRead & { crew_runs?: any[] };
-            if (crewDataWithRuns.crew_runs) {
-              setCrewRuns(crewDataWithRuns.crew_runs);
-            }
-
-            const sortedTasks = [...crewData.tasks].sort((a, b) => a.order - b.order);
-            const savedPositionsStr = localStorage.getItem(`crew_positions_${cardId}`);
-            const savedPositions = savedPositionsStr ? (JSON.parse(savedPositionsStr) as Record<string, { x: number; y: number }>) : {};
-
-            const loadedNodes = sortedTasks.map((task, index) => {
-              const nodeTypeConfig = nodeTypeConfigs.find((n) => n.type === task.key);
-              const defaultPosition = {
-                x: 300 + index * 300,
-                y: 250,
-              };
-              const position = savedPositions[task.key] || defaultPosition;
-
-              return {
-                id: task.key,
-                type: task.key,
-                position: position,
-                data: {
-                  label: nodeTypeConfig?.name || task.key,
-                  taskType: task.key,
-                  onChange: (field: string, value: string) => crewFlow.handleNodeDataChange(task.key, field, value),
-                  onDelete: () => crewFlow.handleDeleteNode(task.key),
-                },
-                style: {
-                  background: getTaskColor(task.key),
-                  color: "white",
-                  border: "2px solid #222",
-                  borderRadius: "8px",
-                  minWidth: "120px",
-                },
-                connectable: true,
-              } as Node;
-            });
-
-            const reconstructedEdges: Edge[] = [];
-            if (sortedTasks.length > 0) {
-              reconstructedEdges.push({
-                id: `start-node-${sortedTasks[0].key}`,
-                source: "start-node",
-                target: sortedTasks[0].key,
-              });
-            }
-            for (let i = 0; i < sortedTasks.length - 1; i++) {
-              reconstructedEdges.push({
-                id: `${sortedTasks[i].key}-${sortedTasks[i + 1].key}`,
-                source: sortedTasks[i].key,
-                target: sortedTasks[i + 1].key,
-              });
-            }
-            const startNodeWithPosition = {
-              ...START_NODE,
-              position: savedPositions["start-node"] || START_NODE.position,
-              connectable: true,
-            };
-            setNodes([startNodeWithPosition, ...loadedNodes]);
-            crewFlow.setLastSavedNodes([startNodeWithPosition, ...loadedNodes]);
-            setEdges(reconstructedEdges);
-            crewFlow.setLastSavedEdges(reconstructedEdges);
-
-            if (reactFlowInstance) {
-              setTimeout(() => {
-                reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
-              }, 100);
-            }
-          }
-        } catch (error) {
-          console.error("Error loading crew data:", error);
-        }
-      };
-
-      loadCrewData();
     }
 
     if (cardTitle === "Untitled") {
       setIsEditingTitle(true);
     }
-  }, [router, searchParams, setNodes, setEdges, nodeTypeConfigs, token]);
+  }, [router, searchParams, token]);
+
+  // Load crew tasks and nodes when crew data and node configs are available
+  useEffect(() => {
+    if (crewData && crewData.tasks && nodeTypeConfigs.length > 0 && crewId) {
+      const sortedTasks = [...crewData.tasks].sort((a, b) => a.order - b.order);
+      const savedPositionsStr = localStorage.getItem(`crew_positions_${crewId}`);
+      const savedPositions = savedPositionsStr ? (JSON.parse(savedPositionsStr) as Record<string, { x: number; y: number }>) : {};
+
+      const loadedNodes = sortedTasks.map((task, index) => {
+        const nodeTypeConfig = nodeTypeConfigs.find((n) => n.type === task.key);
+        const defaultPosition = {
+          x: 300 + index * 300,
+          y: 250,
+        };
+        const position = savedPositions[task.key] || defaultPosition;
+
+        return {
+          id: task.key,
+          type: task.key,
+          position: position,
+          data: {
+            label: nodeTypeConfig?.name || task.key,
+            taskType: task.key,
+            onChange: (field: string, value: string) => crewFlow.handleNodeDataChange(task.key, field, value),
+            onDelete: () => crewFlow.handleDeleteNode(task.key),
+          },
+          style: {
+            background: getTaskColor(task.key),
+            color: "white",
+            border: "2px solid #222",
+            borderRadius: "8px",
+            minWidth: "120px",
+          },
+          connectable: true,
+        } as Node;
+      });
+
+      const reconstructedEdges: Edge[] = [];
+      if (sortedTasks.length > 0) {
+        reconstructedEdges.push({
+          id: `start-node-${sortedTasks[0].key}`,
+          source: "start-node",
+          target: sortedTasks[0].key,
+        });
+      }
+      for (let i = 0; i < sortedTasks.length - 1; i++) {
+        reconstructedEdges.push({
+          id: `${sortedTasks[i].key}-${sortedTasks[i + 1].key}`,
+          source: sortedTasks[i].key,
+          target: sortedTasks[i + 1].key,
+        });
+      }
+      const startNodeWithPosition = {
+        ...START_NODE,
+        position: savedPositions["start-node"] || START_NODE.position,
+        connectable: true,
+      };
+      setNodes([startNodeWithPosition, ...loadedNodes]);
+      crewFlow.setLastSavedNodes([startNodeWithPosition, ...loadedNodes]);
+      setEdges(reconstructedEdges);
+      crewFlow.setLastSavedEdges(reconstructedEdges);
+
+      if (reactFlowInstance) {
+        setTimeout(() => {
+          reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+        }, 100);
+      }
+    }
+  }, [crewData, nodeTypeConfigs, crewId, setNodes, setEdges, crewFlow, reactFlowInstance]);
 
   // Fit view when ReactFlow instance is ready
   useEffect(() => {

@@ -1,33 +1,23 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { RequiredInputField } from "@/lib/api/crew";
-import type { CrewRead } from "@/lib/api/crud";
-import type { ICrewApiService } from "@/services/interfaces/ICrewApiService";
 import type { INotificationService } from "@/services/interfaces/INotificationService";
-import { getCrewByIdCrewCrewIdGet } from "@/lib/api/crud";
+import { useRequiredInputs, useCrewKickoff } from "./useCrewApi";
 
 export function useCrewForm(
   crewId: string | null,
-  crewApiService: ICrewApiService,
   notificationService: INotificationService
 ) {
-  const [requiredInputs, setRequiredInputs] = useState<RequiredInputField[]>([]);
-  const [isLoadingRequiredInputs, setIsLoadingRequiredInputs] = useState(false);
+  const { data: requiredInputsData, isLoading: isLoadingRequiredInputs, error: requiredInputsError, refetch: fetchRequiredInputs } = useRequiredInputs(crewId);
+  const kickoffMutation = useCrewKickoff();
   const [dynamicFormData, setDynamicFormData] = useState<Record<string, any>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchRequiredInputs = useCallback(async () => {
-    if (!crewId) {
-      notificationService.error("No crew ID found");
-      return;
-    }
+  const requiredInputs = requiredInputsData?.fields || [];
 
-    setIsLoadingRequiredInputs(true);
-    try {
-      const response = await crewApiService.getRequiredInputs(crewId);
-
-      setRequiredInputs(response.fields);
+  // Initialize dynamicFormData when requiredInputs data is available
+  useEffect(() => {
+    if (requiredInputsData?.fields) {
       const initialData: Record<string, any> = {};
-      response.fields.forEach((field: RequiredInputField) => {
+      requiredInputsData.fields.forEach((field: RequiredInputField) => {
         const typeInfo = field.type_info as any;
         if (typeInfo.is_list) {
           // For custom model lists, initialize with empty array
@@ -46,13 +36,16 @@ export function useCrewForm(
         }
       });
       setDynamicFormData(initialData);
-    } catch (error) {
-      console.error("Error fetching required inputs:", error);
-      notificationService.error("Failed to fetch required inputs");
-    } finally {
-      setIsLoadingRequiredInputs(false);
     }
-  }, [crewId, crewApiService, notificationService]);
+  }, [requiredInputsData]);
+
+  // Handle error from required inputs query
+  useEffect(() => {
+    if (requiredInputsError) {
+      console.error("Error fetching required inputs:", requiredInputsError);
+      notificationService.error("Failed to fetch required inputs");
+    }
+  }, [requiredInputsError, notificationService]);
 
   const handleDynamicFormChange = useCallback((fieldName: string, value: any) => {
     setDynamicFormData(prev => ({
@@ -67,7 +60,7 @@ export function useCrewForm(
   ) => {
     e.preventDefault();
 
-    if (isSubmitting) {
+    if (kickoffMutation.isPending) {
       return;
     }
 
@@ -76,7 +69,6 @@ export function useCrewForm(
       return;
     }
 
-    setIsSubmitting(true);
     const missingFields = requiredInputs
       .filter(field => {
         if (!field.required) return false;
@@ -146,20 +138,22 @@ export function useCrewForm(
       }
     }
 
-    try {
-      console.log("Kickoff form values:", submitData);
+    console.log("Kickoff form values:", submitData);
 
-      const response = await crewApiService.kickoff(crewId, submitData);
-
-      notificationService.success("Crew run started successfully!");
-      onSuccess();
-    } catch (error) {
-      console.error("Error starting crew run:", error);
-      notificationService.error("Failed to start crew run. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [crewId, requiredInputs, dynamicFormData, crewApiService, notificationService, isSubmitting]); // Add isSubmitting to dependencies
+    kickoffMutation.mutate(
+      { crewId, inputs: submitData },
+      {
+        onSuccess: () => {
+          notificationService.success("Crew run started successfully!");
+          onSuccess();
+        },
+        onError: (error) => {
+          console.error("Error starting crew run:", error);
+          notificationService.error("Failed to start crew run. Please try again.");
+        },
+      }
+    );
+  }, [crewId, requiredInputs, dynamicFormData, kickoffMutation, notificationService]);
 
   return {
     requiredInputs,
@@ -168,6 +162,6 @@ export function useCrewForm(
     fetchRequiredInputs,
     handleDynamicFormChange,
     onKickoffSubmit,
-    isSubmitting,
+    isSubmitting: kickoffMutation.isPending,
   };
 }
