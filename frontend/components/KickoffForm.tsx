@@ -36,6 +36,37 @@ function formatFieldName(fieldName: string): string {
   return fieldName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
+// Reusable enable checkbox component for nullable fields
+function EnableCheckbox({
+  checked,
+  onChange,
+  onEnable,
+  label = "Enable",
+}: {
+  checked: boolean;
+  onChange: (value: any) => void;
+  onEnable: () => any;
+  label?: string;
+}) {
+  return (
+    <div className="flex items-center space-x-2">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => {
+          if (e.target.checked) {
+            onChange(onEnable());
+          } else {
+            onChange(null);
+          }
+        }}
+        className="h-4 w-4"
+      />
+      <Label className="text-xs">{label}</Label>
+    </div>
+  );
+}
+
 // Helper function to get enum values from $ref
 function getEnumValuesFromRef(ref: string, defs: Record<string, any>): any[] {
   if (!ref || !defs) return [];
@@ -197,7 +228,12 @@ function renderNestedCustomModelList(
     const item: any = {};
     Object.keys(properties).forEach((propName) => {
       const propSchema = properties[propName];
-      if (propSchema.type === "boolean") {
+      // Check if property is nullable
+      const isNullable = propSchema.anyOf?.some((s: any) => s.type === "null");
+
+      if (isNullable) {
+        item[propName] = null;
+      } else if (propSchema.type === "boolean") {
         item[propName] = false;
       } else if (propSchema.type === "number" || propSchema.type === "integer") {
         item[propName] = "";
@@ -332,21 +368,11 @@ function renderModelProperty(
                 {propName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
                 {isRequired && <span className="text-red-500 ml-1">*</span>}
               </Label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={!isNull}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      onChange([]);
-                    } else {
-                      onChange(null);
-                    }
-                  }}
-                  className="h-4 w-4"
-                />
-                <Label className="text-xs">Enable</Label>
-              </div>
+              <EnableCheckbox
+                checked={!isNull}
+                onChange={onChange}
+                onEnable={() => []}
+              />
             </div>
             {!isNull && renderNestedCustomModelList(
               propName,
@@ -369,21 +395,11 @@ function renderModelProperty(
               {propName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
               {isRequired && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={!isNull}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    onChange([]);
-                  } else {
-                    onChange(null);
-                  }
-                }}
-                className="h-4 w-4"
-              />
-              <Label className="text-xs">Enable</Label>
-            </div>
+            <EnableCheckbox
+              checked={!isNull}
+              onChange={onChange}
+              onEnable={() => []}
+            />
           </div>
           {!isNull && (
             <div className="space-y-2">
@@ -425,6 +441,51 @@ function renderModelProperty(
                 Add Item
               </Button>
             </div>
+          )}
+        </div>
+      );
+    }
+  }
+
+  // Handle nullable primitives (string | null, integer | null, etc.)
+  if (propSchema.anyOf) {
+    const primitiveSchema = propSchema.anyOf.find((s: any) =>
+      s.type === "string" || s.type === "integer" || s.type === "number"
+    );
+    const nullSchema = propSchema.anyOf.find((s: any) => s.type === "null");
+
+    if (primitiveSchema && nullSchema) {
+      const isNull = value === null || value === undefined;
+      const primitiveType = primitiveSchema.type;
+
+      return (
+        <div key={propName} className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">
+              {propName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+              {isRequired && <span className="text-red-500 ml-1">*</span>}
+            </Label>
+            <EnableCheckbox
+              checked={!isNull}
+              onChange={onChange}
+              onEnable={() => ""}
+            />
+          </div>
+          {!isNull && (
+            primitiveType === "integer" || primitiveType === "number" ? (
+              <Input
+                type="number"
+                placeholder={placeholder}
+                value={value || ""}
+                onChange={(e) => onChange(e.target.value ? Number(e.target.value) : "")}
+              />
+            ) : (
+              <Input
+                placeholder={placeholder}
+                value={value || ""}
+                onChange={(e) => onChange(e.target.value)}
+              />
+            )
           )}
         </div>
       );
@@ -660,7 +721,12 @@ function renderCustomModelListField(
     const item: any = {};
     Object.keys(properties).forEach((propName) => {
       const propSchema = properties[propName];
-      if (propSchema.type === "boolean") {
+      // Check if property is nullable
+      const isNullable = propSchema.anyOf?.some((s: any) => s.type === "null");
+
+      if (isNullable) {
+        item[propName] = null;
+      } else if (propSchema.type === "boolean") {
         item[propName] = false;
       } else if (propSchema.type === "number" || propSchema.type === "integer") {
         item[propName] = "";
