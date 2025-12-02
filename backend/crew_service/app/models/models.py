@@ -286,17 +286,17 @@ class OrshotSchemaField(BaseModel):
 
     model_config = ConfigDict(use_enum_values=True)
 
-
+# Used for Flow Service to resolve custom types from YAML
 CUSTOM_TYPE_REGISTRY: Dict[str, Type[BaseModel] | Type[IntEnum]] = {
     "MarketingResearchReport": MarketingResearchReport,
     
     # Content Strategy
     "ContentStrategy": ContentStrategy,
     "StrategyPhase": StrategyPhase,
+    
     # Social Media
     "SocialMediaSchedule": SocialMediaSchedule,
     "ScheduleItem": ScheduleItem,
-    
     
     # Orshot
     "AllowedTemplateId": AllowedTemplateId,
@@ -387,7 +387,7 @@ class RequiredInputsResponse(BaseModel):
     """Response model for required inputs endpoint."""
     fields: List[RequiredInputField] = Field(..., description="List of required input fields")
 
-
+# Used for Frontend to resolve custom types
 class CustomTypesResponse(BaseModel):
     """
     Response model exposing all custom types for OpenAPI schema generation.
@@ -400,14 +400,28 @@ class CustomTypesResponse(BaseModel):
         default=None,
         description="MarketingResearchReport type schema reference"
     )
+    
+    # Content Strategy
+    strategy_phase: Optional[StrategyPhase] = Field(
+        default=None,
+        description="StrategyPhase type schema reference"
+    )
     content_strategy: Optional[ContentStrategy] = Field(
         default=None,
         description="ContentStrategy type schema reference"
+    )
+    
+    # Social Media
+    schedule_item: Optional[ScheduleItem] = Field(
+        default=None,
+        description="ScheduleItem type schema reference"
     )
     social_media_schedule: Optional[SocialMediaSchedule] = Field(
         default=None,
         description="SocialMediaSchedule type schema reference"
     )
+    
+    # Orshot
     orshot_schema_field: Optional[OrshotSchemaField] = Field(
         default=None,
         description="OrshotSchemaField type schema reference"

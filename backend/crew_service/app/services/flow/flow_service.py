@@ -61,6 +61,8 @@ class FlowService:
             elif issubclass(type_class, BaseModel):
                 try:
                     model_schema = type_class.model_json_schema()
+                    # Resolve $ref references in array items to provide explicit type info
+                    model_schema = self._resolve_refs_in_schema(model_schema)
                 except Exception:
                     model_schema = None
                 
@@ -94,6 +96,49 @@ class FlowService:
             is_custom_model=True,
             model_schema=None,
         )
+
+    def _resolve_refs_in_schema(self, schema: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Resolve $ref references in JSON schema, especially for array items.
+        This helps the frontend understand nested types without needing to resolve $refs.
+        """
+        if not isinstance(schema, dict):
+            return schema
+        
+        resolved = schema.copy()
+        
+        # Resolve $defs references
+        defs = resolved.get("$defs", {})
+        
+        # Process properties to resolve array item $refs
+        if "properties" in resolved:
+            properties = resolved["properties"].copy()
+            for prop_name, prop_schema in properties.items():
+                if isinstance(prop_schema, dict):
+                    # If it's an array with $ref in items, resolve it
+                    if prop_schema.get("type") == "array" and "items" in prop_schema:
+                        items = prop_schema["items"]
+                        if isinstance(items, dict) and "$ref" in items:
+                            ref_path = items["$ref"]
+                            # Extract type name from #/$defs/TypeName
+                            if ref_path.startswith("#/$defs/"):
+                                ref_type_name = ref_path.replace("#/$defs/", "")
+                                if ref_type_name in defs:
+                                    # Replace $ref with actual schema and add type info
+                                    items_resolved = defs[ref_type_name].copy()
+                                    # Add explicit type name for frontend
+                                    items_resolved["_type_name"] = ref_type_name
+                                    properties[prop_name] = {
+                                        **prop_schema,
+                                        "items": items_resolved
+                                    }
+                                    # Skip recursive call for this property since we've already resolved it
+                                    continue
+                    # Recursively resolve nested schemas
+                    properties[prop_name] = self._resolve_refs_in_schema(prop_schema)
+            resolved["properties"] = properties
+        
+        return resolved
     
     def get_required_inputs(self, task_reads: List["TaskRead"]) -> RequiredInputsResponse:
         """

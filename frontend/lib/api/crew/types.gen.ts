@@ -10,33 +10,39 @@ export type ClientOptions = {
  * Registry of supported Orshot Templates.
  * The frontend uses this to render a dropdown.
  */
-export type AllowedTemplateId = 1201;
+export type AllowedTemplateId = 1201 | 1909;
 
 /**
  * ContentStrategy
  *
- * Represents a content strategy plan, typically stored as markdown content.
+ * Complete content strategy output.
  *
- * Contains structured content plan with:
- * - Executive summary
- * - Calendar overview with theme/concept, objective, and posting cadence
- * - Phase-based strategy (per month, week, or day)
+ * - `content`: Human-readable markdown summary
+ * - `global_settings`: Tone, voice, brand alignment, audience considerations
+ * - `phases`: Structured, agent-parsable strategy blocks (no dates!)
+ * - `metadata`: Version, timestamps, etc.
  */
 export type ContentStrategy = {
     /**
      * Content
      *
-     * Markdown content of the content strategy
+     * Full content strategy rendered as markdown
      */
     content: string;
     /**
-     * Metadata
+     * Global Settings
      *
-     * Optional metadata about the strategy
+     * High-level settings: tone, voice, brand alignment, messaging principles, content pillars
      */
-    metadata?: {
+    global_settings: {
         [key: string]: unknown;
-    } | null;
+    };
+    /**
+     * Phases
+     *
+     * List of strategic phases that define themes, cadence, and objectives without assigning dates
+     */
+    phases: Array<StrategyPhase>;
 };
 
 /**
@@ -80,13 +86,21 @@ export type CrewRunCreateRequest = {
  */
 export type CustomTypesResponse = {
     /**
-     * MarketingResearch type schema reference
+     * MarketingResearchReport type schema reference
      */
-    marketing_research?: MarketingResearch | null;
+    marketing_research_report?: MarketingResearchReport | null;
+    /**
+     * StrategyPhase type schema reference
+     */
+    strategy_phase?: StrategyPhase | null;
     /**
      * ContentStrategy type schema reference
      */
     content_strategy?: ContentStrategy | null;
+    /**
+     * ScheduleItem type schema reference
+     */
+    schedule_item?: ScheduleItem | null;
     /**
      * SocialMediaSchedule type schema reference
      */
@@ -120,39 +134,69 @@ export type HttpValidationError = {
 };
 
 /**
- * MarketingResearch
+ * MarketingResearchReport
  *
- * Represents marketing research data, typically stored as markdown content.
+ * Structured representation of the marketing‑research markdown report.
  *
- * Contains structured research report with sections like:
- * - Executive summary
- * - Competitive landscape
- * - Emerging trends
- * - Successful examples/references
- * - Recommendations
- * - References
+ * The task’s `expected_output` asks for a markdown document that contains:
+ *
+ * • Executive summary
+ * • Competitive landscape
+ * • Emerging trends
+ * • Successful examples / references
+ * • Recommendations
+ * • References
+ *
+ * Each section is stored as a separate string so the workflow can either:
+ * – render the whole markdown (`report`) directly, or
+ * – access individual sections programmatically (e.g. for UI rendering, analytics, etc.).
+ *
+ * `metadata` can be used for generation timestamps, model version, or any other
+ * bookkeeping the system wants to keep.
  */
-export type MarketingResearch = {
+export type MarketingResearchReport = {
     /**
-     * Content
+     * Executive Summary
      *
-     * Markdown content of the marketing research report
+     * High‑level overview of findings.
      */
-    content: string;
+    executive_summary: string;
     /**
-     * Metadata
+     * Competitive Landscape
      *
-     * Optional metadata about the research
+     * Analysis of competitors identified.
      */
-    metadata?: {
-        [key: string]: unknown;
-    } | null;
+    competitive_landscape: string;
+    /**
+     * Emerging Trends
+     *
+     * Key trends tied to the campaign theme.
+     */
+    emerging_trends: string;
+    /**
+     * Successful Examples
+     *
+     * Relevant Instagram examples with usernames & URLs.
+     */
+    successful_examples: string;
+    /**
+     * Recommendations
+     *
+     * Actionable advice for the upcoming campaign.
+     */
+    recommendations: string;
+    /**
+     * References
+     *
+     * Citations of web‑search & Instagram sources.
+     */
+    references: string;
 };
 
 /**
  * OrshotDataType
  */
-export type OrshotDataType = 'TEXT' | 'IMAGE';
+export type OrshotDataType = 'TEXT' | 'IMAGE' | 'BACKGROUND';
 
 /**
  * OrshotSchemaField
@@ -230,31 +274,131 @@ export type RequiredInputsResponse = {
 };
 
 /**
+ * ScheduleItem
+ *
+ * Represents a single scheduled Instagram content unit (post, story, reel).
+ * This is derived from the HTML table but stored in a structured way
+ * for UI, analytics, or downstream processing.
+ */
+export type ScheduleItem = {
+    /**
+     * Phase Name
+     *
+     * Name of the strategy phase this item belongs to, if available.
+     */
+    phase_name?: string | null;
+    /**
+     * Week
+     *
+     * Week number within the campaign (1-based).
+     */
+    week: number;
+    /**
+     * Date
+     *
+     * Calendar date for this content.
+     */
+    date: string;
+    /**
+     * Post Type
+     *
+     * Type of content.
+     */
+    post_type: 'Post' | 'Story' | 'Reel';
+    /**
+     * Theme Concept
+     *
+     * Theme or concept for this content unit.
+     */
+    theme_concept: string;
+    /**
+     * Objective
+     *
+     * Objective for this content (e.g., awareness, engagement, CTA).
+     */
+    objective: string;
+    /**
+     * Description
+     *
+     * Detailed description to guide copy and visual creation.
+     */
+    description: string;
+    /**
+     * Notes
+     *
+     * Optional notes such as tags, CTA, stickers, collaborators, or audio suggestions.
+     */
+    notes?: string | null;
+};
+
+/**
  * SocialMediaSchedule
  *
- * Represents a social media posting schedule, typically stored as markdown or structured data.
+ * Represents the final social media posting schedule.
  *
- * Contains a detailed schedule with:
- * - Post dates and times
- * - Content descriptions
- * - Content types (posts, stories, reels)
- * - Objectives and key messages
+ * - `html_table`: The fully-formed HTML table that is compatible with the html_table_to_excel tool.
+ * - `items`: Structured representation of each scheduled post/story/reel.
  */
 export type SocialMediaSchedule = {
     /**
-     * Content
+     * Items
      *
-     * Markdown or structured content of the social media schedule
+     * Flattened list of scheduled content items, one per row of the schedule (excluding header).
      */
-    content: string;
+    items: Array<ScheduleItem>;
+};
+
+/**
+ * StrategyPhase
+ *
+ * Non-date-specific strategic phase definition.
+ * The scheduler will later map these phases to calendar weeks.
+ */
+export type StrategyPhase = {
     /**
-     * Metadata
+     * Name
      *
-     * Optional metadata about the schedule
+     * Phase name, e.g., 'Awareness', 'Engagement', etc.
      */
-    metadata?: {
-        [key: string]: unknown;
-    } | null;
+    name: string;
+    /**
+     * Duration In Weeks
+     *
+     * How long the phase should run, without calendar dates.
+     */
+    duration_in_weeks: number;
+    /**
+     * Themes
+     *
+     * Core themes emphasized in this phase.
+     */
+    themes: Array<string>;
+    /**
+     * Objectives
+     *
+     * Strategic objectives for the phase.
+     */
+    objectives: Array<string>;
+    /**
+     * Recommended Content Types
+     *
+     * Content formats recommended here (e.g., posts, reels, stories).
+     */
+    recommended_content_types: Array<string>;
+    /**
+     * Posting Cadence
+     *
+     * Cadence expressed as counts, e.g., {'posts_per_week': 3, 'stories_per_week': 2}
+     */
+    posting_cadence: {
+        [key: string]: number;
+    };
+    /**
+     * Messaging Guidelines
+     *
+     * Tone & message guidelines specific to this phase.
+     */
+    messaging_guidelines?: Array<string> | null;
 };
 
 /**

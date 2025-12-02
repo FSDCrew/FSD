@@ -6,17 +6,7 @@ import type { RequiredInputField } from "@/lib/api/crew";
 export interface KickoffFormProps {
   requiredInputs: RequiredInputField[];
   dynamicFormData: Record<string, any>;
-  orshotSchemaFields: Array<{
-    field: string;
-    dataType: string;
-    description: string;
-  }>;
   onFormChange: (fieldName: string, value: any) => void;
-  onOrshotSchemaChange: (fields: Array<{
-    field: string;
-    dataType: string;
-    description: string;
-  }>) => void;
   onSubmit: (e: React.FormEvent) => void;
 }
 

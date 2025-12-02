@@ -670,9 +670,8 @@ export default function CrewPage() {
               ) : (
                 <h1
                   onClick={() => mode === "edit" && setIsEditingTitle(true)}
-                  className={`text-4xl font-bold pb-2 border-b-2 border-transparent inline-block ${
-                    mode === "edit" ? "cursor-pointer hover:text-primary transition-colors hover:border-muted" : "cursor-default"
-                  }`}
+                  className={`text-4xl font-bold pb-2 border-b-2 border-transparent inline-block ${mode === "edit" ? "cursor-pointer hover:text-primary transition-colors hover:border-muted" : "cursor-default"
+                    }`}
                 >
                   {title || "Untitled"}
                 </h1>
@@ -844,9 +843,7 @@ export default function CrewPage() {
                     <KickoffForm
                       requiredInputs={crewForm.requiredInputs}
                       dynamicFormData={crewForm.dynamicFormData}
-                      orshotSchemaFields={crewForm.orshotSchemaFields}
                       onFormChange={crewForm.handleDynamicFormChange}
-                      onOrshotSchemaChange={crewForm.setOrshotSchemaFields}
                       onSubmit={handleKickoffSubmit}
                     />
                     <DialogFooter>
