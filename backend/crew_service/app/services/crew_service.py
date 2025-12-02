@@ -9,19 +9,19 @@ from app.api.crud_client.api.internal import (
     create_crew_run_internal_internal_crew_run_create_post as create_crew_run_func,
     get_crew_by_id_internal_crew_crew_id_get as get_crew_by_id_func,
 )
-from app.api.crud_client.models.body_create_crew_run_internal_internal_crew_run_create_post import (
+from app.api.crud_client.models import (
     BodyCreateCrewRunInternalInternalCrewRunCreatePost as CrewRunCreateBody,
+    CrewRunCreate,
+    CrewRunMetadataCreate,
+    CrewRunMetadataCreateInputs,
+    HTTPValidationError,
+    TaskInfo as CrudTaskInfo,
+    TaskRead as CrudTaskRead,
 )
-from app.api.crud_client.models.crew_run_create import CrewRunCreate
-from app.api.crud_client.models.crew_run_metadata import CrewRunMetadata
-from app.api.crud_client.models.crew_run_metadata_inputs import (
-    CrewRunMetadataInputs,
-)
-from app.api.crud_client.models.http_validation_error import HTTPValidationError
-from app.api.crud_client.models.task_read import TaskRead
-from app.models.models import CrewRun, CrewRunCreateRequest
+
+from app.models.models import CrewRun, CrewRunCreateRequest, TaskInfo
 from app.services.flow.flow_service import FlowService
-from config import settings
+from config import settings, tasks_config
 
 
 class CrewService:
@@ -38,7 +38,7 @@ class CrewService:
         )
         self.flow_service = flow_service
 
-    async def _get_crew_tasks(self, crew_id: UUID) -> List["TaskRead"]:
+    async def _get_crew_tasks(self, crew_id: UUID) -> List["CrudTaskRead"]:
         """
         Fetch crew by ID and return its tasks.
         
@@ -72,20 +72,38 @@ class CrewService:
         
         return tasks
 
+    def _load_full_task_definitions(self, tasks: List[CrudTaskRead]) -> List[TaskInfo]:
+        """Get full task definitions from tasks_config """
+        full_tasks = []
+        for task in tasks:
+            task_config = tasks_config.get(task.key)
+            
+            if not task_config:
+                raise ValueError(f"Task {task.key} not found in tasks_config")
+            
+            full_task = TaskInfo.model_validate(task_config)
+            full_tasks.append(full_task)
+        return full_tasks
+
     async def get_required_inputs(self, crew_id: UUID, user_token: str) -> Dict[str, str]:
         """Get required inputs for a crew based on its tasks and flow dependencies."""
         tasks = await self._get_crew_tasks(crew_id)
-        return self.flow_service.get_required_inputs(tasks)
+        tasks_full = self._load_full_task_definitions(tasks)
+        return self.flow_service.get_required_inputs(tasks_full)
 
     async def kickoff_crew_run(self, crew_run_data: CrewRunCreateRequest, user_token: str):
         """Queue a crew run in CRUD service."""
         # Validate input types before creating crew run
+        # * 1. Create task_snapshots
         tasks = await self._get_crew_tasks(crew_run_data.crew_id)
+        tasks_full = self._load_full_task_definitions(tasks)
+        
+        # * 2. Validate input types
         if crew_run_data.inputs:
             try:
                 self.flow_service.validate_inputs(
                     inputs=crew_run_data.inputs,
-                    tasks=tasks,
+                    tasks=tasks_full,
                 )
             except ValueError as e:
                 raise HTTPException(
@@ -93,11 +111,13 @@ class CrewService:
                     detail=str(e)
                 ) from e
         
-        metadata = None
+        task_snapshots = [CrudTaskInfo.from_dict(task.model_dump()) for task in tasks_full]
+        metadata = CrewRunMetadataCreate(
+            inputs=CrewRunMetadataCreateInputs(),
+            tasks_snapshot=task_snapshots,
+        )
         if crew_run_data.inputs:
-            metadata_inputs = CrewRunMetadataInputs()
-            metadata_inputs.additional_properties = crew_run_data.inputs
-            metadata = CrewRunMetadata(inputs=metadata_inputs)
+            metadata.inputs.additional_properties = crew_run_data.inputs
         
         crew_run_create = CrewRunCreate(
             crew_id=crew_run_data.crew_id,

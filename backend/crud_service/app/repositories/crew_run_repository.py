@@ -11,10 +11,8 @@ class CrewRunRepository:
 
     async def create_crew_run(self, crew_run_data: CrewRunCreate) -> CrewRunDB:
         """Creates a new crew run record."""
-        metadata_dict = None
-        if crew_run_data.run_metadata:
-            metadata_dict = crew_run_data.run_metadata.model_dump()
-        
+        metadata_dict = crew_run_data.run_metadata.model_dump()
+    
         db_crew_run = CrewRunDB(
             crew_id=crew_run_data.crew_id,
             output=crew_run_data.output,

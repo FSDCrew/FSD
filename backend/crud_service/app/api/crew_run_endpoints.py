@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Path
 from uuid import UUID
-from app.models.models import CrewRunRead, CrewRunCreate, User
+from app.models.models import CrewRunRead, User
 from app.services.crew_run_service import CrewRunService
 from app.dependencies import get_crew_run_service, get_current_user
 

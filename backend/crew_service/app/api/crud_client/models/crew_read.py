@@ -21,23 +21,21 @@ T = TypeVar("T", bound="CrewRead")
 class CrewRead:
     """
     Attributes:
-        name (str):
         id (UUID):
         user_id (UUID):
         tasks (list[TaskRead]):
+        name (None | str | Unset):
         crew_runs (list[CrewRunRead] | None | Unset):
     """
 
-    name: str
     id: UUID
     user_id: UUID
     tasks: list[TaskRead]
+    name: None | str | Unset = UNSET
     crew_runs: list[CrewRunRead] | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        name = self.name
-
         id = str(self.id)
 
         user_id = str(self.user_id)
@@ -46,6 +44,12 @@ class CrewRead:
         for tasks_item_data in self.tasks:
             tasks_item = tasks_item_data.to_dict()
             tasks.append(tasks_item)
+
+        name: None | str | Unset
+        if isinstance(self.name, Unset):
+            name = UNSET
+        else:
+            name = self.name
 
         crew_runs: list[dict[str, Any]] | None | Unset
         if isinstance(self.crew_runs, Unset):
@@ -63,12 +67,13 @@ class CrewRead:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "name": name,
                 "id": id,
                 "user_id": user_id,
                 "tasks": tasks,
             }
         )
+        if name is not UNSET:
+            field_dict["name"] = name
         if crew_runs is not UNSET:
             field_dict["crew_runs"] = crew_runs
 
@@ -80,8 +85,6 @@ class CrewRead:
         from ..models.task_read import TaskRead
 
         d = dict(src_dict)
-        name = d.pop("name")
-
         id = UUID(d.pop("id"))
 
         user_id = UUID(d.pop("user_id"))
@@ -92,6 +95,15 @@ class CrewRead:
             tasks_item = TaskRead.from_dict(tasks_item_data)
 
             tasks.append(tasks_item)
+
+        def _parse_name(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        name = _parse_name(d.pop("name", UNSET))
 
         def _parse_crew_runs(data: object) -> list[CrewRunRead] | None | Unset:
             if data is None:
@@ -118,10 +130,10 @@ class CrewRead:
         crew_runs = _parse_crew_runs(d.pop("crew_runs", UNSET))
 
         crew_read = cls(
-            name=name,
             id=id,
             user_id=user_id,
             tasks=tasks,
+            name=name,
             crew_runs=crew_runs,
         )
 

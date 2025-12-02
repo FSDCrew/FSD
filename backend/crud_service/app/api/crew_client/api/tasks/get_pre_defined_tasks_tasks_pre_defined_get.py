@@ -54,7 +54,7 @@ def sync_detailed(
 ) -> Response[list[TaskInfo]]:
     """Get Pre Defined Tasks
 
-     Get all pre-defined tasks with key, name, and task_description.
+     Return the full pre-defined task definitions sourced from tasks.yaml.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -79,7 +79,7 @@ def sync(
 ) -> list[TaskInfo] | None:
     """Get Pre Defined Tasks
 
-     Get all pre-defined tasks with key, name, and task_description.
+     Return the full pre-defined task definitions sourced from tasks.yaml.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -100,7 +100,7 @@ async def asyncio_detailed(
 ) -> Response[list[TaskInfo]]:
     """Get Pre Defined Tasks
 
-     Get all pre-defined tasks with key, name, and task_description.
+     Return the full pre-defined task definitions sourced from tasks.yaml.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -123,7 +123,7 @@ async def asyncio(
 ) -> list[TaskInfo] | None:
     """Get Pre Defined Tasks
 
-     Get all pre-defined tasks with key, name, and task_description.
+     Return the full pre-defined task definitions sourced from tasks.yaml.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

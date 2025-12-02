@@ -23,9 +23,11 @@ All of the builder logic is data-driven:
 - `config.agents_config` comes from `app/config/agents.yaml` and declares each agent's role, goal, backstory, and the tools they may access.
 - `config.tools_spec_config` (from `app/lib/tools/tools_spec.yaml`) documents tool parameters; `flow_utils.TOOL_MAP` provides the actual callables that CrewAI agents can invoke.
 
+The CRUD service only stores lightweight `TaskRead` rows (task key + ordering). Before anything reaches `FlowService`, `CrewService` looks up each key inside `tasks_config`, validates it into a `TaskInfo`, and passes those hydrated definitions downstream. The flow builder therefore always operates on full task metadata (reads/writes, prompts, agent selection, etc.).
+
 ## 1. Building the FlowDependencyGraph
 
-`dependency_graph.build_flow_dependency_graph` collects the state schema plus the read/write edges for the subset of tasks that will compose the flow (`TaskRead` models from the CRUD service). The resulting `FlowDependencyGraph` (`app/models/models.py`) tracks:
+`dependency_graph.build_flow_dependency_graph` collects the state schema plus the read/write edges for the subset of tasks that will compose the flow (validated `TaskInfo` objects sourced from `tasks_config`). The resulting `FlowDependencyGraph` (`app/models/models.py`) tracks:
 
 - `state_field_specs`: every field declared in the YAML state schema.
 - `task_read_specs` / `task_write_specs`: per-task declarations of which fields are touched, including cardinality (`required`, `optional`, `at_least_one`) and write mode (`replace`, `append`).
@@ -61,7 +63,7 @@ Inside each task step, prompt templates pulled from `tasks_config` are interpola
 
 ## 5. Dynamic Flow Class Creation
 
-For every requested `TaskRead`, `flow_builder.build_task_step_function` emits a Python function that will become one `@listen` step in the flow. Each step performs the same pattern:
+For every hydrated `TaskInfo`, `flow_builder.build_task_step_function` emits a Python function that will become one `@listen` step in the flow. Each step performs the same pattern:
 
 1. **Read enforcement** – Pulls required fields from `self.state` based on the graph. Cardinality rules (`required`, `at_least_one`) are checked at runtime.
 2. **CrewAI execution** – Builds a single-agent CrewAI `Task` with guardrails enabled. Each task wires a structured-output validator (when the task writes a custom Pydantic type) before the `llm_judge_guardrail`, ensuring schema compliance is enforced before semantic validation. See [Guardrail Pipeline](dynamic_flow_guardrails.md) for details.
@@ -101,7 +103,7 @@ For detailed information on how custom types are registered, resolved, and valid
 
 ## Execution Lifecycle Recap
 
-1. **Task selection** – CRUD service (or the API client) sends an ordered list of `TaskRead` entries describing the logical flow.
+1. **Task selection** – CRUD service (or the API client) sends an ordered list of `TaskRead` entries describing the logical flow. `CrewService` converts each key into a full `TaskInfo` pulled from `tasks_config` before invoking `FlowService`.
 2. **Flow construction** – `FlowService.build_flow` invokes `create_flow_from_tasks`, which builds the dependency graph, infers required inputs, creates CrewAI agents, generates the FlowState model, and emits the dynamic `Flow` subclass.
 3. **Input validation** – Callers ask `FlowService.get_required_inputs` (for UI) and/or `FlowService.validate_inputs` (for backend safety) before execution.
 4. **Runtime** – `FlowService.execute_flow` instantiates the Flow and runs `kickoff(inputs=...)`. CrewAI sequentially executes each generated step, storing outputs back into `self.state` as declared in YAML.
