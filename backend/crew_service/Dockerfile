@@ -5,6 +5,11 @@ WORKDIR /app
 COPY pyproject.toml README.md ./ 
 RUN pip install --no-cache-dir .
 
+RUN playwright install chromium --with-deps
+
 COPY . .
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "6011"]
+COPY ./scripts/start.sh .
+RUN chmod +x ./scripts/start.sh
+
+CMD ["./scripts/start.sh"]
