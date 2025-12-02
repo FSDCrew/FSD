@@ -40,6 +40,7 @@ import {
   replaceAllTasksForCrewTaskCrewIdSavePut,
   type CrewRead,
 } from "@/lib/api/crud";
+import { getPreDefinedTasksTasksPreDefinedGet } from "@/lib/api/crew";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { RotateCcw } from "lucide-react";
@@ -140,7 +141,7 @@ export default function CrewPage() {
   // Custom hooks
   const crewId = searchParams.get("id");
   const { data: crewData, isLoading: isLoadingCrew } = useCrewById(crewId);
-  const crewForm = useCrewForm(crewId, notificationService);
+  const crewForm = useCrewForm(crewId, notificationService, kickoffDialogOpen);
   const crewFlow = useCrewFlow(nodes, edges, setNodes, setEdges, preDefinedTasks, notificationService);
 
   // Extract stable functions from crewFlow to avoid dependency issues
@@ -165,9 +166,9 @@ export default function CrewPage() {
     const fetchPreDefinedTasks = async () => {
       setIsLoadingTasks(true);
       try {
-        const response = await fetch("http://localhost:8001/tasks/pre-defined");
-        if (response.ok) {
-          const tasks: PreDefinedTask[] = await response.json();
+        const response = await getPreDefinedTasksTasksPreDefinedGet();
+        if (response.data) {
+          const tasks: PreDefinedTask[] = response.data;
           setPreDefinedTasks(tasks);
           const configs = tasks.map((task) => ({
             type: task.key,
