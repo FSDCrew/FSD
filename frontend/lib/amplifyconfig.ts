@@ -8,7 +8,7 @@ Amplify.configure({
       loginWith: {
         oauth: {
           domain: process.env.NEXT_PUBLIC_COGNITO_DOMAIN!,
-          scopes: ["email", "openid"],
+          scopes: ["email", "openid", "profile"],
           redirectSignIn: ["http://localhost:3000/studio", "https://www.campaign.ongspace.com/studio"],
           redirectSignOut: ["http://localhost:3000/", "https://www.campaign.ongspace.com/"],
           responseType: "code",

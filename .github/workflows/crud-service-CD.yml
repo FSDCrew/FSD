@@ -9,11 +9,6 @@ on:
   workflow_dispatch:
       
 env:
-  # --- AWS Configuration ---
-  AWS_REGION: ap-southeast-1
-  ECR_REPOSITORY: prod/crud-service
-  ASG_NAME: crud-service-asg
-
   # --- File Paths ---
   DOCKER_BUILD_CONTEXT: ./backend/crud_service
   ALEMBIC_CONTEXT: ./backend/crud_service
@@ -24,6 +19,7 @@ jobs:
     name: Run Database Migrations
     runs-on: ubuntu-latest
     environment: production
+    needs: migrate
 
     steps:
       - name: Checkout Repository
@@ -38,8 +34,8 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install --upgrade pip
-          cd ${{ env.DOCKER_BUILD_CONTEXT }}
-          pip install .
+          cd ${{ env.ALEMBIC_CONTEXT }}
+          pip install -e .
 
       - name: Run Migrations
         env:
@@ -48,6 +44,13 @@ jobs:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_NAME: ${{ secrets.DB_NAME }}
+          INTERNAL_CREW_API_KEY: ${{ secrets.INTERNAL_CREW_API_KEY }}
+          COGNITO_REGION: ${{ secrets.COGNITO_REGION }}
+          COGNITO_USER_POOL_ID: ${{ secrets.COGNITO_USER_POOL_ID }}
+          COGNITO_APP_CLIENT_ID: ${{ secrets.COGNITO_APP_CLIENT_ID }}
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+          S3_REGION: ${{ secrets.S3_REGION }}
+          CREW_SERVICE_URL: ${{ secrets.CREW_SERVICE_URL }}
           ENVIRONMENT: production
         run: |
           echo "Starting database migration..."
@@ -69,7 +72,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -81,22 +84,22 @@ jobs:
           # Use a short SHA of the commit as the image tag for unique versioning
           IMAGE_TAG=$(echo $GITHUB_SHA | cut -c1-8)
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-          echo "IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG" >> $GITHUB_ENV
+          echo "IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ secrets.CRUD_ECR_REPOSITORY }}:$IMAGE_TAG" >> $GITHUB_ENV
 
       - name: Build and Push Docker Image to ECR
         uses: docker/build-push-action@v5
         with:
           context: ${{ env.DOCKER_BUILD_CONTEXT }}
           push: true
-          tags: ${{ env.IMAGE_URI }}, ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          tags: ${{ env.IMAGE_URI }}, ${{ steps.login-ecr.outputs.registry }}/${{ secrets.CRUD_ECR_REPOSITORY }}:latest
           platforms: linux/amd64
 
       - name: Trigger ASG Instance Refresh
         run: |
-          echo "Starting Instance Refresh for ASG: ${{ env.ASG_NAME }}"
+          echo "Starting Instance Refresh for ASG: ${{ secrets.CRUD_ASG_NAME }}"
 
           aws autoscaling start-instance-refresh \
-            --auto-scaling-group-name ${{ env.ASG_NAME }} \
+            --auto-scaling-group-name ${{ secrets.CRUD_ASG_NAME }} \
             --preferences '{"MinHealthyPercentage": 90, "InstanceWarmup": 300}'
           
           echo "Instance Refresh initiated successfully."
