@@ -68,7 +68,10 @@ interface NodeTypeConfig {
 const taskColorMap: Record<string, string> = {
   marketing_research: "#c878e0ff",
   content_strategy: "#389e7eff",
-  social_media_schedule: "#cc6262ff",
+  social_media_schedule: "#cc6262ff", 
+  copywriter: "#f59e0bff",
+  image_generator: "#e1f24cff",
+  orshot_render: "#5881c3ff",
 };
 
 const getTaskColor = (taskKey: string): string => {
@@ -127,6 +130,7 @@ export default function CrewPage() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const nodesLoadedRef = React.useRef(false);
+  const hasInitialFitViewRef = React.useRef(false);
 
   const nodeTypes = React.useMemo(() => createNodeTypes(nodeTypeConfigs), [nodeTypeConfigs]);
 
@@ -583,19 +587,21 @@ export default function CrewPage() {
       setEdges(reconstructedEdges);
       setLastSavedEdgesFromFlow(reconstructedEdges);
 
-      if (reactFlowInstance) {
+      if (reactFlowInstance && !hasInitialFitViewRef.current) {
         setTimeout(() => {
           reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+          hasInitialFitViewRef.current = true;
         }, 100);
       }
     }
   }, [crewData, nodeTypeConfigs, crewId, setNodes, setEdges, handleNodeDataChange, handleDeleteNode, setLastSavedNodesFromFlow, setLastSavedEdgesFromFlow, reactFlowInstance]);
 
-  // Fit view when ReactFlow instance is ready
+  // Fit view when ReactFlow instance is ready (only on first load with saved data)
   useEffect(() => {
-    if (reactFlowInstance && nodes.length > 1) {
+    if (reactFlowInstance && nodes.length > 1 && !hasInitialFitViewRef.current && nodesLoadedRef.current) {
       setTimeout(() => {
         reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+        hasInitialFitViewRef.current = true;
       }, 100);
     }
   }, [reactFlowInstance, nodes.length]);
@@ -679,8 +685,8 @@ export default function CrewPage() {
               <AlertDialogDescription>You have unsaved changes. Do you want to discard them and switch modes?</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={cancelModeChange}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmModeChange} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <AlertDialogCancel onClick={cancelModeChange} >Keep Editing</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmModeChange} className="bg-destructive text-white hover:bg-destructive/90">
                 Discard Changes
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -763,7 +769,6 @@ export default function CrewPage() {
                 nodesConnectable={mode === "edit"}
                 elementsSelectable={mode === "edit"}
                 onInit={setReactFlowInstance}
-                fitView
               >
                 <Controls />
                 <MiniMap />
@@ -791,7 +796,7 @@ export default function CrewPage() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Keep Editing</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDiscardChanges} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      <AlertDialogAction onClick={handleDiscardChanges} className="bg-destructive text-white hover:bg-destructive/90">
                         Discard Changes
                       </AlertDialogAction>
                     </AlertDialogFooter>

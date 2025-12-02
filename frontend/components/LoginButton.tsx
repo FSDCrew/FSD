@@ -2,6 +2,7 @@
 
 import { signInWithRedirect } from 'aws-amplify/auth';
 import { useAuth } from '../contexts/AuthContext';
+import { Button } from "@/components/ui/button";
 
 const LoginButton = () => {
   const { isAuthenticated } = useAuth();
@@ -17,12 +18,11 @@ const LoginButton = () => {
   return (
     <>
       {!isAuthenticated ? (
-        <button 
+        <Button
           onClick={handleLogin}
-          className="w-full px-4 py-2 bg-black text-white rounded hover:bg-blue-600"
         >
           Sign In
-        </button>
+        </Button>
       ) : (
         <>Logged In</>
       )}
