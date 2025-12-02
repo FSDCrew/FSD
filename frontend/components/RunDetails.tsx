@@ -1,8 +1,191 @@
-import React from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import type { RunDetailsProps } from "@/types/ComponentProps";
+import {
+  ReactFlow,
+  MiniMap,
+  Controls,
+  Background,
+  BackgroundVariant,
+  type Node,
+  type Edge,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import StartNode from "@/components/StartNode";
+import CustomNode from "@/components/CustomNode";
+import { getPreDefinedTasksTasksPreDefinedGet } from "@/lib/api/crew";
+
+interface PreDefinedTask {
+  key: string;
+  name: string;
+  task_description: string;
+}
+
+interface TaskSnapshot {
+  key: string;
+  name?: string;
+  task_description?: string;
+  description?: string;
+  expected_output?: string;
+  agent?: string;
+  [key: string]: any;
+}
+
+const taskColorMap: Record<string, string> = {
+  marketing_research: "#c878e0ff",
+  content_strategy: "#389e7eff",
+  social_media_schedule: "#cc6262ff", 
+  copywriter: "#f59e0bff",
+  image_generator: "#e1f24cff",
+  orshot_render: "#5881c3ff",
+};
+
+const getTaskColor = (taskKey: string): string => {
+  return taskColorMap[taskKey] || "#6B7280";
+};
+
+const START_NODE: Node = {
+  id: "start-node",
+  type: "start",
+  position: { x: 50, y: 250 },
+  data: { label: "START" },
+  draggable: false,
+  deletable: false,
+  selectable: false,
+  connectable: false,
+};
+
+const createNodeTypes = (nodeTypeConfigs: Array<{ type: string; name: string; color: string; description: string }>) => {
+  const dynamicTypes = nodeTypeConfigs.reduce((acc, config) => {
+    acc[config.type] = CustomNode;
+    return acc;
+  }, {} as Record<string, any>);
+
+  return {
+    start: StartNode,
+    ...dynamicTypes,
+  };
+};
 
 export function RunDetails({ selectedRun, crewRuns, onClose }: RunDetailsProps) {
+  const [preDefinedTasks, setPreDefinedTasks] = useState<PreDefinedTask[]>([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+
+  // Fetch pre-defined tasks
+  useEffect(() => {
+    const fetchPreDefinedTasks = async () => {
+      setIsLoadingTasks(true);
+      try {
+        const response = await getPreDefinedTasksTasksPreDefinedGet();
+        if (response.data) {
+          setPreDefinedTasks(response.data as PreDefinedTask[]);
+        }
+      } catch (error) {
+        console.error("Error fetching pre-defined tasks:", error);
+      } finally {
+        setIsLoadingTasks(false);
+      }
+    };
+
+    fetchPreDefinedTasks();
+  }, []);
+
+  // Build nodes and edges from tasks_snapshot
+  const { nodes, edges, nodeTypes } = useMemo(() => {
+    if (!selectedRun || !selectedRun.run_metadata?.tasks_snapshot) {
+      return { nodes: [START_NODE], edges: [], nodeTypes: { start: StartNode } };
+    }
+
+    const tasksSnapshot = selectedRun.run_metadata.tasks_snapshot as TaskSnapshot[];
+    
+    const nodeTypeConfigs = tasksSnapshot.map((task) => {
+      // Try to get name and description from snapshot first
+      let name = task.name;
+      let description = task.task_description || task.description;
+
+      // If missing, fallback to pre-defined tasks
+      if (!name || !description) {
+        const preDefined = preDefinedTasks.find(pt => pt.key === task.key);
+        if (preDefined) {
+          name = name || preDefined.name;
+          description = description || preDefined.task_description;
+        }
+      }
+
+      // Final fallback to key or agent_key
+      name = name || task.agent || task.key;
+      description = description || "No description available";
+
+      return {
+        type: task.key,
+        name,
+        color: getTaskColor(task.key),
+        description,
+      };
+    });
+
+    const loadedNodes = tasksSnapshot.map((task, index) => {
+      const config = nodeTypeConfigs.find((n) => n.type === task.key);
+      const position = {
+        x: 300 + index * 300,
+        y: 250,
+      };
+
+      return {
+        id: task.key,
+        type: task.key,
+        position,
+        data: {
+          label: config?.name || task.key,
+          taskType: task.key,
+        },
+        style: {
+          background: getTaskColor(task.key),
+          color: "white",
+          border: "1px solid rgba(0, 0, 0, 0.2)",
+          borderRadius: "8px",
+          minWidth: "120px",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+        },
+        connectable: false,
+        draggable: false,
+        selectable: false,
+      } as Node;
+    });
+
+    // Build edges connecting tasks in sequence
+    const constructedEdges: Edge[] = [];
+    if (tasksSnapshot.length > 0) {
+      constructedEdges.push({
+        id: `start-node-${tasksSnapshot[0].key}`,
+        source: "start-node",
+        target: tasksSnapshot[0].key,
+      });
+    }
+    for (let i = 0; i < tasksSnapshot.length - 1; i++) {
+      constructedEdges.push({
+        id: `${tasksSnapshot[i].key}-${tasksSnapshot[i + 1].key}`,
+        source: tasksSnapshot[i].key,
+        target: tasksSnapshot[i + 1].key,
+      });
+    }
+
+    const startNodeInstance = {
+      ...START_NODE,
+      connectable: false,
+      draggable: false,
+      selectable: false,
+    };
+
+    const types = createNodeTypes(nodeTypeConfigs);
+
+    return { 
+      nodes: [startNodeInstance, ...loadedNodes], 
+      edges: constructedEdges,
+      nodeTypes: types
+    };
+  }, [selectedRun, preDefinedTasks]);
+
   if (!selectedRun) {
     return null;
   }
@@ -25,6 +208,33 @@ export function RunDetails({ selectedRun, crewRuns, onClose }: RunDetailsProps) 
         >
           Close
         </Button>
+      </div>
+
+      {/* Canvas Section */}
+      <div className="mb-6">
+        <h4 className="text-lg font-semibold text-white mb-3">Task Flow</h4>
+        <div className="h-[400px] border border-white rounded-lg bg-card">
+          {isLoadingTasks ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-gray-300">Loading task flow...</p>
+            </div>
+          ) : (
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              nodesDraggable={false}
+              nodesConnectable={false}
+              elementsSelectable={false}
+              fitView
+              fitViewOptions={{ padding: 0.2 }}
+            >
+              <Controls showInteractive={false} />
+              <MiniMap />
+              <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
+            </ReactFlow>
+          )}
+        </div>
       </div>
       
       {/* Output Section */}
