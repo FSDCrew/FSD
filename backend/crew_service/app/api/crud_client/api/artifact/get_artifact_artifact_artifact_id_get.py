@@ -21,7 +21,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/artifact/{artifact_id}".format(
+        "url": "/internal/artifact/{artifact_id}".format(
             artifact_id=artifact_id,
         ),
     }

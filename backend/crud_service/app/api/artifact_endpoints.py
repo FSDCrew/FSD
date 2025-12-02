@@ -10,18 +10,18 @@ artifact_router = APIRouter(
     tags=["artifact"],
 )
 
-@artifact_router.get(
-    "/{artifact_id}",
-    response_model=str
-)
-async def get_artifact(
-    artifact_id: UUID = Path(..., description="Artifact ID to retrieve", example="123e4567-e89b-12d3-a456-426614174000"),
-    # current_user: User = Depends(get_current_user),
-    _auth: None = Depends(require_internal_api_key),
-    artifact_service: ArtifactService = Depends(get_artifact_service),
-):
-    """Retrieve an artifact by its ID."""
-    return await artifact_service.get_artifact_presigned_url(artifact_id)
+# @artifact_router.get(
+#     "/{artifact_id}",
+#     response_model=str
+# )
+# async def get_artifact(
+#     artifact_id: UUID = Path(..., description="Artifact ID to retrieve", example="123e4567-e89b-12d3-a456-426614174000"),
+#     # current_user: User = Depends(get_current_user),
+#     _auth: None = Depends(require_internal_api_key),
+#     artifact_service: ArtifactService = Depends(get_artifact_service),
+# ):
+#     """Retrieve an artifact by its ID."""
+#     return await artifact_service.get_artifact_presigned_url(artifact_id)
 
 @artifact_router.get(
     "/view/{artifact_id}",
