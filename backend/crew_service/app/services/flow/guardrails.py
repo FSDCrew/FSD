@@ -82,8 +82,9 @@ def _write_failed_output_to_file(raw_output: str, expected_model_name: str) -> P
     Returns the path to the created file.
     """
     log_dir = Path("./logs/guardrail")
-    log_dir.mkdir(exist_ok=True)
-    
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"failed_output_{expected_model_name}_{timestamp}.txt"
     filepath = log_dir / filename
