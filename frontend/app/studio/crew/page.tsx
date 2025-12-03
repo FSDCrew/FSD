@@ -40,6 +40,7 @@ import {
   replaceAllTasksForCrewTaskCrewIdSavePut,
   type CrewRead,
 } from "@/lib/api/crud";
+import { getPreDefinedTasksTasksPreDefinedGet } from "@/lib/api/crew";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { RotateCcw } from "lucide-react";
@@ -68,7 +69,10 @@ interface NodeTypeConfig {
 const taskColorMap: Record<string, string> = {
   marketing_research: "#c878e0ff",
   content_strategy: "#389e7eff",
-  social_media_schedule: "#cc6262ff",
+  social_media_schedule: "#cc6262ff", 
+  copywriter: "#f59e0bff",
+  image_generator: "#f531b7",
+  orshot_render: "#5881c3ff",
 };
 
 const getTaskColor = (taskKey: string): string => {
@@ -127,6 +131,7 @@ export default function CrewPage() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const nodesLoadedRef = React.useRef(false);
+  const hasInitialFitViewRef = React.useRef(false);
 
   const nodeTypes = React.useMemo(() => createNodeTypes(nodeTypeConfigs), [nodeTypeConfigs]);
 
@@ -136,7 +141,7 @@ export default function CrewPage() {
   // Custom hooks
   const crewId = searchParams.get("id");
   const { data: crewData, isLoading: isLoadingCrew } = useCrewById(crewId);
-  const crewForm = useCrewForm(crewId, notificationService);
+  const crewForm = useCrewForm(crewId, notificationService, kickoffDialogOpen);
   const crewFlow = useCrewFlow(nodes, edges, setNodes, setEdges, preDefinedTasks, notificationService);
 
   // Extract stable functions from crewFlow to avoid dependency issues
@@ -161,9 +166,9 @@ export default function CrewPage() {
     const fetchPreDefinedTasks = async () => {
       setIsLoadingTasks(true);
       try {
-        const response = await fetch("http://localhost:8001/tasks/pre-defined");
-        if (response.ok) {
-          const tasks: PreDefinedTask[] = await response.json();
+        const response = await getPreDefinedTasksTasksPreDefinedGet();
+        if (response.data) {
+          const tasks: PreDefinedTask[] = response.data;
           setPreDefinedTasks(tasks);
           const configs = tasks.map((task) => ({
             type: task.key,
@@ -277,9 +282,10 @@ export default function CrewPage() {
         style: {
           background: getTaskColor(type),
           color: "white",
-          border: "2px solid #222",
+          border: "1px solid rgba(0, 0, 0, 0.2)",
           borderRadius: "8px",
           minWidth: "120px",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
         },
         connectable: true,
       };
@@ -426,6 +432,11 @@ export default function CrewPage() {
       setShowUnsavedWarning(true);
     } else {
       setMode(newMode);
+      // Show run history by default when switching to view mode
+      if (newMode === "view") {
+        setShowRunsHistory(true);
+        setIsEditingTitle(false); // Close title editing when entering view mode
+      }
       if (crewId) {
         localStorage.setItem(`crew_mode_${crewId}`, newMode);
       }
@@ -454,6 +465,10 @@ export default function CrewPage() {
 
     if (pendingMode) {
       setMode(pendingMode);
+      // Show run history by default when switching to view mode
+      if (pendingMode === "view") {
+        setShowRunsHistory(true);
+      }
       if (crewId) {
         localStorage.setItem(`crew_mode_${crewId}`, pendingMode);
       }
@@ -505,18 +520,23 @@ export default function CrewPage() {
 
     const cardTitle = searchParams.get("title") || "Untitled";
     const cardId = searchParams.get("id");
+    const urlMode = searchParams.get("mode");
 
     setTitle(cardTitle);
     setLastSavedTitle(cardTitle);
 
-    if (cardId) {
-      const savedMode = localStorage.getItem(`crew_mode_${cardId}`);
-      if (savedMode === "view" || savedMode === "edit") {
-        setMode(savedMode);
+    // Set mode from URL parameter if provided
+    if (urlMode === "view" || urlMode === "edit") {
+      setMode(urlMode);
+      // Show run history by default when in view mode
+      if (urlMode === "view") {
+        setShowRunsHistory(true);
+        setIsEditingTitle(false); // Ensure title is not editable in view mode
       }
     }
 
-    if (cardTitle === "Untitled") {
+    // Only allow editing title if we're in edit mode (or no mode specified, defaults to edit)
+    if (cardTitle === "Untitled" && urlMode !== "view") {
       setIsEditingTitle(true);
     }
   }, [router, searchParams, token]);
@@ -550,9 +570,10 @@ export default function CrewPage() {
           style: {
             background: getTaskColor(task.key),
             color: "white",
-            border: "2px solid #222",
+            border: "1px solid rgba(0, 0, 0, 0.2)",
             borderRadius: "8px",
             minWidth: "120px",
+            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
           },
           connectable: true,
         } as Node;
@@ -583,19 +604,21 @@ export default function CrewPage() {
       setEdges(reconstructedEdges);
       setLastSavedEdgesFromFlow(reconstructedEdges);
 
-      if (reactFlowInstance) {
+      if (reactFlowInstance && !hasInitialFitViewRef.current) {
         setTimeout(() => {
           reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+          hasInitialFitViewRef.current = true;
         }, 100);
       }
     }
   }, [crewData, nodeTypeConfigs, crewId, setNodes, setEdges, handleNodeDataChange, handleDeleteNode, setLastSavedNodesFromFlow, setLastSavedEdgesFromFlow, reactFlowInstance]);
 
-  // Fit view when ReactFlow instance is ready
+  // Fit view when ReactFlow instance is ready (only on first load with saved data)
   useEffect(() => {
-    if (reactFlowInstance && nodes.length > 1) {
+    if (reactFlowInstance && nodes.length > 1 && !hasInitialFitViewRef.current && nodesLoadedRef.current) {
       setTimeout(() => {
         reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+        hasInitialFitViewRef.current = true;
       }, 100);
     }
   }, [reactFlowInstance, nodes.length]);
@@ -679,8 +702,8 @@ export default function CrewPage() {
               <AlertDialogDescription>You have unsaved changes. Do you want to discard them and switch modes?</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={cancelModeChange}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmModeChange} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <AlertDialogCancel onClick={cancelModeChange} >Keep Editing</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmModeChange} className="bg-destructive text-white hover:bg-destructive/90">
                 Discard Changes
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -763,7 +786,6 @@ export default function CrewPage() {
                 nodesConnectable={mode === "edit"}
                 elementsSelectable={mode === "edit"}
                 onInit={setReactFlowInstance}
-                fitView
               >
                 <Controls />
                 <MiniMap />
@@ -791,7 +813,7 @@ export default function CrewPage() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Keep Editing</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDiscardChanges} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      <AlertDialogAction onClick={handleDiscardChanges} className="bg-destructive text-white hover:bg-destructive/90">
                         Discard Changes
                       </AlertDialogAction>
                     </AlertDialogFooter>
