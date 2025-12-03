@@ -94,9 +94,9 @@ The final product is a tailor-made `Flow` subclass ready to run just the request
 
 Because `FlowService` always routes through `build_flow_dependency_graph` and `infer_initial_inputs`, the API and background worker stay perfectly aligned with the YAML schema without duplicating logic.
 
-The worker process (`job_executor.py`) creates a `TaskStatusService` instance and passes it to `build_flow`, ensuring that task status updates are persisted to the CRUD service throughout flow execution. This enables real-time visibility into task progress (RUNNING → COMPLETED/FAILED) for monitoring and debugging purposes.
+The worker uses a **process-per-job** model where each job runs in its own OS process (`run_entire_job` in `job_executor.py`). Within each child process, a `TaskStatusService` instance is created and passed to `build_flow`, ensuring that task status updates are persisted to the CRUD service throughout flow execution. This enables real-time visibility into task progress (RUNNING → COMPLETED/FAILED) for monitoring and debugging purposes. See [Worker Architecture and Lifecycle](worker.md) for details on how the worker spawns and manages these processes.
 
-Before building and executing the flow, `JobExecutor._prepare_execution_data` detects retry flows by checking for `crew_run.run_metadata.retry_feedback`. If present, it uses sorted task states (by `order`) to find the first `QUEUED` task (the retry point) and collects outputs from all `COMPLETED` tasks before it. This retry metadata is passed to the flow via the `_retry_info` key in the inputs dictionary, enabling the flow engine to skip upstream tasks and preserve their outputs. See [Crew Run Retry Flow](crew_run_retry.md) for details on how retries are created and handled.
+Before building and executing the flow, `run_entire_job` detects retry flows by checking for `crew_run.run_metadata.retry_feedback`. If present, it uses sorted task states (by `order`) to find the first `QUEUED` task (the retry point) and collects outputs from all `COMPLETED` tasks before it. This retry metadata is passed to the flow via the `_retry_info` key in the inputs dictionary, enabling the flow engine to skip upstream tasks and preserve their outputs. See [Crew Run Retry Flow](crew_run_retry.md) for details on how retries are created and handled.
 
 ## 7. Type and Value Validation Helpers
 
@@ -114,13 +114,16 @@ For detailed information on how custom types are registered, resolved, and valid
 ## Execution Lifecycle Recap
 
 1. **Task selection** – CRUD service (or the API client) sends an ordered list of `TaskRead` entries describing the logical flow. `CrewService` converts each key into a full `TaskInfo` pulled from `tasks_config` before invoking `FlowService`.
-2. **Flow construction** – `FlowService.build_flow` invokes `create_flow_from_tasks`, which builds the dependency graph, infers required inputs, creates CrewAI agents, generates the FlowState model, and emits the dynamic `Flow` subclass. A `TaskStatusService` instance is created and passed to enable status tracking.
-3. **Input validation** – Callers ask `FlowService.get_required_inputs` (for UI) and/or `FlowService.validate_inputs` (for backend safety) before execution.
-4. **Runtime** – `FlowService.execute_flow` instantiates the Flow and runs `kickoff(inputs=...)`. CrewAI sequentially executes each generated step:
+2. **Queue job creation** – The CRUD service creates a queue entry for the crew run, which the worker polls and claims.
+3. **Process spawning** – The worker spawns a new OS process (`run_entire_job`) for each claimed job. Each process is completely isolated and handles its own lifecycle. See [Worker Architecture and Lifecycle](worker.md) for details.
+4. **Flow construction** – Inside the child process, `FlowService.build_flow` invokes `create_flow_from_tasks`, which builds the dependency graph, infers required inputs, creates CrewAI agents, generates the FlowState model, and emits the dynamic `Flow` subclass. A `TaskStatusService` instance is created and passed to enable status tracking.
+5. **Input validation** – Callers ask `FlowService.get_required_inputs` (for UI) and/or `FlowService.validate_inputs` (for backend safety) before execution.
+6. **Runtime** – Inside the child process, `flow.kickoff(inputs=...)` is called synchronously. CrewAI sequentially executes each generated step:
    - **Retry handling**: If this is a retry flow, upstream tasks (before `retry_from_task_key`) are skipped entirely, using preserved outputs from state. The retry task receives retry feedback in its description to guide improvement.
    - Before each step: Task status updated to `RUNNING` with serialized inputs (or `COMPLETED` immediately for skipped upstream tasks)
    - During step: CrewAI executes the task with guardrails (skipped for upstream tasks in retries)
    - After success: Task status updated to `COMPLETED` with serialized inputs/outputs and completion timestamp
    - On failure: Task status updated to `FAILED` with error details
    - State updates: Outputs stored back into `self.state` as declared in YAML (or preserved from upstream tasks in retries)
-5. **Outputs** – Downstream services read the state (or files referenced in `output_file`) to persist or display results. Task status history is available in the CrewRun output's `task_states` field for monitoring and debugging.
+7. **Status update** – After flow execution completes (or fails), the child process updates the queue status to COMPLETED, FAILED, or CANCELLED, then exits.
+8. **Outputs** – Downstream services read the state (or files referenced in `output_file`) to persist or display results. Task status history is available in the CrewRun output's `task_states` field for monitoring and debugging.
