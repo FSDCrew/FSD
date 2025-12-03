@@ -110,35 +110,67 @@ function renderDynamicObject(
   // Check if additionalProperties specifies a type
   const valueType = propSchema.additionalProperties?.type || "string";
 
-  const handleKeyValueChange = (oldKey: string, newKey: string, newValue: any) => {
-    const newObj = { ...objValue };
-    if (oldKey !== newKey) {
-      delete newObj[oldKey];
-    }
-    if (newKey) {
-      if (valueType === "integer" || valueType === "number") {
-        newObj[newKey] = newValue ? Number(newValue) : "";
+  // Convert object to array of entries for stable rendering with indices
+  const entries = Object.entries(objValue);
+  
+  // Track which fields have been touched (blurred)
+  const [touchedKeys, setTouchedKeys] = React.useState<Set<number>>(new Set());
+  const [touchedValues, setTouchedValues] = React.useState<Set<number>>(new Set());
+
+  const handleKeyValueChange = (index: number, oldKey: string, newKey: string, newValue: any) => {
+    const newObj: Record<string, any> = {};
+    
+    // Check if newKey already exists in another entry (not counting empty keys)
+    const isDuplicateKey = newKey !== "" && entries.some(([k], i) => {
+      const displayK = k.startsWith('__empty_key_') ? '' : k;
+      return i !== index && displayK === newKey;
+    });
+    
+    // Rebuild object with all entries
+    entries.forEach(([k, v], i) => {
+      if (i === index) {
+        // This is the entry being modified
+        let keyToUse: string;
+        
+        if (newKey === "") {
+          // Empty key - use temporary marker
+          keyToUse = `__empty_key_${index}__`;
+        } else if (isDuplicateKey) {
+          // Duplicate key - use a marker to keep the entry visible with red border
+          keyToUse = `__duplicate_${newKey}_${index}__`;
+        } else {
+          // Valid unique key
+          keyToUse = newKey;
+        }
+        
+        if (valueType === "integer" || valueType === "number") {
+          newObj[keyToUse] = newValue ? Number(newValue) : "";
+        } else {
+          newObj[keyToUse] = newValue;
+        }
       } else {
-        newObj[newKey] = newValue;
+        // Keep other entries as-is
+        newObj[k] = v;
       }
-    }
+    });
+    
     onChange(newObj);
   };
 
-  const handleRemoveKey = (key: string) => {
-    const newObj = { ...objValue };
-    delete newObj[key];
+  const handleRemoveKey = (index: number) => {
+    const newObj: Record<string, any> = {};
+    entries.forEach(([k, v], i) => {
+      if (i !== index) {
+        newObj[k] = v;
+      }
+    });
     onChange(newObj);
   };
 
   const handleAddKey = () => {
-    // Generate a unique temporary key
-    let tempKey = "new_key";
-    let counter = 1;
-    while (objValue.hasOwnProperty(tempKey)) {
-      tempKey = `new_key_${counter}`;
-      counter++;
-    }
+    // Add entry with empty key using temporary marker
+    const newIndex = entries.length;
+    const tempKey = `__empty_key_${newIndex}__`;
     const newObj = { ...objValue, [tempKey]: valueType === "integer" || valueType === "number" ? "" : "" };
     onChange(newObj);
   };
@@ -146,34 +178,84 @@ function renderDynamicObject(
   return (
     <div key={propName} className="space-y-2">
       {!skipLabel && (
-        <Label className="text-xs">
-          {propName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
-          {isRequired && <span className="text-red-500 ml-1">*</span>}
-        </Label>
+        <>
+          <Label className="text-xs">
+            {propName.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+            {isRequired && <span className="text-red-500 ml-1">*</span>}
+          </Label>
+          {propSchema.description && (
+            <p className="text-xs text-gray-500 mt-1">{propSchema.description}</p>
+          )}
+        </>
       )}
       <div className="space-y-2 border rounded-lg p-3">
-        {Object.entries(objValue).map(([key, val], index) => (
+        {entries.map(([key, val], index) => {
+          // Check if this is a temporary empty key marker
+          const isEmptyKey = key.startsWith('__empty_key_');
+          
+          // Check if this is a duplicate key marker
+          const isDuplicateMarker = key.startsWith('__duplicate_');
+          let displayKey = key;
+          
+          if (isEmptyKey) {
+            displayKey = '';
+          } else if (isDuplicateMarker) {
+            // Extract the actual key from __duplicate_keyname_index__
+            const match = key.match(/^__duplicate_(.+)_\d+__$/);
+            displayKey = match ? match[1] : key;
+          }
+          
+          // Check if this key is duplicated (appears more than once)
+          const allKeys = entries.map(([k]) => {
+            if (k.startsWith('__empty_key_')) return '';
+            if (k.startsWith('__duplicate_')) {
+              const match = k.match(/^__duplicate_(.+)_\d+__$/);
+              return match ? match[1] : k;
+            }
+            return k;
+          });
+          const keyCount = allKeys.filter(k => k === displayKey && k !== "").length;
+          const isDuplicate = (displayKey !== "" && keyCount > 1) || isDuplicateMarker;
+          
+          // Check if key or value is empty
+          const hasEmptyKey = displayKey === '' || isEmptyKey;
+          const hasEmptyValue = val === '' || val === null || val === undefined || (typeof val === 'string' && val.trim() === '');
+          
+          // Only show empty validation if field has been touched (blurred)
+          const showEmptyKeyError = hasEmptyKey && touchedKeys.has(index);
+          const showEmptyValueError = hasEmptyValue && touchedValues.has(index);
+          
+          return (
           <div key={index} className="flex gap-2 items-center">
             <Input
-              placeholder="Key"
-              value={key}
-              onChange={(e) => handleKeyValueChange(key, e.target.value, val)}
-              className="flex-1"
+              placeholder="key"
+              value={displayKey}
+              onChange={(e) => handleKeyValueChange(index, key, e.target.value, val)}
+              onBlur={() => setTouchedKeys(prev => new Set(prev).add(index))}
+              className={`flex-1 ${isDuplicate ? 'border-red-500 focus-visible:ring-red-500' : showEmptyKeyError ? 'border-orange-500 focus-visible:ring-orange-500' : ''}`}
+              style={isDuplicate ? { boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)' } : showEmptyKeyError ? { boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)' } : undefined}
+              title={isDuplicate ? 'Duplicate key name - please use a unique name' : showEmptyKeyError ? 'Key cannot be empty - this pair will not be submitted' : ''}
             />
             {valueType === "integer" || valueType === "number" ? (
               <Input
                 type="number"
                 placeholder="Value"
                 value={typeof val === "number" ? val : val ? String(val) : ""}
-                onChange={(e) => handleKeyValueChange(key, key, e.target.value)}
-                className="flex-1"
+                onChange={(e) => handleKeyValueChange(index, key, key, e.target.value)}
+                onBlur={() => setTouchedValues(prev => new Set(prev).add(index))}
+                className={`flex-1 ${showEmptyValueError ? 'border-orange-500 focus-visible:ring-orange-500' : ''}`}
+                style={showEmptyValueError ? { boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)' } : undefined}
+                title={showEmptyValueError ? 'Value cannot be empty - this pair will not be submitted' : ''}
               />
             ) : (
               <Input
                 placeholder="Value"
                 value={val ? String(val) : ""}
-                onChange={(e) => handleKeyValueChange(key, key, e.target.value)}
-                className="flex-1"
+                onChange={(e) => handleKeyValueChange(index, key, key, e.target.value)}
+                onBlur={() => setTouchedValues(prev => new Set(prev).add(index))}
+                className={`flex-1 ${showEmptyValueError ? 'border-orange-500 focus-visible:ring-orange-500' : ''}`}
+                style={showEmptyValueError ? { boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)' } : undefined}
+                title={showEmptyValueError ? 'Value cannot be empty - this pair will not be submitted' : ''}
               />
             )}
             <Button
@@ -181,12 +263,13 @@ function renderDynamicObject(
               variant="destructive"
               size="icon"
               className="h-8 w-8 flex-shrink-0"
-              onClick={() => handleRemoveKey(key)}
+              onClick={() => handleRemoveKey(index)}
             >
               <Minus className="h-4 w-4" />
             </Button>
           </div>
-        ))}
+        );
+        })}
         <Button
           type="button"
           variant="outline"
