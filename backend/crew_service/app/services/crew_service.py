@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import List
 from uuid import UUID
 
 import httpx
@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from app.api.crud_client import AuthenticatedClient, errors
 from app.api.crud_client.api.internal import (
+    cancel_crew_run_internal_internal_crew_run_crew_run_id_cancel_post as cancel_crew_run_func,
     create_crew_run_internal_internal_crew_run_create_post as create_crew_run_func,
     get_crew_by_id_internal_crew_crew_id_get as get_crew_by_id_func,
     get_crew_run_by_id_internal_crew_run_crew_run_id_get as get_crew_run_func,
@@ -20,7 +21,7 @@ from app.api.crud_client.models import (
     TaskRead as CrudTaskRead,
 )
 
-from app.models.models import CrewRun, CrewRunCreateRequest, CrewRunRetryRequest, TaskInfo
+from app.models.models import CrewRun, CrewRunCreateRequest, TaskInfo
 from app.services.flow.flow_service import FlowService
 from config import settings, tasks_config
 
@@ -176,4 +177,12 @@ class CrewService:
             if e.status_code == 404:
                 raise ValueError(f"Crew run {crew_run_id} not found") from e
             raise
+
+    async def cancel_crew_run(self, crew_run_id: UUID, user_token: str):
+        """Cancel a crew run."""
+        await cancel_crew_run_func.asyncio(
+            crew_run_id=crew_run_id,
+            body=user_token,
+            client=self.crud_client,
+        )
 
