@@ -70,8 +70,7 @@ state:
       field_kind: data
 
     post_captions:
-      # type: PostCaptions
-      type: string
+      type: CopywriterOutput
       field_kind: data
 
 tasks:
@@ -94,7 +93,7 @@ tasks:
     agent: market_researcher
     name: Marketing Research Task
     task_description: >
-      Conduct theme-aligned market research using required web-scraping and search tools to identify competitors, trends, and relevant Instagram content,
+      Conduct theme-aligned market research using required web-scraping and search tools to identify competitors, trends, and relevant Instagram content, 
       then produces a structured report.
     description: >
       <important_rules>
@@ -325,16 +324,14 @@ tasks:
     agent: copywriter_agent
     name: Copywriting Task
     task_description: >
-      Loop through each item in the social media schedule and generate Instagram captions, hashtags, and phrases.
-      Accumulate all copywriting into a single Word document.
+      Generate Instagram captions, hashtags, and phrases for all items in the social media schedule.
+      The tool handles iteration automatically and saves the final Word document as an artifact.
     description: >
       <important_rules>
         1. You must not make up any information. Only include information that you are confident about.
         2. You must not include any information that is not related to the topic or the brand.
         3. All captions must align with the phase_name, post_type, date, theme_concept, objective, and description provided in each schedule item.
-        4. You must carefully review all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
-        5. You MUST loop through EVERY item in the social_media_schedule and generate copywriting for each one.
-        6. You MUST accumulate all copywriting into a single markdown document before converting to Word using the markdown_to_word_doc tool.
+        4. You must ensure all copy is error-free with proper grammar, spelling, and punctuation.
       </important_rules>
 
       <context>
@@ -352,67 +349,50 @@ tasks:
            - theme_concept: Theme or concept for the post's content
            - objective: Objective for the post (e.g., awareness, engagement, CTA)
            - description: Detailed description of the post's content
+
+        3. Your crew run ID is: <CREW_RUN_ID>{crew_run_id}</CREW_RUN_ID>
+
+        IMPORTANT: When calling generate_copywriting_for_schedule, you MUST pass the social_media_schedule_json parameter
+        as a valid JSON string containing the SocialMediaSchedule object with all required fields, and ensure the JSON string
+        does not contain any backslashes (i.e., it should be properly escaped and formatted).
       </context>
 
-      <markdown_formatting_rules>
-        1. **Hashtag Formatting:** To prevent hashtags from being interpreted as markdown headers, format them using backticks: `#hashtag` (recommended).
-        2. **Structure:** Use proper markdown headings (##, ###) to organize content by schedule item.
-        3. **Lists:** Use markdown list syntax (- or *) for hashtag sets and phrases.
-        4. **No Code Blocks:** Do NOT wrap the entire output in ``` markdown code blocks.
-        5. **Clean Formatting:** Ensure proper spacing and line breaks for readability.
-      </markdown_formatting_rules>
-
       <your_task>
-        **STEP 1: Parse the Social Media Schedule**
-        The social_media_schedule is a JSON object with an "items" array. Extract the items list and prepare to loop through each item.
+        **STEP 1: Call the Tool**
+        Call the `generate_copywriting_for_schedule` tool with:
+        - social_media_schedule_json: The entire social_media_schedule object as a JSON string (convert the schedule object to JSON format without any backslashes.)
+        - crew_run_id: "{crew_run_id}" (use the crew_run_id value shown above in the context)
 
-        **STEP 2: Initialize Accumulation**
-        Create an empty markdown string that will accumulate all copywriting content. Start with a title heading like "# Instagram Campaign Copywriting".
+        **STEP 2: Verify and Output**
+        The tool will:
+        1. Process ALL items in the schedule automatically (handles iteration in code)
+        2. Generate copywriting for each item (captions, hashtags, phrases)
+        3. Create structured PostCaption objects for each item
+        4. Convert results to markdown and save as Word document artifact
+        5. Return a CopywriterOutput JSON object containing all PostCaption objects
 
-        **STEP 3: Process Schedule Items**        
-        - **CRITICAL: Process ALL items in sequential order (item 1, then item 2, then item 3, etc.)**
-        - For EACH item in the schedule items list IN ORDER:
-          1. Convert the item to a JSON string
-          2. Call the `generate_copywriting_for_item` tool with:
-             - schedule_item_json: The JSON string of the schedule item
-          3. **VERIFY:** Check that the tool returned a complete markdown section (not empty, not a summary)
-          4. Append the markdown section to your accumulating markdown string immediately
-          5. Move to the next item and repeat
-        - **FINAL CHECK:** Count the total number of items processed - it MUST equal the total number of items in the schedule
-
-        **STEP 3: Convert to Word Document and Output**
-        Once you have accumulated ALL copywriting for ALL items into a single markdown string:
-          1. **CRITICAL:** You MUST call the `markdown_to_word_doc` tool to save the Word document as an artifact.
-          2. Call the `markdown_to_word_doc` tool with these EXACT parameters:
-             - markdown: The complete accumulated markdown string containing all items
-             - file_name: "post_captions.docx" (exactly this string)
-             - crew_run_id: "{crew_run_id}" (use the crew_run_id value shown above in the context, copy it exactly)
-          3. **VERIFY:** After calling the tool, check if it returned an error message starting with "Error:". If it did, that means the artifact was NOT saved - you must report this error.
-          4. The tool will convert the entire markdown document to Word format and save it as an artifact (it returns an S3 URL on success, but you should ignore that URL)
-          5. Output the accumulated markdown content as your final result (this markdown content is what gets written to the post_captions field)
+        **VERIFY:** Check if the tool returned an error message starting with "Error:". If it did, report that error.
+        Otherwise, output the JSON string returned by the tool as your final result (this JSON contains the CopywriterOutput object that gets written to the post_captions field).
 
         **IMPORTANT NOTES:**
-        - You MUST process EVERY item in the schedule
-        - You MUST accumulate all tool outputs into ONE markdown document before converting
-        - Only call markdown_to_word_doc tool ONCE at the end with all content to convert to a .docx file.
-        - The tools handle all formatting, so you just need to accumulate the results
-        - For large schedules (20+ items), prefer batch processing to avoid context limit issues
+        - The tool handles ALL iteration and processing automatically - you don't need to loop through items
+        - The tool ensures ALL items are processed - no items will be skipped
+        - The tool automatically saves the Word document as an artifact
+        - Simply call the tool once with the entire schedule and output the returned JSON string
       </your_task>
 
     expected_output: >
-      Generate copywriting content for ALL items in the social media schedule. For each schedule item, include:
-      - Item ID, Week, Date, Post Type
-      - Theme/Concept
-      - Objective
-      - Description
-      - Generated Caption
-      - Hashtags (formatted with backticks like `#hashtag`)
-      - Phrases/Taglines
+      Return a CopywriterOutput JSON object containing a list of PostCaption objects, one for each schedule item.
+      Each PostCaption must include:
+      - schedule_item_id: The ID of the schedule item
+      - caption: The generated Instagram caption text
+      - hashtags: Array of hashtag strings (without '#' prefix)
+      - phrases: Array of 2-3 phrase/tagline strings
       
+      The output must be valid JSON matching the CopywriterOutput schema.
       Do NOT describe whether the output meets requirements.
       Do NOT evaluate or summarize the structure.
-      The final report should be formatted as markdown without '```'.
-
+  
   image_generator:
     reads:
       - field: theme
@@ -464,7 +444,7 @@ tasks:
       </your_task>
 
     expected_output: >
-      A list of S3 links of the generated images, one per line.
+      A list of S3 links of the generated images, one per line.      
 
   orshot_render:
     reads:
@@ -472,9 +452,9 @@ tasks:
         cardinality: required
       - field: orshot_schema
         cardinality: required
-      - field: theme
+      - field: theme                
         cardinality: required
-      - field: brand_description
+      - field: brand_description    
         cardinality: required
       - field: target_audience_description
         cardinality: required
@@ -559,7 +539,7 @@ tasks:
                   b. **PROMPT ENGINEERING:** Rewrite this requirement into a detailed, high-quality prompt for the image generator. Explicitly describe the subject, style, lighting, and mood.
                   c. **GENERATE:** Call the `generate_imagen_tool` tool using your optimized prompt.
                   d. **MAP:** Use the S3 URL returned by the tool.
-        
+
         **PART 3: BACKGROUND FIELDS**
         For each background field:
            1. **ANALYZE:** Check if the description specifies a color.

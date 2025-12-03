@@ -61,8 +61,7 @@ copywriter_agent:
     
     You are systematic and relentless—you never skip a scheduled item, and you ensure every piece of copy is polished, error-free, and neatly organized before delivery.
   tools:
-    - generate_copywriting_for_item
-    - markdown_to_word_doc
+    - generate_copywriting_for_schedule
 
 image_generator_agent:
   key: image_generator_agent
