@@ -48,7 +48,6 @@ import { useCrewForm } from "@/hooks/useCrewForm";
 import { useCrewFlow } from "@/hooks/useCrewFlow";
 import { KickoffForm } from "@/components/KickoffForm";
 import { CrewRunsHistory } from "@/components/CrewRunsHistory";
-import { RunDetails } from "@/components/RunDetails";
 import { ToastNotificationService } from "@/services/ToastNotificationService";
 import { useCrewById } from "@/hooks/useCrewById";
 import type { InteractiveNodeData, NodeData } from "@/types/NodeData";
@@ -124,7 +123,6 @@ export default function CrewPage() {
   const [preDefinedTasks, setPreDefinedTasks] = useState<PreDefinedTask[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [kickoffDialogOpen, setKickoffDialogOpen] = useState(false);
-  const [selectedRun, setSelectedRun] = useState<any | null>(null);
   const [lastSavedTitle, setLastSavedTitle] = useState("");
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -646,9 +644,6 @@ export default function CrewPage() {
               <Button
                 onClick={() => {
                   setShowRunsHistory(!showRunsHistory);
-                  if (showRunsHistory) {
-                    setSelectedRun(null);
-                  }
                   if (reactFlowInstance) {
                     setTimeout(() => {
                       reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
@@ -771,15 +766,12 @@ export default function CrewPage() {
           {/* Runs History Sidebar */}
           {mode === "view" && showRunsHistory && (
             <div key={runsRefreshKey}>
-              <CrewRunsHistory crewRuns={crewRuns} onSelectRun={setSelectedRun} />
+              <CrewRunsHistory crewRuns={crewRuns} />
             </div>
           )}
 
           {/* React Flow Canvas */}
           <div className="flex-1 flex flex-col gap-4">
-            {/* Selected Run Details */}
-            {selectedRun && mode === "view" && <RunDetails selectedRun={selectedRun} crewRuns={crewRuns} onClose={() => setSelectedRun(null)} />}
-
             {/* Canvas */}
             <div className={`h-[600px] border-2 border-border rounded-lg bg-card relative`}>
               <ReactFlow

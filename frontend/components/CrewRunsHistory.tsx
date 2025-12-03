@@ -1,8 +1,14 @@
 import React from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import type { CrewRunsHistoryProps } from "@/types/ComponentProps";
 
-export function CrewRunsHistory({ crewRuns, onSelectRun }: CrewRunsHistoryProps) {
+export function CrewRunsHistory({ crewRuns }: CrewRunsHistoryProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  const crewId = searchParams.get("id");
+  const crewName = searchParams.get("title");
   return (
     <div className="w-96 flex-shrink-0 bg-[#1a1a1a] border-2 border-white rounded-lg p-4 overflow-y-auto max-h-[600px]">
       <div className="flex items-center justify-between mb-4">
@@ -18,7 +24,9 @@ export function CrewRunsHistory({ crewRuns, onSelectRun }: CrewRunsHistoryProps)
             <div
               key={run.id}
               className="p-4 border-2 border-transparent rounded-lg hover:border-white transition-colors cursor-pointer bg-[#3a3a3a] hover:bg-[#2a2a2a]"
-              onClick={() => onSelectRun(run)}
+              onClick={() => {
+                router.push(`/studio/crew/run?crewId=${crewId}&runId=${run.id}&crewName=${encodeURIComponent(crewName || "")}`);
+              }}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
