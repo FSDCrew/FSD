@@ -40,8 +40,10 @@ def run_flow_worker(tasks_dict: list[dict], inputs: dict, result_queue: multipro
     Args:
         tasks_dict: List of task dictionaries (serialized TaskInfo objects)
         inputs: Dictionary of input values for the flow
-        result_queue: Queue to put the result or error
+        result_queue: Queue to put the result or error, along with flow_state
     """
+    flow = None
+    FlowStateModel = None
     try:
         flow_service = get_flow_service()
         tasks = [TaskInfo.model_validate(task_dict) for task_dict in tasks_dict]
@@ -50,10 +52,20 @@ def run_flow_worker(tasks_dict: list[dict], inputs: dict, result_queue: multipro
         FlowStateModel, FlowClass, _ = flow_service.build_flow(tasks, task_status_service)
         flow = FlowClass()
         result = flow.kickoff(inputs=inputs)
-        result_queue.put(("ok", result))
+        
+        # Extract flow_state from executed flow instance
+        flow_state = ResultBuilder._extract_flow_state(flow, FlowStateModel)
+        result_queue.put(("ok", result, flow_state))
     except Exception as e:
         logger.error(f"Error in flow worker process: {e}", exc_info=True)
-        result_queue.put(("error", str(e)))
+        # Extract flow_state even on error to capture partial state
+        flow_state = None
+        if flow is not None and FlowStateModel is not None:
+            try:
+                flow_state = ResultBuilder._extract_flow_state(flow, FlowStateModel)
+            except Exception as state_error:
+                logger.warning(f"Failed to extract flow_state on error: {state_error}", exc_info=True)
+        result_queue.put(("error", str(e), flow_state))
 
 
 class FlowProcessManager:
@@ -67,9 +79,9 @@ class FlowProcessManager:
         crew_run_id: UUID,
         tasks: list[TaskInfo],
         stored_inputs: dict
-    ) -> Any:
+    ) -> tuple[Any, Optional[dict]]:
         """
-        Execute flow in a separate process and return the result.
+        Execute flow in a separate process and return the result and flow_state.
         
         Args:
             crew_run_id: UUID of the crew run
@@ -77,7 +89,7 @@ class FlowProcessManager:
             stored_inputs: Input dictionary for the flow
             
         Returns:
-            Flow execution result
+            Tuple of (flow execution result, flow_state dict or None)
             
         Raises:
             RuntimeError: If flow execution fails or process crashes
@@ -98,13 +110,16 @@ class FlowProcessManager:
             # Wait for result from worker process
             queue_result = await self._wait_for_result(flow_process, result_queue)
             
-            status, result_or_error = queue_result
+            status, result_or_error, flow_state = queue_result
             if status == "error":
-                raise RuntimeError(f"Flow execution failed: {result_or_error}")
+                # Store flow_state before raising error so caller can access it
+                error_with_state = RuntimeError(f"Flow execution failed: {result_or_error}")
+                error_with_state.flow_state = flow_state  # type: ignore
+                raise error_with_state
             
             # Gracefully terminate process
             self._terminate_process(flow_process, timeout=5.0)
-            return result_or_error
+            return result_or_error, flow_state
             
         except asyncio.CancelledError:
             logger.info(f"Flow execution cancelled for crew_run {crew_run_id}")
@@ -117,7 +132,7 @@ class FlowProcessManager:
         self,
         flow_process: Any,
         result_queue: multiprocessing.Queue
-    ) -> tuple[str, Any]:
+    ) -> tuple[str, Any, Optional[dict]]:
         """Wait for result from worker process, handling process crashes."""
         try:
             return await asyncio.to_thread(result_queue.get, timeout=None)
@@ -160,20 +175,31 @@ class ResultBuilder:
     """Builds and serializes flow execution results for API submission."""
     
     @staticmethod
-    def build_payload(result: Any, flow: Any, flow_state_model: type) -> dict:
+    def build_payload(
+        result: Any, 
+        flow: Any, 
+        flow_state_model: type, 
+        flow_state: Optional[dict] = None
+    ) -> dict:
         """
         Build result payload combining execution result and flow state.
         
         Args:
             result: Flow execution result
-            flow: Flow instance (for state extraction)
+            flow: Flow instance (for state extraction fallback)
             flow_state_model: Pydantic model class for flow state
+            flow_state: Optional pre-extracted flow_state dict (preferred over extracting from flow)
             
         Returns:
             Dictionary containing result and/or flow_state
         """
         result_data = ResultBuilder._serialize_value(result)
-        state_dict = ResultBuilder._extract_flow_state(flow, flow_state_model)
+        
+        # Use provided flow_state if available, otherwise extract from flow instance
+        if flow_state is not None:
+            state_dict = flow_state
+        else:
+            state_dict = ResultBuilder._extract_flow_state(flow, flow_state_model)
         
         if not state_dict:
             return result_data
@@ -422,6 +448,8 @@ class JobExecutor:
         """
         heartbeat_task = None
         execute_task = asyncio.current_task()
+        flow_state = None
+        tasks = None
         
         try:
             # Start heartbeat loop
@@ -433,17 +461,34 @@ class JobExecutor:
             tasks, stored_inputs = await self._prepare_execution_data(crew_run_id)
             
             # Execute flow in separate process
-            result = await self.process_manager.run_flow(crew_run_id, tasks, stored_inputs)
+            result, flow_state = await self.process_manager.run_flow(crew_run_id, tasks, stored_inputs)
             
-            # Build and submit result
-            await self._submit_result(crew_run_id, tasks, result)
+            # Build and submit result with flow_state
+            await self._submit_result(crew_run_id, tasks, result, flow_state=flow_state)
             
         except asyncio.CancelledError:
             logger.info(f"Crew run {crew_run_id} execution cancelled")
             await self._handle_cancellation(queue_id, lease_token)
             raise
+        except RuntimeError as e:
+            # RuntimeError from run_flow may contain flow_state attribute
+            flow_state = getattr(e, 'flow_state', None)
+            logger.error(f"Error executing crew run {crew_run_id}: {e}", exc_info=True)
+            # Try to save flow_state even on error if we have it
+            if flow_state is not None and tasks is not None:
+                try:
+                    await self._submit_result(crew_run_id, tasks, None, flow_state=flow_state)
+                except Exception as submit_error:
+                    logger.warning(f"Failed to submit flow_state on error: {submit_error}", exc_info=True)
+            raise
         except Exception as e:
             logger.error(f"Error executing crew run {crew_run_id}: {e}", exc_info=True)
+            # Try to save flow_state even on error if we have it
+            if flow_state is not None and tasks is not None:
+                try:
+                    await self._submit_result(crew_run_id, tasks, None, flow_state=flow_state)
+                except Exception as submit_error:
+                    logger.warning(f"Failed to submit flow_state on error: {submit_error}", exc_info=True)
             raise
         finally:
             await self._cleanup_heartbeat(heartbeat_task)
@@ -476,7 +521,8 @@ class JobExecutor:
         self,
         crew_run_id: UUID,
         tasks: list[TaskInfo],
-        result: Any
+        result: Any,
+        flow_state: Optional[dict] = None
     ):
         """
         Build result payload and submit to CRUD service.
@@ -485,13 +531,14 @@ class JobExecutor:
             crew_run_id: UUID of the crew run
             tasks: List of task definitions
             result: Flow execution result
+            flow_state: Optional flow_state dict from executed flow
         """
         task_status_service = TaskStatusService()
         FlowStateModel, FlowClass, _ = self.flow_service.build_flow(tasks, task_status_service)
         flow = FlowClass()
         
-        # Build result payload
-        result_data = ResultBuilder.build_payload(result, flow, FlowStateModel)
+        # Build result payload using provided flow_state
+        result_data = ResultBuilder.build_payload(result, flow, FlowStateModel, flow_state=flow_state)
         
         output_body = CrewRunOutputUpdate()
         if isinstance(result_data, dict):
