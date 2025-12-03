@@ -6,12 +6,12 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="ContentStrategyGlobalSettings")
+T = TypeVar("T", bound="UpdateTaskStatusRequestTaskInputs")
 
 
 @_attrs_define
-class ContentStrategyGlobalSettings:
-    """High-level settings: tone, voice, brand alignment, messaging principles, content pillars"""
+class UpdateTaskStatusRequestTaskInputs:
+    """ """
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -24,10 +24,10 @@ class ContentStrategyGlobalSettings:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        content_strategy_global_settings = cls()
+        update_task_status_request_task_inputs = cls()
 
-        content_strategy_global_settings.additional_properties = d
-        return content_strategy_global_settings
+        update_task_status_request_task_inputs.additional_properties = d
+        return update_task_status_request_task_inputs
 
     @property
     def additional_keys(self) -> list[str]:

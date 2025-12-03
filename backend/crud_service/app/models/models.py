@@ -171,6 +171,14 @@ class CrewRunOutputCreate(CrewRunOutputBase):
 class CrewRunOutputRead(CrewRunOutputBase):
     pass
 
+
+class UpdateTaskStatusRequest(BaseModel):
+    """Request model for updating task status."""
+    status: TaskStatus
+    task_inputs: dict[str, Any]
+    task_outputs: dict[str, Any]
+    completed_at: datetime | None = None
+
 class CrewRunBase(BaseModel):
     pass
 

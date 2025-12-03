@@ -41,6 +41,9 @@ from .update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put_o
     UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput,
 )
 from .update_status_request import UpdateStatusRequest
+from .update_task_status_request import UpdateTaskStatusRequest
+from .update_task_status_request_task_inputs import UpdateTaskStatusRequestTaskInputs
+from .update_task_status_request_task_outputs import UpdateTaskStatusRequestTaskOutputs
 from .user import User
 from .validation_error import ValidationError
 
@@ -82,6 +85,9 @@ __all__ = (
     "TaskStatus",
     "UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput",
     "UpdateStatusRequest",
+    "UpdateTaskStatusRequest",
+    "UpdateTaskStatusRequestTaskInputs",
+    "UpdateTaskStatusRequestTaskOutputs",
     "User",
     "ValidationError",
 )

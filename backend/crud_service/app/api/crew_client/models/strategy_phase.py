@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 
+from ..models.post_type import PostType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -24,7 +25,7 @@ class StrategyPhase:
             duration_in_weeks (int): How long the phase should run, without calendar dates.
             themes (list[str]): Core themes emphasized in this phase.
             objectives (list[str]): Strategic objectives for the phase.
-            recommended_content_types (list[str]): Content formats recommended here (e.g., posts, reels, stories).
+            recommended_content_types (list[PostType]): Content formats recommended here (e.g., POST, STORY).
             posting_cadence (StrategyPhasePostingCadence): Cadence expressed as counts, e.g., {'posts_per_week': 3,
                 'stories_per_week': 2}
             messaging_guidelines (list[str] | None | Unset): Tone & message guidelines specific to this phase.
@@ -34,7 +35,7 @@ class StrategyPhase:
     duration_in_weeks: int
     themes: list[str]
     objectives: list[str]
-    recommended_content_types: list[str]
+    recommended_content_types: list[PostType]
     posting_cadence: StrategyPhasePostingCadence
     messaging_guidelines: list[str] | None | Unset = UNSET
 
@@ -47,7 +48,10 @@ class StrategyPhase:
 
         objectives = self.objectives
 
-        recommended_content_types = self.recommended_content_types
+        recommended_content_types = []
+        for recommended_content_types_item_data in self.recommended_content_types:
+            recommended_content_types_item = recommended_content_types_item_data.value
+            recommended_content_types.append(recommended_content_types_item)
 
         posting_cadence = self.posting_cadence.to_dict()
 
@@ -90,7 +94,14 @@ class StrategyPhase:
 
         objectives = cast(list[str], d.pop("objectives"))
 
-        recommended_content_types = cast(list[str], d.pop("recommended_content_types"))
+        recommended_content_types = []
+        _recommended_content_types = d.pop("recommended_content_types")
+        for recommended_content_types_item_data in _recommended_content_types:
+            recommended_content_types_item = PostType(
+                recommended_content_types_item_data
+            )
+
+            recommended_content_types.append(recommended_content_types_item)
 
         posting_cadence = StrategyPhasePostingCadence.from_dict(
             d.pop("posting_cadence")

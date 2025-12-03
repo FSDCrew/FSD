@@ -37,7 +37,7 @@ class Task(Base):
 class CrewRun(Base):
     __tablename__ = "crew_runs"
     id = Column(PostgresUUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
-    output = Column(JSONB, nullable=True)
+    output = Column(JSONB, nullable=False)
     run_metadata = Column(JSONB, nullable=True)
     crew_id = Column(PostgresUUID(as_uuid=True), ForeignKey("crews.id", ondelete="CASCADE"), nullable=False)
     crew = relationship("Crew", back_populates="crew_runs")

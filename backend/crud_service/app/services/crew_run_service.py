@@ -1,3 +1,5 @@
+from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -7,6 +9,9 @@ from app.models.models import (
     CrewRunCreate,
     CrewRunRead,
     QueueStatus,
+    TaskStateSnapshot,
+    TaskStatus,
+    UpdateTaskStatusRequest,
 )
 from app.repositories.crew_run_repository import CrewRunRepository
 from app.repositories.queue_repository import QueueRepository
@@ -148,4 +153,58 @@ class CrewRunService:
                 crew_run_id
             )
         )
+        return self._convert_db_to_read(full_crew_run)
+
+    async def update_task_status(
+        self,
+        crew_run_id: UUID,
+        task_key: str,
+        update_task_status_request: UpdateTaskStatusRequest,
+    ) -> CrewRunRead:
+        """Updates the status of a specific task in a crew run."""
+        crew_run = await self.get_crew_run_by_id_internal(crew_run_id)
+        if crew_run is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Crew Run with ID {crew_run_id} not found.",
+            )
+        
+        task_states_dict = crew_run.output.task_states
+        current_task_state = task_states_dict.get(task_key)
+        if current_task_state is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Task with key {task_key} not found in crew run output.",
+            )
+        
+        updated_task_state = TaskStateSnapshot(
+            state={
+                "reads": update_task_status_request.task_inputs,
+                "writes": update_task_status_request.task_outputs,
+            },
+            completed_at=update_task_status_request.completed_at,
+            status=update_task_status_request.status,
+            order=current_task_state.order,
+        )
+        
+        updated_output = crew_run.output.model_dump(mode='json')
+        updated_output['task_states'][task_key] = updated_task_state.model_dump(mode='json')
+        
+        db_crew_run = await self.crew_run_repository.update_crew_run_output(
+            crew_run_id, updated_output
+        )
+        
+        if db_crew_run is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Crew Run with ID {crew_run_id} not found.",
+            )
+        
+        # Refresh to get the full crew run with relationships
+        full_crew_run = (
+            await self.crew_run_repository.get_crew_run_by_id_with_artifacts(
+                crew_run_id
+            )
+        )
+        
         return self._convert_db_to_read(full_crew_run)

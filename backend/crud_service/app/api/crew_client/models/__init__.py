@@ -2,7 +2,7 @@
 
 from .allowed_template_id import AllowedTemplateId
 from .content_strategy import ContentStrategy
-from .content_strategy_global_settings import ContentStrategyGlobalSettings
+from .content_strategy_global_settings_type_0 import ContentStrategyGlobalSettingsType0
 from .crew_run import CrewRun
 from .crew_run_create_request import CrewRunCreateRequest
 from .crew_run_create_request_inputs_type_0 import CrewRunCreateRequestInputsType0
@@ -12,10 +12,10 @@ from .http_validation_error import HTTPValidationError
 from .marketing_research_report import MarketingResearchReport
 from .orshot_data_type import OrshotDataType
 from .orshot_schema_field import OrshotSchemaField
+from .post_type import PostType
 from .required_input_field import RequiredInputField
 from .required_inputs_response import RequiredInputsResponse
 from .schedule_item import ScheduleItem
-from .schedule_item_post_type import ScheduleItemPostType
 from .social_media_schedule import SocialMediaSchedule
 from .strategy_phase import StrategyPhase
 from .strategy_phase_posting_cadence import StrategyPhasePostingCadence
@@ -27,7 +27,7 @@ from .validation_error import ValidationError
 __all__ = (
     "AllowedTemplateId",
     "ContentStrategy",
-    "ContentStrategyGlobalSettings",
+    "ContentStrategyGlobalSettingsType0",
     "CrewRun",
     "CrewRunCreateRequest",
     "CrewRunCreateRequestInputsType0",
@@ -37,10 +37,10 @@ __all__ = (
     "MarketingResearchReport",
     "OrshotDataType",
     "OrshotSchemaField",
+    "PostType",
     "RequiredInputField",
     "RequiredInputsResponse",
     "ScheduleItem",
-    "ScheduleItemPostType",
     "SocialMediaSchedule",
     "StrategyPhase",
     "StrategyPhasePostingCadence",
