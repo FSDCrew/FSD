@@ -28,7 +28,7 @@ The central entry point accepts a `CrewRunRetryRequest`, a `crew_run_id`, and a 
 4. **Seed output state for the new run** by constructing a `CrewRunOutputCreateTaskStates`:
    - Upstream tasks are copied directly into the new structure and forced to `TaskStatus.COMPLETED`.
    - The retry task and everything downstream are reset to new `TaskStateSnapshot` objects with empty `state`, a queued status, and preserved `order`.
-5. **Reuse metadata** by cloning the original `run_metadata.inputs` into a `CrewRunMetadataCreateInputs` object and reusing the original `tasks_snapshot` inside a new `CrewRunMetadataCreate`.
+5. **Reuse metadata** by cloning the original `run_metadata.inputs` into a `CrewRunMetadataCreateInputs` object and reusing the original `tasks_snapshot` inside a new `CrewRunMetadataCreate`. The new metadata also records a `RetryFeedback` payload (`retry_from_task_key` plus the user-provided `feedback`) so downstream components know which task triggered the retry and can surface the feedback to the agent that will re-run it.
 6. **Create the retry run** by calling `_create_retry_crew_run`, which posts a `CrewRunCreateBody` (wrapping `CrewRunCreate`) to `create_crew_run_func`. The helper raises descriptive `ValueError`s when the CRUD service does not return HTTP 201, returns `HTTPValidationError`, or produces no parsed payload.
 7. **Copy artifacts** with `_copy_artifacts`, which invokes `copy_artifacts_func.asyncio_detailed` and rejects non-200 responses.
 8. **Cancel the original run** with `_cancel_original_crew_run`, unless its `queue_status` is already `CANCELLED` or `COMPLETED`. Cancellation errors are logged and re-raised so callers can decide how to handle failures.

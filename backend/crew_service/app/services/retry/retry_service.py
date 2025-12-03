@@ -21,6 +21,7 @@ from app.api.crud_client.models import (
     CrewRunOutputCreate,
     CrewRunOutputCreateTaskStates,
     QueueStatus,
+    RetryFeedback,
     TaskStateSnapshot,
     TaskStateSnapshotState,
     TaskStatus,
@@ -154,7 +155,11 @@ class RetryService:
         
         new_run_metadata = CrewRunMetadataCreate(
             inputs=create_inputs,
-            tasks_snapshot=tasks_snapshot
+            tasks_snapshot=tasks_snapshot,
+            retry_feedback=RetryFeedback(
+                retry_from_task_key=retry_from_task_key,
+                feedback=retry_request.feedback,
+            ),
         )
         
         # * 4. Create new Crew Run

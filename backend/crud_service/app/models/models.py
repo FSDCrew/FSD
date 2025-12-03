@@ -161,7 +161,7 @@ class CrewRunMetadataRead(CrewRunMetadataBase):
 
 class CrewRunOutputBase(BaseModel):
     flow_state: dict[str, Any] | None = None
-    task_states: dict[str, TaskStateSnapshot] = {}
+    task_states: dict[str, TaskStateSnapshot]
 
 
 class CrewRunOutputCreate(CrewRunOutputBase):
