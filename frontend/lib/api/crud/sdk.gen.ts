@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ClaimNextJobInternalInternalQueueClaimPostData, ClaimNextJobInternalInternalQueueClaimPostErrors, ClaimNextJobInternalInternalQueueClaimPostResponses, CreateArtifactArtifactCrewRunIdPostData, CreateArtifactArtifactCrewRunIdPostErrors, CreateArtifactArtifactCrewRunIdPostResponses, CreateCrewCrewPostData, CreateCrewCrewPostErrors, CreateCrewCrewPostResponses, CreateCrewRunInternalInternalCrewRunCreatePostData, CreateCrewRunInternalInternalCrewRunCreatePostErrors, CreateCrewRunInternalInternalCrewRunCreatePostResponses, CreateTaskTaskCrewIdPostData, CreateTaskTaskCrewIdPostErrors, CreateTaskTaskCrewIdPostResponses, DeleteCrewCrewCrewIdDeleteData, DeleteCrewCrewCrewIdDeleteErrors, DeleteCrewCrewCrewIdDeleteResponses, GetAllCrewsCrewGetData, GetAllCrewsCrewGetResponses, GetArtifactArtifactArtifactIdGetData, GetArtifactArtifactArtifactIdGetErrors, GetArtifactArtifactArtifactIdGetResponses, GetCrewByIdCrewCrewIdGetData, GetCrewByIdCrewCrewIdGetErrors, GetCrewByIdCrewCrewIdGetResponses, GetCrewByIdInternalCrewCrewIdGetData, GetCrewByIdInternalCrewCrewIdGetErrors, GetCrewByIdInternalCrewCrewIdGetResponses, GetCrewRunByIdInternalCrewRunCrewRunIdGetData, GetCrewRunByIdInternalCrewRunCrewRunIdGetErrors, GetCrewRunByIdInternalCrewRunCrewRunIdGetResponses, GetCrewRunCrewRunCrewRunIdGetData, GetCrewRunCrewRunCrewRunIdGetErrors, GetCrewRunCrewRunCrewRunIdGetResponses, GetUserByIdUserGetData, GetUserByIdUserGetResponses, HeartbeatInternalInternalQueueQueueIdHeartbeatPostData, HeartbeatInternalInternalQueueQueueIdHeartbeatPostErrors, HeartbeatInternalInternalQueueQueueIdHeartbeatPostResponses, ReplaceAllTasksForCrewTaskCrewIdSavePutData, ReplaceAllTasksForCrewTaskCrewIdSavePutErrors, ReplaceAllTasksForCrewTaskCrewIdSavePutResponses, SyncUserUserSyncPostData, SyncUserUserSyncPostResponses, SystemCheckStatusHealthGetData, SystemCheckStatusHealthGetResponses, UpdateCrewCrewPutData, UpdateCrewCrewPutErrors, UpdateCrewCrewPutResponses, UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutData, UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutErrors, UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutResponses, UpdateOneTaskTaskCrewIdPatchData, UpdateOneTaskTaskCrewIdPatchErrors, UpdateOneTaskTaskCrewIdPatchResponses, UpdateQueueStatusInternalInternalQueueQueueIdStatusPutData, UpdateQueueStatusInternalInternalQueueQueueIdStatusPutErrors, UpdateQueueStatusInternalInternalQueueQueueIdStatusPutResponses } from './types.gen';
+import type { CancelCrewRunInternalInternalCrewRunCrewRunIdCancelPostData, CancelCrewRunInternalInternalCrewRunCrewRunIdCancelPostErrors, CancelCrewRunInternalInternalCrewRunCrewRunIdCancelPostResponses, ClaimNextJobInternalInternalQueueClaimPostData, ClaimNextJobInternalInternalQueueClaimPostErrors, ClaimNextJobInternalInternalQueueClaimPostResponses, CreateArtifactInternalInternalArtifactCrewRunIdPostData, CreateArtifactInternalInternalArtifactCrewRunIdPostErrors, CreateArtifactInternalInternalArtifactCrewRunIdPostResponses, CreateCrewCrewPostData, CreateCrewCrewPostErrors, CreateCrewCrewPostResponses, CreateCrewRunInternalInternalCrewRunCreatePostData, CreateCrewRunInternalInternalCrewRunCreatePostErrors, CreateCrewRunInternalInternalCrewRunCreatePostResponses, DeleteCrewCrewCrewIdDeleteData, DeleteCrewCrewCrewIdDeleteErrors, DeleteCrewCrewCrewIdDeleteResponses, GetAllCrewsCrewGetData, GetAllCrewsCrewGetResponses, GetArtifactArtifactArtifactIdGetData, GetArtifactArtifactArtifactIdGetErrors, GetArtifactArtifactArtifactIdGetResponses, GetArtifactForUserArtifactViewArtifactIdGetData, GetArtifactForUserArtifactViewArtifactIdGetErrors, GetArtifactForUserArtifactViewArtifactIdGetResponses, GetCrewByIdCrewCrewIdGetData, GetCrewByIdCrewCrewIdGetErrors, GetCrewByIdCrewCrewIdGetResponses, GetCrewByIdInternalCrewCrewIdGetData, GetCrewByIdInternalCrewCrewIdGetErrors, GetCrewByIdInternalCrewCrewIdGetResponses, GetCrewRunByIdInternalCrewRunCrewRunIdGetData, GetCrewRunByIdInternalCrewRunCrewRunIdGetErrors, GetCrewRunByIdInternalCrewRunCrewRunIdGetResponses, GetCrewRunCrewRunCrewRunIdGetData, GetCrewRunCrewRunCrewRunIdGetErrors, GetCrewRunCrewRunCrewRunIdGetResponses, GetUserByIdUserGetData, GetUserByIdUserGetResponses, HeartbeatInternalInternalQueueQueueIdHeartbeatPostData, HeartbeatInternalInternalQueueQueueIdHeartbeatPostErrors, HeartbeatInternalInternalQueueQueueIdHeartbeatPostResponses, ReplaceAllTasksForCrewTaskCrewIdSavePutData, ReplaceAllTasksForCrewTaskCrewIdSavePutErrors, ReplaceAllTasksForCrewTaskCrewIdSavePutResponses, SyncUserUserSyncPostData, SyncUserUserSyncPostResponses, SystemCheckStatusHealthGetData, SystemCheckStatusHealthGetResponses, UpdateCrewCrewPutData, UpdateCrewCrewPutErrors, UpdateCrewCrewPutResponses, UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutData, UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutErrors, UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutResponses, UpdateQueueStatusInternalInternalQueueQueueIdStatusPutData, UpdateQueueStatusInternalInternalQueueQueueIdStatusPutErrors, UpdateQueueStatusInternalInternalQueueQueueIdStatusPutResponses, UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutData, UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutErrors, UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -127,50 +127,6 @@ export const updateCrewCrewPut = <ThrowOnError extends boolean = false>(options:
 };
 
 /**
- * Update One Task
- *
- * Update one task.
- */
-export const updateOneTaskTaskCrewIdPatch = <ThrowOnError extends boolean = false>(options: Options<UpdateOneTaskTaskCrewIdPatchData, ThrowOnError>) => {
-    return (options.client ?? client).patch<UpdateOneTaskTaskCrewIdPatchResponses, UpdateOneTaskTaskCrewIdPatchErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/task/{crew_id}',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
-
-/**
- * Create Task
- *
- * Create a new task.
- */
-export const createTaskTaskCrewIdPost = <ThrowOnError extends boolean = false>(options: Options<CreateTaskTaskCrewIdPostData, ThrowOnError>) => {
-    return (options.client ?? client).post<CreateTaskTaskCrewIdPostResponses, CreateTaskTaskCrewIdPostErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/task/{crew_id}',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
-
-/**
  * Replace All Tasks For Crew
  *
  * Replace all tasks for a crew.
@@ -229,28 +185,6 @@ export const getUserByIdUserGet = <ThrowOnError extends boolean = false>(options
 };
 
 /**
- * Create Artifact
- *
- * Create a new artifact linked to a crew run (designed for server-to-server Base64 upload).
- */
-export const createArtifactArtifactCrewRunIdPost = <ThrowOnError extends boolean = false>(options: Options<CreateArtifactArtifactCrewRunIdPostData, ThrowOnError>) => {
-    return (options.client ?? client).post<CreateArtifactArtifactCrewRunIdPostResponses, CreateArtifactArtifactCrewRunIdPostErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/artifact/{crew_run_id}',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
-
-/**
  * Get Artifact
  *
  * Retrieve an artifact by its ID.
@@ -264,6 +198,25 @@ export const getArtifactArtifactArtifactIdGet = <ThrowOnError extends boolean = 
             }
         ],
         url: '/artifact/{artifact_id}',
+        ...options
+    });
+};
+
+/**
+ * Get Artifact For User
+ *
+ * Retrieve an artifact by its ID for a Frontend User.
+ * Authenticated via JWT (Cognito/Auth0).
+ */
+export const getArtifactForUserArtifactViewArtifactIdGet = <ThrowOnError extends boolean = false>(options: Options<GetArtifactForUserArtifactViewArtifactIdGetData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetArtifactForUserArtifactViewArtifactIdGetResponses, GetArtifactForUserArtifactViewArtifactIdGetErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/artifact/view/{artifact_id}',
         ...options
     });
 };
@@ -345,6 +298,28 @@ export const createCrewRunInternalInternalCrewRunCreatePost = <ThrowOnError exte
 };
 
 /**
+ * Cancel Crew Run Internal
+ *
+ * Cancel a crew run via internal API.
+ */
+export const cancelCrewRunInternalInternalCrewRunCrewRunIdCancelPost = <ThrowOnError extends boolean = false>(options: Options<CancelCrewRunInternalInternalCrewRunCrewRunIdCancelPostData, ThrowOnError>) => {
+    return (options.client ?? client).post<CancelCrewRunInternalInternalCrewRunCrewRunIdCancelPostResponses, CancelCrewRunInternalInternalCrewRunCrewRunIdCancelPostErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/internal/crew-run/{crew_run_id}/cancel',
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+        }
+    });
+};
+
+/**
  * Update Crew Run Output Internal
  *
  * Update the output of a crew run via internal API.
@@ -358,6 +333,28 @@ export const updateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPut = <Thr
             }
         ],
         url: '/internal/crew-run/{crew_run_id}/output',
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+        }
+    });
+};
+
+/**
+ * Update Task Status Internal
+ *
+ * Update the status of a specific task in a crew run via internal API.
+ */
+export const updateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPut = <ThrowOnError extends boolean = false>(options: Options<UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutData, ThrowOnError>) => {
+    return (options.client ?? client).put<UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutResponses, UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/internal/crew-run/{crew_run_id}/task/{task_key}/status',
         ...options,
         headers: {
             'Content-Type': 'application/json',
@@ -420,6 +417,28 @@ export const heartbeatInternalInternalQueueQueueIdHeartbeatPost = <ThrowOnError 
             }
         ],
         url: '/internal/queue/{queue_id}/heartbeat',
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+        }
+    });
+};
+
+/**
+ * Create Artifact Internal
+ *
+ * Internal-only endpoint for Base64 artifact uploads.
+ */
+export const createArtifactInternalInternalArtifactCrewRunIdPost = <ThrowOnError extends boolean = false>(options: Options<CreateArtifactInternalInternalArtifactCrewRunIdPostData, ThrowOnError>) => {
+    return (options.client ?? client).post<CreateArtifactInternalInternalArtifactCrewRunIdPostResponses, CreateArtifactInternalInternalArtifactCrewRunIdPostErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/internal/artifact/{crew_run_id}',
         ...options,
         headers: {
             'Content-Type': 'application/json',
