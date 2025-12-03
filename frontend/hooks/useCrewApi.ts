@@ -8,7 +8,7 @@ import {
 /**
  * Hook to fetch required inputs for a crew
  */
-export function useRequiredInputs(crewId: string | null) {
+export function useRequiredInputs(crewId: string | null, enabled: boolean = true) {
     return useQuery<RequiredInputsResponse>({
         queryKey: ['crew', crewId, 'required-inputs'],
         queryFn: async () => {
@@ -23,7 +23,7 @@ export function useRequiredInputs(crewId: string | null) {
             }
             return response.data;
         },
-        enabled: !!crewId,
+        enabled: !!crewId && enabled,
     });
 }
 

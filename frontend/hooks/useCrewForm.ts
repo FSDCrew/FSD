@@ -22,9 +22,10 @@ function checkIfFieldIsNullable(field: RequiredInputField, typeInfo: any): boole
 
 export function useCrewForm(
   crewId: string | null,
-  notificationService: INotificationService
+  notificationService: INotificationService,
+  enabled: boolean = false
 ) {
-  const { data: requiredInputsData, isLoading: isLoadingRequiredInputs, error: requiredInputsError, refetch: fetchRequiredInputs } = useRequiredInputs(crewId);
+  const { data: requiredInputsData, isLoading: isLoadingRequiredInputs, error: requiredInputsError, refetch: fetchRequiredInputs } = useRequiredInputs(crewId, enabled);
   const kickoffMutation = useCrewKickoff();
   const [dynamicFormData, setDynamicFormData] = useState<Record<string, any>>({});
 
