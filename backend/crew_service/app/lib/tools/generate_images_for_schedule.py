@@ -127,42 +127,71 @@ class GenerateImagesForScheduleTool(BaseTool):
 
             # Process each item and generate images
             image_assets_list: List[ImageAsset] = []
+            failed_items = []
 
             for item in schedule_data.items:
-                logger.info(f"Generating image for schedule item {item.id}")
+                try:
+                    logger.info(f"Processing schedule item {item.id} (item {len(image_assets_list) + 1} of {len(schedule_data.items)})")
 
-                # Generate image prompt based on item context
-                image_prompt = self._generate_image_prompt(item=item)
+                    # Generate image prompt based on item context
+                    image_prompt = self._generate_image_prompt(item=item)
 
-                if image_prompt.startswith("Error:"):
-                    logger.error(f"Failed to generate prompt for item {item.id}: {image_prompt}")
-                    # Continue with next item instead of failing completely
+                    if image_prompt.startswith("Error:"):
+                        error_msg = f"Failed to generate prompt for item {item.id}: {image_prompt}"
+                        logger.error(error_msg)
+                        failed_items.append({"item_id": item.id, "error": error_msg})
+                        # Continue with next item instead of failing completely
+                        continue
+
+                    # Generate image using Imagen
+                    logger.info(f"Calling generate_imagen_tool for item {item.id}")
+                    image_url = generate_imagen_tool._run(
+                        prompt=image_prompt,
+                        crew_run_id=crew_run_id
+                    )
+
+                    if image_url.startswith("Error:"):
+                        error_msg = f"Failed to generate image for item {item.id}: {image_url}"
+                        logger.error(error_msg)
+                        failed_items.append({"item_id": item.id, "error": error_msg})
+                        # Continue with next item instead of failing completely
+                        continue
+
+                    # Create ImageAsset object
+                    image_asset = ImageAsset(
+                        schedule_item_id=item.id,
+                        image_url=image_url
+                    )
+                    image_assets_list.append(image_asset)
+                    logger.info(f"Successfully generated image for item {item.id}: {image_url[:50]}...")
+
+                except Exception as item_error:
+                    error_msg = f"Unexpected error processing item {item.id}: {str(item_error)}"
+                    logger.error(error_msg, exc_info=True)
+                    failed_items.append({"item_id": item.id, "error": error_msg})
+                    # Continue with next item
                     continue
 
-                # Generate image using Imagen
-                image_url = generate_imagen_tool._run(
-                    prompt=image_prompt,
-                    crew_run_id=crew_run_id
+            # Validate that we processed all items
+            if len(image_assets_list) != len(schedule_data.items):
+                missing_count = len(schedule_data.items) - len(image_assets_list)
+                warning_msg = (
+                    f"WARNING: Only generated {len(image_assets_list)} images out of {len(schedule_data.items)} items. "
+                    f"Missing {missing_count} item(s). Failed items: {failed_items}"
                 )
-
-                if image_url.startswith("Error:"):
-                    logger.error(f"Failed to generate image for item {item.id}: {image_url}")
-                    # Continue with next item instead of failing completely
-                    continue
-
-                # Create ImageAsset object
-                image_asset = ImageAsset(
-                    schedule_item_id=item.id,
-                    image_url=image_url
-                )
-                image_assets_list.append(image_asset)
-
-            if len(image_assets_list) == 0:
-                error_msg = "Error: Failed to generate any images. All image generation attempts failed."
-                logger.error(error_msg)
-                return error_msg
+                logger.warning(warning_msg)
+                
+                # If no images were generated at all, return error
+                if len(image_assets_list) == 0:
+                    error_msg = f"Error: Failed to generate any images. All {len(schedule_data.items)} image generation attempts failed. Errors: {failed_items}"
+                    logger.error(error_msg)
+                    return error_msg
 
             logger.info(f"Successfully generated {len(image_assets_list)} images out of {len(schedule_data.items)} items")
+            
+            # Log any failures for debugging
+            if failed_items:
+                logger.warning(f"Failed to generate images for {len(failed_items)} item(s): {failed_items}")
 
             # Return as JSON array string (list of ImageAsset objects)
             return json.dumps([asset.model_dump() for asset in image_assets_list], indent=2)
@@ -229,25 +258,55 @@ class GenerateImagesForScheduleTool(BaseTool):
 **CRITICAL REQUIREMENTS:**
 - Generate ONLY the image prompt text - no explanations, no meta-commentary
 - The prompt should be ready to use directly with an image generation AI
-- Focus on visual elements, composition, mood, and style
+- Focus on visual elements, composition, lighting, mood, and style
 - Base the prompt entirely on the schedule item's theme_concept, description, and objective
+
+- **STYLE SELECTION:** Based *strictly* on the description and theme, determine if this image should be **Photorealistic** or **Stylized**.
+  
+  * **CHOOSE PHOTOREALISTIC IF:**
+    - The content is about real events (e.g., "Patron's Day", "Concert", "Festival")
+    - It features real people, fashion, or specific physical products
+    - It describes a specific real-world location (e.g., "Campus Green", "Tokyo Street")
+    - *Keywords to use:* "Shot on 35mm", "Depth of field", "Studio lighting", "8k", "Documentary style", "photorealistic", "high-resolution photography", "professional photography", "realistic", "lifelike", "natural lighting", "DSLR quality"
+  
+  * **CHOOSE STYLIZED/ILLUSTRATION IF:**
+    - The content is abstract, conceptual, or educational (e.g., "Tips", "Growth", "Mindset")
+    - It describes a mood or vibe without specific physical subjects
+    - *Keywords to use:* "3D render", "C4D", "Vibrant vector art", "Minimalist", "Pop art", "illustrated", "stylized", "graphic design", "digital art"
+
 - **NO TEXT IN IMAGE:** The image must NOT contain any text, words, letters, numbers, or written content. These images will be used in poster renders where text will be added separately.
 - **VISUAL ONLY:** The prompt should describe only visual elements - no quotes, slogans, captions, or text overlays
-- Explicitly include in your prompt: "no text", "no words", "no letters", "visual only", "text-free"
+- Explicitly include in your prompt: "no text", "no words", "no letters", "visual only", "text-free", plus the appropriate style keywords based on your selection
 """
 
             # Generate prompt using LLM
-            response = llm.call(prompt_template)
+            try:
+                response = llm.call(prompt_template)
+            except Exception as llm_error:
+                error_msg = f"Error: LLM call failed for item {item.id}: {str(llm_error)}"
+                logger.error(error_msg, exc_info=True)
+                return error_msg
 
             # Parse response
-            if isinstance(response, str):
-                prompt_output = ImagePromptOutput.model_validate_json(response)
-            elif isinstance(response, dict):
-                prompt_output = ImagePromptOutput.model_validate(response)
-            else:
-                prompt_output = response
+            try:
+                if isinstance(response, str):
+                    prompt_output = ImagePromptOutput.model_validate_json(response)
+                elif isinstance(response, dict):
+                    prompt_output = ImagePromptOutput.model_validate(response)
+                elif hasattr(response, 'prompt'):
+                    # Handle case where response is already a Pydantic model instance
+                    prompt_output = response
+                else:
+                    error_msg = f"Error: Unexpected response type for item {item.id}: {type(response)}. Response: {str(response)[:200]}"
+                    logger.error(error_msg)
+                    return error_msg
+            except Exception as parse_error:
+                error_msg = f"Error: Failed to parse LLM response for item {item.id}: {str(parse_error)}. Response: {str(response)[:200]}"
+                logger.error(error_msg, exc_info=True)
+                return error_msg
 
-            if not prompt_output.prompt or not prompt_output.prompt.strip():
+            # Validate prompt is not empty
+            if not hasattr(prompt_output, 'prompt') or not prompt_output.prompt or not prompt_output.prompt.strip():
                 error_msg = f"Error: Generated prompt for item {item.id} is empty."
                 logger.error(error_msg)
                 return error_msg

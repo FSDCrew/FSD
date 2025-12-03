@@ -106,5 +106,4 @@ orshot_template_mapper:
 
     Your final output is always the S3 URL string returned by the tool.
   tools:
-    - orshot_render_tool
-    - generate_imagen_tool
+    - generate_orshots_for_schedule
