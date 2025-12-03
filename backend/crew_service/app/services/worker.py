@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import multiprocessing
+from typing import Any
 from uuid import UUID
 
 import httpx
@@ -32,7 +34,9 @@ class Worker:
             token = settings.INTERNAL_CREW_API_KEY,
             timeout=timeout
         )
-        self.job_executor = JobExecutor(crew_service=crew_service)
+        # Process registry maps crew_run_id -> Process
+        self.running_processes: dict[UUID, Any] = {}
+        self.job_executor = JobExecutor(crew_service=crew_service, process_registry=self.running_processes)
         self.running_jobs: dict[UUID, tuple[asyncio.Task, str]] = {}  # { queue_id: (task, lease_token) }
         self._running = False
     
@@ -49,16 +53,32 @@ class Worker:
             await asyncio.sleep(settings.QUEUE_POLL_INTERVAL_SECONDS)
     
     async def stop(self):
-        """Stop the worker. Cancels all running tasks and marks them as failed."""
+        """Stop the worker. Cancels all running tasks and terminates all processes."""
         self._running = False
         
+        if self.running_processes:
+            logger.info(f"Terminating {len(self.running_processes)} running process(es)...")
+            processes_to_stop = list(self.running_processes.items())
+            for crew_run_id, process in processes_to_stop:
+                if process.is_alive():
+                    try:
+                        logger.info(f"Terminating process {process.pid} for crew_run {crew_run_id}")
+                        process.terminate()
+                        process.join(timeout=5.0)
+                        if process.is_alive():
+                            logger.warning(f"Process {process.pid} did not terminate, killing...")
+                            process.kill()
+                            process.join()
+                    except Exception as e:
+                        logger.error(f"Error terminating process {process.pid}: {e}")
+            self.running_processes.clear()
+        
         if self.running_jobs:
-            # Create a copy of items to avoid RuntimeError if dictionary changes during iteration
+            # Create a copy to avoid RuntimeError if dictionary changes during iteration
             jobs_to_stop = list(self.running_jobs.items())
             for job_id, (task, lease_token) in jobs_to_stop:
                 task.cancel()
             
-            # Wait for all tasks to finish (including threads) before marking as failed
             logger.info(f"Waiting for {len(jobs_to_stop)} job(s) to finish...")
             for job_id, (task, lease_token) in jobs_to_stop:
                 try:
@@ -68,7 +88,6 @@ class Worker:
                 except Exception as e:
                     logger.error(f"Error waiting for job {job_id}: {e}")
                 
-                # Mark as failed after waiting
                 try:
                     body = UpdateStatusRequest(
                         lease_token=lease_token,
@@ -91,6 +110,7 @@ class Worker:
     async def _poll_and_process(self):
         """Poll the queue and process a job if available."""
         self._cleanup_completed_tasks()
+        self._cleanup_completed_processes()
         
         if len(self.running_jobs) >= self.MAX_CONCURRENT_JOBS:
             return
@@ -116,7 +136,6 @@ class Worker:
                 self.running_jobs[job.id] = (task, job.lease_token)
         except errors.UnexpectedStatus as e:
             if e.status_code == 404:
-                # No job available, this is normal
                 return
             logger.error(f"Error claiming job: {e}", exc_info=True)
         except Exception as e:
@@ -170,4 +189,19 @@ class Worker:
         ]
         for job_id in completed:
             del self.running_jobs[job_id]
+    
+    def _cleanup_completed_processes(self):
+        """Remove completed processes from running_processes registry."""
+        completed = [
+            crew_run_id for crew_run_id, process in self.running_processes.items()
+            if not process.is_alive()
+        ]
+        for crew_run_id in completed:
+            process = self.running_processes.pop(crew_run_id, None)
+            if process:
+                try:
+                    process.join(timeout=0.1)
+                except Exception as e:
+                    logger.warning(f"Error joining completed process for crew_run {crew_run_id}: {e}")
+                logger.debug(f"Cleaned up completed process for crew_run {crew_run_id}")
 

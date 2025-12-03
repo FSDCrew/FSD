@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import multiprocessing
+from typing import Any
 from uuid import UUID
 
 import httpx
@@ -26,11 +28,42 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
+# Use 'spawn' context for cross-platform compatibility (especially macOS/Windows)
+_mp_context = multiprocessing.get_context('spawn')
+
+
+def run_flow_worker(tasks_dict: list[dict], inputs: dict, result_queue: multiprocessing.Queue):
+    """
+    Worker function that runs in a separate process to execute flow.kickoff().
+    
+    This function must be at module level for multiprocessing to work correctly.
+    
+    Args:
+        tasks_dict: List of task dictionaries (serialized TaskInfo objects)
+        inputs: Dictionary of input values for the flow
+        result_queue: Queue to put the result or error
+    """
+    try:
+        # Import here to avoid issues with multiprocessing
+        from app.dependencies import get_flow_service
+        from app.models.models import TaskInfo
+        
+        flow_service = get_flow_service()
+        tasks = [TaskInfo.model_validate(task_dict) for task_dict in tasks_dict]
+        
+        FlowStateModel, FlowClass, _ = flow_service.build_flow(tasks)
+        flow = FlowClass()
+        result = flow.kickoff(inputs=inputs)
+        result_queue.put(("ok", result))
+    except Exception as e:
+        logger.error(f"Error in flow worker process: {e}", exc_info=True)
+        result_queue.put(("error", str(e)))
+
 
 class JobExecutor:
     """Executes crew runs by building flows and running them."""
     
-    def __init__(self, crew_service: CrewService):
+    def __init__(self, crew_service: CrewService, process_registry: dict[UUID, Any] | None = None):
         timeout = httpx.Timeout(30.0)
         self.crud_client = AuthenticatedClient(
             base_url=settings.CRUD_SERVICE_URL,
@@ -39,6 +72,7 @@ class JobExecutor:
         )
         self.flow_service = get_flow_service()
         self.crew_service = crew_service
+        self.process_registry = process_registry or {}
     
     async def execute(
         self,
@@ -69,23 +103,88 @@ class JobExecutor:
 
             tasks = [TaskInfo.model_validate(task.to_dict()) for task in crew_run.run_metadata.tasks_snapshot]
             
-            # Build Flow from tasks
+            # Build Flow from tasks snapshot
             FlowStateModel, FlowClass, _ = self.flow_service.build_flow(tasks)
-            flow = FlowClass()
             
-            # Create a task from the thread execution so we can track and wait for it
-            flow_task = asyncio.create_task(asyncio.to_thread(flow.kickoff, inputs=stored_inputs))
+            tasks_dict = [task.model_dump() for task in tasks]
+            result_queue = _mp_context.Queue()
+            flow_process = _mp_context.Process(
+                target=run_flow_worker,
+                args=(tasks_dict, stored_inputs, result_queue)
+            )
+            self.process_registry[crew_run_id] = flow_process
+            
             try:
-                result = await asyncio.shield(flow_task)
-            except asyncio.CancelledError:
-                logger.info("Flow execution cancelled, waiting for thread to finish...")
+                flow_process.start()
+                logger.info(f"Started flow process {flow_process.pid} for crew_run {crew_run_id}")
+                
                 try:
-                    if not flow_task.done():
-                        await asyncio.wait_for(flow_task, timeout=5.0)
-                except (asyncio.TimeoutError, asyncio.CancelledError):
-                    logger.warning("Thread did not finish within timeout, proceeding with shutdown")
+                    # Use asyncio.to_thread to await queue.get() without blocking the event loop
+                    # Worker function has try/except to ensure it always puts something in queue
+                    try:
+                        queue_result = await asyncio.to_thread(result_queue.get, timeout=None)
+                    except Exception as queue_error:
+                        # Check if process crashed unexpectedly
+                        if not flow_process.is_alive() and flow_process.exitcode != 0:
+                            raise RuntimeError(
+                                f"Flow process {flow_process.pid} exited with code {flow_process.exitcode}"
+                            ) from queue_error
+                        raise
+                    
+                    status, result_or_error = queue_result
+                    
+                    if status == "error":
+                        raise RuntimeError(f"Flow execution failed: {result_or_error}")
+                    
+                    result = result_or_error
+                    
+                    flow_process.join(timeout=5.0)
+                    if flow_process.is_alive():
+                        logger.warning(f"Flow process {flow_process.pid} did not terminate within timeout")
+                        flow_process.terminate()
+                        flow_process.join(timeout=2.0)
+                        if flow_process.is_alive():
+                            logger.warning(f"Force killing flow process {flow_process.pid}")
+                            flow_process.kill()
+                            flow_process.join()
+                    
+                except asyncio.CancelledError:
+                    logger.info(f"Flow execution cancelled for crew_run {crew_run_id}, terminating process...")
+                    if flow_process.is_alive():
+                        logger.info(f"Terminating flow process {flow_process.pid}")
+                        flow_process.terminate()
+                        try:
+                            flow_process.join(timeout=5.0)
+                            if flow_process.is_alive():
+                                logger.warning(f"Process {flow_process.pid} did not terminate, killing...")
+                                flow_process.kill()
+                                flow_process.join()
+                        except Exception as term_error:
+                            logger.error(f"Error terminating process: {term_error}")
+                    raise
+                finally:
+                    self.process_registry.pop(crew_run_id, None)
+                    try:
+                        result_queue.close()
+                        result_queue.join_thread()
+                    except Exception as cleanup_error:
+                        logger.warning(f"Error cleaning up queue: {cleanup_error}")
+
+            except Exception as e:
+                if flow_process.is_alive():
+                    try:
+                        flow_process.terminate()
+                        flow_process.join(timeout=2.0)
+                        if flow_process.is_alive():
+                            flow_process.kill()
+                            flow_process.join()
+                    except Exception:
+                        pass
+                self.process_registry.pop(crew_run_id, None)
                 raise
 
+            # Rebuild flow for state extraction (can't access flow instance from process)
+            flow = FlowClass()
             result_data = self._build_result_payload(result, flow, FlowStateModel)
             
             output_body = CrewRunOutputUpdate()
