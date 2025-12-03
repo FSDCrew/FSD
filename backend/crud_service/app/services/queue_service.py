@@ -2,7 +2,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from starlette.status import HTTP_404_NOT_FOUND
 from app.repositories.queue_repository import QueueRepository
-from app.models.models import QueueStatus, ClaimJobResponse
+from app.models.models import QueueStatus, ClaimJobResponse, HeartbeatResponse
 from datetime import datetime, timezone
 
 
@@ -82,10 +82,10 @@ class QueueService:
         queue_id: UUID,
         lease_token: str,
         visibility_timeout_seconds: int = 300
-    ) -> dict:
+    ) -> HeartbeatResponse:
         """
         Extend the visibility timeout (lease renewal) for a claimed job.
-        Returns dict with status and visible_at timestamp.
+        Returns dict with cancel_requested flag, queue_id, visible_at timestamp, and status.
         Raises HTTPException if queue entry not found, lease token invalid, or job not in CLAIMED status.
         """
         db_job = await self.repository.heartbeat(queue_id, lease_token, visibility_timeout_seconds)
@@ -96,9 +96,12 @@ class QueueService:
                 detail="Queue entry not found, lease token invalid, or job not in CLAIMED status"
             )
         
-        return {
+        cancel_requested = db_job.cancel_requested
+        
+        return HeartbeatResponse.model_validate({
             "status": "heartbeat_sent",
             "queue_id": str(queue_id),
-            "visible_at": db_job.visible_at.isoformat()
-        }
+            "visible_at": db_job.visible_at.isoformat(),
+            "cancel_requested": cancel_requested,
+        })
 

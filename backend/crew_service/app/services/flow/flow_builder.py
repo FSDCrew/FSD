@@ -5,6 +5,7 @@ from functools import partial
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, Type, cast
+from uuid import UUID
 
 from crewai import Agent as CrewAIAgent, Crew, Process, Task as CrewAITask, TaskOutput
 from crewai.flow.flow import Flow, listen, start
@@ -19,7 +20,10 @@ from app.api.crud_client.models.update_crew_run_output_internal_internal_crew_ru
     UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput as CrewRunOutputUpdate,
 )
 from app.api.crud_client import AuthenticatedClient
+
+from app.api.crud_client.models import TaskStatus
 from app.models.models import CUSTOM_TYPE_REGISTRY, FlowDependencyGraph, TaskInfo
+from app.services.flow.flow_utils import TaskStatusService
 from app.services.flow.agent_factory import build_crewai_agents
 from app.services.flow.dependency_graph import (
     build_flow_dependency_graph,
@@ -33,6 +37,7 @@ from app.services.flow.guardrails import (
     llm_judge_guardrail,
     structured_output_guardrail,
 )
+from app.services.flow.llm_registry import function_calling_llm
 from app.services.flow.state_builder import (
     build_flow_state_model,
     extract_inner_type_from_list,
@@ -101,11 +106,31 @@ def task_callback(output: TaskOutput, crew_run_id: str) -> None:
         logger.error(f"Failed to update task callback in DB: {e}")
 
 
+def _serialize_task_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Serialize task inputs/outputs for storage in CrewRun.
+    Converts Pydantic models to dicts and handles other complex types.
+    """
+    serialized = {}
+    for k, v in data.items():
+        if k == "crew_run_id":
+            continue
+        if isinstance(v, BaseModel):
+            serialized[k] = v.model_dump(mode='json')
+        elif isinstance(v, (str, int, float, bool, dict, list, type(None))):
+            serialized[k] = v
+        else:
+            # Convert other types to string representation
+            serialized[k] = str(v)
+    return serialized
+
+
 def build_task_step_function(
     task_record: TaskInfo,
     step_index: int,
     crew_agents: Dict[str, CrewAIAgent],
     graph: FlowDependencyGraph,
+    task_status_service: TaskStatusService | None = None,
 ):
     """Build the method that will run a single step of the flow for one task."""
 
@@ -195,10 +220,77 @@ def build_task_step_function(
             tasks=[crew_task],
             process=Process.sequential,
             verbose=True,
+            function_calling_llm=function_calling_llm,
         )
+        
+        # Update task status to RUNNING before kickoff
+        crew_run_id = getattr(self.state, "crew_run_id", None)
+        # Create service instance if not provided (for multiprocessing compatibility)
+        # Note: task_status_service is captured in closure, but may be None in worker process
+        status_service = task_status_service
+        if crew_run_id and not status_service:
+            status_service = TaskStatusService()
+        
+        if crew_run_id and status_service:
+            try:
+                # Convert crew_run_id to UUID if it's a string
+                if isinstance(crew_run_id, str):
+                    crew_run_id_uuid = UUID(crew_run_id)
+                else:
+                    crew_run_id_uuid = crew_run_id
+                
+                # Prepare inputs dict (exclude crew_run_id from inputs for cleaner state)
+                task_inputs = _serialize_task_data(step_inputs)
+                
+                status_service.update_task_status_in_worker(
+                    crew_run_id=crew_run_id_uuid,
+                    task_key=task_key,
+                    status=TaskStatus.RUNNING,
+                    task_inputs=task_inputs,
+                    task_outputs={},
+                    completed_at=None,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to update task {task_key} status to RUNNING: {e}",
+                    exc_info=True,
+                )
+        
+        try:
+            result = crew.kickoff()
+        except Exception as e:
+            # Update task status to FAILED if kickoff fails
+            # Create service instance if not provided (for multiprocessing compatibility)
+            if crew_run_id and not status_service:
+                status_service = TaskStatusService()
+            
+            if crew_run_id and status_service:
+                try:
+                    if isinstance(crew_run_id, str):
+                        crew_run_id_uuid = UUID(crew_run_id)
+                    else:
+                        crew_run_id_uuid = crew_run_id
+                    
+                    # Serialize inputs
+                    task_inputs = _serialize_task_data(step_inputs)
+                    
+                    status_service.update_task_status_in_worker(
+                        crew_run_id=crew_run_id_uuid,
+                        task_key=task_key,
+                        status=TaskStatus.FAILED,
+                        task_inputs=task_inputs,
+                        task_outputs={"error": str(e)},
+                        completed_at=datetime.now(timezone.utc),
+                    )
+                except Exception as update_error:
+                    logger.error(
+                        f"Failed to update task {task_key} status to FAILED: {update_error}",
+                        exc_info=True,
+                    )
+            raise
 
-        result = crew.kickoff()
-
+        # Process write specs to collect outputs
+        task_outputs: Dict[str, Any] = {}
         write_specs = graph.task_write_specs.get(task_key, [])
         for write_spec in write_specs:
             field_name = write_spec["field"]
@@ -218,7 +310,41 @@ def build_task_step_function(
                     current_value = []
                 current_value.append(output_value)
                 setattr(self.state, field_name, current_value)
-
+            
+            # Serialize Pydantic models to dict for storage
+            if isinstance(output_value, BaseModel):
+                task_outputs[field_name] = output_value.model_dump(mode='json')
+            else:
+                task_outputs[field_name] = output_value
+        
+        # Update task status to COMPLETED after successful execution
+        # Use the service instance we created earlier (or create if needed)
+        if crew_run_id and not status_service:
+            status_service = TaskStatusService()
+        
+        if crew_run_id and status_service:
+            try:
+                if isinstance(crew_run_id, str):
+                    crew_run_id_uuid = UUID(crew_run_id)
+                else:
+                    crew_run_id_uuid = crew_run_id
+                
+                task_inputs = _serialize_task_data(step_inputs)
+                
+                status_service.update_task_status_in_worker(
+                    crew_run_id=crew_run_id_uuid,
+                    task_key=task_key,
+                    status=TaskStatus.COMPLETED,
+                    task_inputs=task_inputs,
+                    task_outputs=task_outputs,
+                    completed_at=datetime.now(timezone.utc),
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to update task {task_key} status to COMPLETED: {e}",
+                    exc_info=True,
+                )
+        
         return f"{task_key} completed"
 
     return step
@@ -249,6 +375,7 @@ def build_dynamic_flow_class(
     flow_tasks: List[TaskInfo],
     crew_agents: Dict[str, CrewAIAgent],
     graph: FlowDependencyGraph,
+    task_status_service: TaskStatusService,
 ) -> Type[Flow]:
     """Build a concrete Flow subclass with one step per TaskRead."""
 
@@ -312,6 +439,7 @@ def build_dynamic_flow_class(
             index,
             crew_agents,
             graph,
+            task_status_service,
         )
         fn.__name__ = f"step_{task_record.key}"
         step_functions[task_record.key] = fn
@@ -351,6 +479,7 @@ def build_dynamic_flow_class(
 
 def create_flow_from_tasks(
     incoming_tasks: List[TaskInfo],
+    task_status_service: TaskStatusService,
 ) -> Tuple[Type[BaseModel], Type[Flow], Dict[str, List[str]]]:
     """Build a dynamic FlowState model and Flow class from a list of TaskRead."""
 
@@ -364,6 +493,7 @@ def create_flow_from_tasks(
         incoming_tasks,
         crew_agents,
         dependency_graph,
+        task_status_service,
     )
 
     return FlowStateModel, FlowClass, required_inputs

@@ -7,7 +7,7 @@ from typing import Any, TypeVar, cast
 from attrs import define as _attrs_define
 from dateutil.parser import isoparse
 
-from ..models.schedule_item_post_type import ScheduleItemPostType
+from ..models.post_type import PostType
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="ScheduleItem")
@@ -15,32 +15,33 @@ T = TypeVar("T", bound="ScheduleItem")
 
 @_attrs_define
 class ScheduleItem:
-    """Represents a single scheduled Instagram content unit (post, story, reel).
+    """Represents a single scheduled Instagram content unit (post or story).
     This is derived from the HTML table but stored in a structured way
     for UI, analytics, or downstream processing.
 
         Attributes:
-            week (int): Week number within the campaign (1-based).
-            date (datetime.date): Calendar date for this content.
-            post_type (ScheduleItemPostType): Type of content.
-            theme_concept (str): Theme or concept for this content unit.
-            objective (str): Objective for this content (e.g., awareness, engagement, CTA).
-            description (str): Detailed description to guide copy and visual creation.
+            id (int): Unique identifier for this schedule item within the schedule.
+            date (datetime.date): Calendar date for the post's content.
+            post_type (PostType): Enum for Instagram post types.
+            theme_concept (str): Theme or concept for the post's content.
+            objective (str): Objective for of the post's content (e.g., awareness, engagement, CTA).
+            description (str): Detailed description to of the post's content. Will be used to guide copy and visual creation
+                if tasks are added.
             phase_name (None | str | Unset): Name of the strategy phase this item belongs to, if available.
-            notes (None | str | Unset): Optional notes such as tags, CTA, stickers, collaborators, or audio suggestions.
+            week (int | None | Unset): Week number within the campaign.
     """
 
-    week: int
+    id: int
     date: datetime.date
-    post_type: ScheduleItemPostType
+    post_type: PostType
     theme_concept: str
     objective: str
     description: str
     phase_name: None | str | Unset = UNSET
-    notes: None | str | Unset = UNSET
+    week: int | None | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
-        week = self.week
+        id = self.id
 
         date = self.date.isoformat()
 
@@ -58,17 +59,17 @@ class ScheduleItem:
         else:
             phase_name = self.phase_name
 
-        notes: None | str | Unset
-        if isinstance(self.notes, Unset):
-            notes = UNSET
+        week: int | None | Unset
+        if isinstance(self.week, Unset):
+            week = UNSET
         else:
-            notes = self.notes
+            week = self.week
 
         field_dict: dict[str, Any] = {}
 
         field_dict.update(
             {
-                "week": week,
+                "id": id,
                 "date": date,
                 "post_type": post_type,
                 "theme_concept": theme_concept,
@@ -78,19 +79,19 @@ class ScheduleItem:
         )
         if phase_name is not UNSET:
             field_dict["phase_name"] = phase_name
-        if notes is not UNSET:
-            field_dict["notes"] = notes
+        if week is not UNSET:
+            field_dict["week"] = week
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        week = d.pop("week")
+        id = d.pop("id")
 
         date = isoparse(d.pop("date")).date()
 
-        post_type = ScheduleItemPostType(d.pop("post_type"))
+        post_type = PostType(d.pop("post_type"))
 
         theme_concept = d.pop("theme_concept")
 
@@ -107,24 +108,24 @@ class ScheduleItem:
 
         phase_name = _parse_phase_name(d.pop("phase_name", UNSET))
 
-        def _parse_notes(data: object) -> None | str | Unset:
+        def _parse_week(data: object) -> int | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(None | str | Unset, data)
+            return cast(int | None | Unset, data)
 
-        notes = _parse_notes(d.pop("notes", UNSET))
+        week = _parse_week(d.pop("week", UNSET))
 
         schedule_item = cls(
-            week=week,
+            id=id,
             date=date,
             post_type=post_type,
             theme_concept=theme_concept,
             objective=objective,
             description=description,
             phase_name=phase_name,
-            notes=notes,
+            week=week,
         )
 
         return schedule_item

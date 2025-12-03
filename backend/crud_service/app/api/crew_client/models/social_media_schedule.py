@@ -18,13 +18,12 @@ class SocialMediaSchedule:
     """Represents the final social media posting schedule.
 
     - `html_table`: The fully-formed HTML table that is compatible with the html_table_to_excel tool.
-    - `items`: Structured representation of each scheduled post/story/reel.
+    - `items`: Structured representation of each scheduled post/story.
 
         Example:
             {'items': [{'date': '2025-11-01', 'description': 'Vibrant shots of campus, student groups & iconic spots.',
-                'notes': 'Use Canva template; include hashtag #CampusLife', 'objective': 'Kickstart engagement; introduce
-                semester vibe', 'phase_name': 'Awareness', 'post_type': 'Post', 'theme_concept': 'Welcome to Semester & Campus
-                Life', 'week': 1}]}
+                'id': 1, 'objective': 'Kickstart engagement; introduce semester vibe', 'phase_name': 'Awareness', 'post_type':
+                'POST', 'theme_concept': 'Welcome to Semester & Campus Life', 'week': 1}]}
 
         Attributes:
             items (list[ScheduleItem]): Flattened list of scheduled content items, one per row of the schedule (excluding

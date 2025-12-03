@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, text, DateTime, Index
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Enum, text, DateTime, Index
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PostgresUUID
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, relationship
@@ -37,7 +37,7 @@ class Task(Base):
 class CrewRun(Base):
     __tablename__ = "crew_runs"
     id = Column(PostgresUUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
-    output = Column(JSONB, nullable=True)
+    output = Column(JSONB, nullable=False)
     run_metadata = Column(JSONB, nullable=True)
     crew_id = Column(PostgresUUID(as_uuid=True), ForeignKey("crews.id", ondelete="CASCADE"), nullable=False)
     crew = relationship("Crew", back_populates="crew_runs")
@@ -62,6 +62,7 @@ class CrewRunQueue(Base):
     visible_at = Column(DateTime(timezone=True), nullable=False, server_default=text('NOW()'))
     lease_token = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text('NOW()'))
+    cancel_requested = Column(Boolean, default=False)
     crew_run = relationship("CrewRun", back_populates="queue_entry")
     
     __table_args__ = (

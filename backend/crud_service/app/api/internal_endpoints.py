@@ -12,7 +12,9 @@ from app.models.models import (
     CrewRunCreate,
     CrewRunRead,
     HeartbeatRequest,
+    HeartbeatResponse,
     UpdateStatusRequest,
+    UpdateTaskStatusRequest,
 )
 from app.dependencies import (
     get_artifact_service,
@@ -79,6 +81,22 @@ async def create_crew_run_internal(
     return await service.create_crew_run(crew_run_data, user.id)
 
 
+@internal_router.post(
+    "/crew-run/{crew_run_id}/cancel",
+    status_code=200,
+    dependencies=[Depends(require_internal_api_key)],
+)
+async def cancel_crew_run_internal(
+    crew_run_id: UUID = Path(..., description="Crew Run ID to cancel"),
+    user_token: str = Body(..., description="User's JWT token for authentication"),
+    service: CrewRunService = Depends(get_crew_run_service),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    """Cancel a crew run via internal API."""
+    user = await auth_service.get_user(user_token)
+    return await service.cancel_crew_run(crew_run_id, user.id)
+
+
 @internal_router.put(
     "/crew-run/{crew_run_id}/output",
     status_code=200,
@@ -92,6 +110,26 @@ async def update_crew_run_output_internal(
 ):
     """Update the output of a crew run via internal API."""
     return await service.update_crew_run_output(crew_run_id, output)
+
+
+@internal_router.put(
+    "/crew-run/{crew_run_id}/task/{task_key}/status",
+    status_code=200,
+    response_model=CrewRunRead,
+    dependencies=[Depends(require_internal_api_key)],
+)
+async def update_task_status_internal(
+    crew_run_id: UUID = Path(..., description="Crew Run ID"),
+    task_key: str = Path(..., description="Task key to update"),
+    request: UpdateTaskStatusRequest = Body(..., description="Task status update data"),
+    service: CrewRunService = Depends(get_crew_run_service),
+):
+    """Update the status of a specific task in a crew run via internal API."""
+    return await service.update_task_status(
+        crew_run_id=crew_run_id,
+        task_key=task_key,
+        update_task_status_request=request,
+    )
 
 
 @internal_router.post(
@@ -126,6 +164,7 @@ async def update_queue_status_internal(
 @internal_router.post(
     "/queue/{queue_id}/heartbeat",
     status_code=200,
+    response_model=HeartbeatResponse,
     dependencies=[Depends(require_internal_api_key)],
 )
 async def heartbeat_internal(

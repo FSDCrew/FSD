@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
 from uuid import UUID
@@ -49,6 +50,7 @@ class QueueStatus(Enum):
     CLAIMED = "CLAIMED"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
 
 
 class ClaimJobResponse(BaseModel):
@@ -58,6 +60,7 @@ class ClaimJobResponse(BaseModel):
     status: QueueStatus
     lease_token: str
     visible_at: str
+    cancel_requested: bool | None = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -69,6 +72,13 @@ class UpdateStatusRequest(BaseModel):
 
 class HeartbeatRequest(BaseModel):
     lease_token: str
+
+
+class HeartbeatResponse(BaseModel):
+    cancel_requested: bool
+    queue_id: UUID
+    visible_at: datetime
+    status: str
 
 
 class ArtifactBase(BaseModel):
@@ -118,9 +128,28 @@ class TaskInfo(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class TaskStatus(Enum):
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+class TaskStateSnapshot(BaseModel):
+    state: dict[str, Any]
+    completed_at: datetime | None = None
+    status: TaskStatus
+    order: int
+
+
+class RetryFeedback(BaseModel):
+    feedback: str
+    retry_from_task_key: str
+
+
 class CrewRunMetadataBase(BaseModel):
     inputs: dict[str, Any]
     tasks_snapshot: list[TaskInfo]
+    retry_feedback: Optional[list[RetryFeedback]] = None
 
 
 class CrewRunMetadataCreate(CrewRunMetadataBase):
@@ -129,19 +158,41 @@ class CrewRunMetadataCreate(CrewRunMetadataBase):
 class CrewRunMetadataRead(CrewRunMetadataBase):
     pass
 
+
+class CrewRunOutputBase(BaseModel):
+    result: dict[str, Any] | None = None
+    flow_state: dict[str, Any] | None = None
+    task_states: dict[str, TaskStateSnapshot] = {}
+
+
+class CrewRunOutputCreate(CrewRunOutputBase):
+    pass
+
+class CrewRunOutputRead(CrewRunOutputBase):
+    pass
+
+
+class UpdateTaskStatusRequest(BaseModel):
+    """Request model for updating task status."""
+    status: TaskStatus
+    task_inputs: dict[str, Any]
+    task_outputs: dict[str, Any]
+    completed_at: datetime | None = None
+
 class CrewRunBase(BaseModel):
-    output: dict[str, Any] | None = None
+    pass
 
 
 class CrewRunCreate(CrewRunBase):
     crew_id: UUID
     run_metadata: CrewRunMetadataCreate
+    output: CrewRunOutputCreate
 
 
 class CrewRunRead(CrewRunBase):
     id: UUID
     crew_id: UUID
-    output: dict[str, Any] | None = None
+    output: CrewRunOutputRead
     artifacts: list[ArtifactRead] | None = None
     queue_status: QueueStatus | None = None
     retry_count: int | None = None

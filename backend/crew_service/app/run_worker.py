@@ -4,6 +4,7 @@ import signal
 import sys
 
 from app.services.worker import Worker
+from app.dependencies import get_crew_service
 
 logging.basicConfig(
     level=logging.INFO,
@@ -13,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 async def run_worker():
-    worker = Worker()
+    crew_service = get_crew_service()
+    worker = Worker(crew_service=crew_service)
     logger.info("💼 Worker starting...")
 
     try:
