@@ -21,15 +21,20 @@ from app.dependencies import (
     get_auth_service,
     get_crew_run_owner_id,
     get_crew_run_service,
+    get_crew_repository,
+    get_crew_run_repository,
     get_internal_service,
     get_queue_service,
     require_internal_api_key,
 )
+from app.repositories.crew_repository import CrewRepository
+from app.repositories.crew_run_repository import CrewRunRepository
 from app.services.artifact_service import ArtifactService
 from app.services.auth_service import AuthService
 from app.services.crew_run_service import CrewRunService
 from app.services.internal_service import InternalService
 from app.services.queue_service import QueueService
+from typing import cast
 
 internal_router = APIRouter(
     prefix="/internal",
@@ -215,4 +220,49 @@ async def create_artifact_internal(
         artifact_type=artifact_upload.type,
         crew_run_id=crew_run_id,
         user_id=crew_run_owner_id,
+    )
+
+
+@internal_router.post(
+    "/crew-run/{original_crew_run_id}/copy-artifacts/{new_crew_run_id}",
+    status_code=200,
+    response_model=list[ArtifactRead],
+    dependencies=[Depends(require_internal_api_key)],
+)
+async def copy_artifacts_internal(
+    original_crew_run_id: UUID = Path(
+        ...,
+        description="Original Crew Run ID to copy artifacts from",
+    ),
+    new_crew_run_id: UUID = Path(
+        ...,
+        description="New Crew Run ID to copy artifacts to",
+    ),
+    artifact_service: ArtifactService = Depends(get_artifact_service),
+    crew_run_repo: CrewRunRepository = Depends(get_crew_run_repository),
+    crew_repo: CrewRepository = Depends(get_crew_repository),
+):
+    """Copy all artifacts from the original crew run to the new crew run (internal use only)."""
+    # Get user_id from the original crew run's crew relationship
+    crew_run = await crew_run_repo.get_crew_run_by_id_internal(original_crew_run_id)
+    if not crew_run:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Crew Run {original_crew_run_id} not found"
+        )
+    
+    crew_id_value = cast(UUID, crew_run.crew_id)
+    crew = await crew_repo.get_fully_loaded_crew_by_id_internal(crew_id_value)
+    if not crew:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Crew {crew_id_value} not found"
+        )
+    
+    user_id = cast(UUID, crew.user_id)
+    
+    return await artifact_service.copy_artifacts_to_crew_run(
+        original_crew_run_id=original_crew_run_id,
+        new_crew_run_id=new_crew_run_id,
+        user_id=user_id,
     )

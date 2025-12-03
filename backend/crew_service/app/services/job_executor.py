@@ -17,7 +17,7 @@ from app.api.crud_client.models.heartbeat_request import HeartbeatRequest
 from app.api.crud_client.models.queue_status import QueueStatus
 from app.api.crud_client.models.update_status_request import UpdateStatusRequest
 from app.api.crud_client.models.task_status import TaskStatus
-from app.api.crud_client.types import UNSET
+from app.api.crud_client.types import UNSET, Unset
 from app.dependencies import get_flow_service
 from app.models.models import TaskInfo
 from app.services.crew_service import CrewService
@@ -512,30 +512,36 @@ class JobExecutor:
                 retry_feedback_text = str(retry_feedback_text)
             
             # Use sorted task_states by order to determine retry point and upstream outputs
-            task_states = crew_run.output.task_states.additional_properties
             retry_from_task_key = None
             upstream_outputs = {}
             
-            # Sort task states by order to process in execution order
-            sorted_task_states = sorted(
-                task_states.items(),
-                key=lambda x: x[1].order
-            )
-            
-            # Find first QUEUED task (this is where retry starts)
-            # Collect outputs from COMPLETED tasks before it (upstream tasks)
-            for task_key, task_state in sorted_task_states:
-                if task_state.status == TaskStatus.QUEUED:
-                    retry_from_task_key = task_key
-                    break
-                elif task_state.status == TaskStatus.COMPLETED:
-                    # Collect outputs from COMPLETED tasks (upstream tasks)
-                    task_state_state = task_state.state.additional_properties
-                    if 'task_outputs' in task_state_state:
-                        task_outputs = task_state_state['task_outputs']
-                        if isinstance(task_outputs, dict):
-                            for key, value in task_outputs.items():
-                                upstream_outputs[key] = value
+            # Check if task_states is available (not UNSET)
+            if isinstance(crew_run.output.task_states, Unset):
+                # If task_states is UNSET, skip retry logic
+                logger.warning(f"task_states is UNSET for crew_run {crew_run_id}, skipping retry logic")
+            else:
+                task_states = crew_run.output.task_states.additional_properties
+                
+                # Sort task states by order to process in execution order
+                sorted_task_states = sorted(
+                    task_states.items(),
+                    key=lambda x: x[1].order
+                )
+                
+                # Find first QUEUED task (this is where retry starts)
+                # Collect outputs from COMPLETED tasks before it (upstream tasks)
+                for task_key, task_state in sorted_task_states:
+                    if task_state.status == TaskStatus.QUEUED:
+                        retry_from_task_key = task_key
+                        break
+                    elif task_state.status == TaskStatus.COMPLETED:
+                        # Collect outputs from COMPLETED tasks (upstream tasks)
+                        task_state_state = task_state.state.additional_properties
+                        if 'task_outputs' in task_state_state:
+                            task_outputs = task_state_state['task_outputs']
+                            if isinstance(task_outputs, dict):
+                                for key, value in task_outputs.items():
+                                    upstream_outputs[key] = value
             
             # Only add retry info if we found a retry point
             if retry_from_task_key is not None:

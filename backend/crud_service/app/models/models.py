@@ -160,7 +160,6 @@ class CrewRunMetadataRead(CrewRunMetadataBase):
 
 
 class CrewRunOutputBase(BaseModel):
-    result: dict[str, Any] | None = None
     flow_state: dict[str, Any] | None = None
     task_states: dict[str, TaskStateSnapshot] = {}
 

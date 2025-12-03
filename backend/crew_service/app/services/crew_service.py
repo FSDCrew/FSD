@@ -13,6 +13,7 @@ from app.api.crud_client.api.internal import (
     create_crew_run_internal_internal_crew_run_create_post as create_crew_run_func,
     get_crew_by_id_internal_crew_crew_id_get as get_crew_by_id_func,
     get_crew_run_by_id_internal_crew_run_crew_run_id_get as get_crew_run_func,
+    copy_artifacts_internal_internal_crew_run_original_crew_run_id_copy_artifacts_new_crew_run_id_post as copy_artifacts_func,
 )
 from app.api.crud_client.models import (
     BodyCreateCrewRunInternalInternalCrewRunCreatePost as CrewRunCreateBody,
@@ -30,7 +31,7 @@ from app.api.crud_client.models import (
     TaskStateSnapshotState,
     TaskStatus,
 )
-from app.api.crud_client.types import UNSET
+from app.api.crud_client.types import UNSET, Unset
 
 from app.models.models import CrewRun, CrewRunCreateRequest, CrewRunRetryRequest, TaskInfo, FlowDependencyGraph
 from app.services.flow.dependency_graph import build_flow_dependency_graph
@@ -257,8 +258,10 @@ class CrewService:
                 filtered_inputs[field_name] = field_value
         
         # Get original task states if available (for order preservation)
-        # output is always present in CrewRunRead, and task_states is required in CrewRunOutputRead
-        original_task_states = crew_run.output.task_states.additional_properties if hasattr(crew_run.output.task_states, 'additional_properties') else None
+        # output is always present in CrewRunRead, but task_states can be Unset
+        original_task_states = None
+        if not isinstance(crew_run.output.task_states, Unset):
+            original_task_states = crew_run.output.task_states.additional_properties
         
         # Create task states for all tasks:
         # - Upstream tasks: COMPLETED
@@ -316,28 +319,14 @@ class CrewService:
         # Copy artifacts from the original crew run to the retry crew run
         # This is best-effort - failures should not prevent retry from succeeding
         try:
-            copy_artifacts_url = f"{settings.CRUD_SERVICE_URL}/internal/crew-run/{crew_run_id}/copy-artifacts/{retry_crew_run_result.id}"
-            copy_response = await self.crud_client.get_httpx_client().post(
-                copy_artifacts_url,
-                headers={
-                    "X-Internal-API-Key": settings.INTERNAL_CREW_API_KEY,
-                },
-                timeout=httpx.Timeout(60.0),  # Artifact copying may take time
-            )
-            if copy_response.status_code == 200:
-                logger.info(
-                    f"Successfully copied artifacts from crew run {crew_run_id} to retry {retry_crew_run_result.id}"
-                )
-            else:
-                logger.warning(
-                    f"Failed to copy artifacts from crew run {crew_run_id} to retry {retry_crew_run_result.id}: "
-                    f"status {copy_response.status_code}"
-                )
+            copy_response = await copy_artifacts_func.asyncio_detailed(
+                original_crew_run_id=crew_run_id,
+                new_crew_run_id=retry_crew_run_result.id,
+                client=self.crud_client)
+            if copy_response.status_code != 200:
+                raise ValueError(f"Failed to copy artifacts from crew run {crew_run_id} to retry {retry_crew_run_result.id}: {copy_response.content}")
         except Exception as e:
-            # Log warning but don't fail the retry operation (artifact copying is best-effort)
-            logger.warning(
-                f"Failed to copy artifacts from crew run {crew_run_id} to retry {retry_crew_run_result.id}: {e}"
-            )
+            raise ValueError(f"Failed to copy artifacts from crew run {crew_run_id} to retry {retry_crew_run_result.id}: {e}")
         
         # Cancel the original crew run after successfully creating the retry
         # Skip cancellation if already in terminal state (CANCELLED or COMPLETED)
