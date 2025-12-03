@@ -203,7 +203,7 @@ export function RunDetails({ selectedRun, crewRuns, onClose }: RunDetailsProps) 
         </div>
         <Button
           onClick={onClose}
-          variant="secondary"
+          variant="outline"
           className="bg-white text-black hover:bg-gray-200"
         >
           Close
