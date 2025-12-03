@@ -1,5 +1,6 @@
 import logging
 import multiprocessing
+import os
 import threading
 import time
 from typing import Any, Optional, Union
@@ -247,13 +248,72 @@ def run_entire_job(job_metadata: dict):
         _, FlowClass, _ = flow_service.build_flow(tasks, task_status_service)
         flow = FlowClass()
         
-        # Execute flow (this is blocking)
+        # Execute flow in a separate thread to allow cancellation monitoring
         # Note: CrewAI flow.kickoff() doesn't support cancellation signals directly,
-        # so if cancellation is detected, we'll update status after execution completes
+        # so we run it in a thread and periodically check for cancellation
+        flow_result: list[Any] = []  # Use list to store result (thread-safe mutable container)
+        flow_exception: list[Optional[Exception]] = [None]  # Use list to store exception
+        
+        def run_flow():
+            """Wrapper function to run flow.kickoff() and capture result/exception."""
+            try:
+                result = flow.kickoff(inputs=stored_inputs)
+                flow_result.append(result)
+            except Exception as e:
+                flow_exception[0] = e
+        
+        # Start flow execution in a separate thread
+        flow_thread = threading.Thread(target=run_flow, daemon=False)
+        flow_thread.start()
+        logger.info(f"Started flow execution thread for queue {queue_id}")
+        
+        # Monitor flow execution and check for cancellation periodically
         try:
-            result = flow.kickoff(inputs=stored_inputs)
+            while flow_thread.is_alive():
+                # Wait for thread with timeout to allow periodic cancellation checks
+                flow_thread.join(timeout=1.0)
+                
+                # Check for cancellation request (only if thread is still running)
+                if flow_thread.is_alive() and cancellation_event.is_set():
+                    logger.info(f"Cancellation detected during flow execution for queue {queue_id}")
+                    
+                    # Update queue status to CANCELLED
+                    try:
+                        body = UpdateStatusRequest(
+                            lease_token=lease_token,
+                            status=QueueStatus.CANCELLED
+                        )
+                        update_queue_status_func.sync(
+                            queue_id=queue_id,
+                            client=crud_client,
+                            body=body
+                        )
+                    except Exception as update_error:
+                        logger.error(f"Failed to update queue {queue_id} status to CANCELLED: {update_error}")
+                    
+                    # Stop heartbeat thread before exiting
+                    if heartbeat_thread:
+                        heartbeat_thread.stop()
+                    
+                    # Close HTTP client before exiting
+                    try:
+                        sync_client = crud_client.get_httpx_client()
+                        sync_client.close()
+                    except Exception as e:
+                        logger.warning(f"Error closing HTTP client: {e}")
+                    
+                    # Exit process immediately (terminates all threads including flow execution)
+                    logger.info(f"Exiting process for queue {queue_id} due to cancellation")
+                    os._exit(0)
             
-            # Check for cancellation after flow execution
+            # Flow thread completed - check for exceptions
+            if flow_exception[0]:
+                raise flow_exception[0]
+            
+            # Flow completed successfully
+            result = flow_result[0] if flow_result else None
+            
+            # Check for cancellation after flow execution (in case it was set right before completion)
             if cancellation_event.is_set():
                 logger.info(f"Cancellation detected after flow execution for queue {queue_id}")
                 body = UpdateStatusRequest(

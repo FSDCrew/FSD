@@ -211,10 +211,38 @@ flow_service = get_flow_service()
 task_status_service = TaskStatusService()
 FlowStateModel, FlowClass, _ = flow_service.build_flow(tasks, task_status_service)
 flow = FlowClass()
-result = flow.kickoff(inputs=stored_inputs)
+
+# Execute flow in a separate thread to allow cancellation monitoring
+flow_result = []
+flow_exception = [None]
+
+def run_flow():
+    try:
+        result = flow.kickoff(inputs=stored_inputs)
+        flow_result.append(result)
+    except Exception as e:
+        flow_exception[0] = e
+
+flow_thread = threading.Thread(target=run_flow, daemon=False)
+flow_thread.start()
+
+# Monitor flow execution and check for cancellation periodically
+while flow_thread.is_alive():
+    flow_thread.join(timeout=1.0)  # Check every second
+    
+    if flow_thread.is_alive() and cancellation_event.is_set():
+        # Cancellation detected - update status and exit process
+        update_queue_status_func.sync(...)
+        heartbeat_thread.stop()
+        os._exit(0)  # Terminates all threads including flow execution
+
+# Flow completed - check for exceptions and handle result
+if flow_exception[0]:
+    raise flow_exception[0]
+result = flow_result[0] if flow_result else None
 ```
 
-**Note**: `flow.kickoff()` is a blocking synchronous call. CrewAI flows do not support cancellation signals directly, so if cancellation is detected after execution starts, the process will check the cancellation event after `kickoff()` completes.
+**Note**: `flow.kickoff()` runs in a separate thread to enable cancellation monitoring. The main thread checks `cancellation_event` every second. When cancellation is detected, the process immediately updates the queue status to `CANCELLED` and exits using `os._exit(0)`, which terminates all threads including the flow execution thread, providing immediate cancellation.
 
 #### 8. Post-Execution Status Update
 
@@ -323,10 +351,11 @@ Cancellation is detected and handled entirely within the child process:
 2. **Signaling**: Thread sets `cancellation_event` to notify main execution
 3. **Response**: Process checks `cancellation_event`:
    - Before flow execution: Exits early, updates status to CANCELLED
-   - After flow execution: Updates status to CANCELLED (flow already completed)
+   - During flow execution: `flow.kickoff()` runs in a separate thread, and the main thread checks `cancellation_event` every second. When cancellation is detected, the process immediately updates status to CANCELLED, stops the heartbeat thread, closes the HTTP client, and exits using `os._exit(0)`, which terminates all threads including the flow execution thread
+   - After flow execution: Updates status to CANCELLED if cancellation was detected (e.g., cancellation was set right before completion)
    - During exception handling: Sets status to CANCELLED if event is set
 
-**Important**: CrewAI's `flow.kickoff()` does not support cancellation signals. If cancellation is requested during flow execution, the process will complete the flow and then update the status to CANCELLED. For immediate termination, the worker's `stop()` method forcefully kills processes.
+**Important**: CrewAI's `flow.kickoff()` does not support cancellation signals directly. To enable cancellation during flow execution, the flow runs in a separate thread, and the main thread periodically checks for cancellation. When cancellation is detected, the process immediately exits using `os._exit(0)`, providing immediate termination of the flow execution.
 
 See [Crew Run Cancellation Flow](crewrun_cancellation.md) for details on the cancellation API and queue status transitions.
 

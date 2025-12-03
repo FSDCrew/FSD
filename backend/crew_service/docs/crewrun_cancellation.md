@@ -34,7 +34,8 @@ When a job is already running, the worker and child process cooperate with the C
 5. **Cancellation Handling**: The main execution thread in `run_entire_job` checks `cancellation_event` at multiple points:
 
    - **Before flow execution**: If cancellation is detected during initialization, the process exits early and updates queue status to `CANCELLED`.
-   - **After flow execution**: If cancellation is detected after `flow.kickoff()` completes, the process updates queue status to `CANCELLED` (note: CrewAI flows do not support cancellation signals, so the flow completes before status is updated).
+   - **During flow execution**: `flow.kickoff()` runs in a separate thread, and the main thread periodically checks `cancellation_event` every second. When cancellation is detected, the process immediately updates queue status to `CANCELLED`, stops the heartbeat thread, closes the HTTP client, and exits the process using `os._exit(0)`, which terminates all threads including the flow execution thread.
+   - **After flow execution**: If cancellation is detected after `flow.kickoff()` completes (e.g., cancellation was set right before completion), the process updates queue status to `CANCELLED`.
    - **During exception handling**: If an exception occurs and cancellation was detected, status is set to `CANCELLED` instead of `FAILED`.
 
 6. **Status Update**: The child process calls `update_queue_status_internal` with `QueueStatus.CANCELLED` using the same lease token, ensuring only the process that claimed the job can finalize the status.
@@ -45,7 +46,7 @@ When a job is already running, the worker and child process cooperate with the C
 
 - Because the cancellation path reuses the same lease token that claimed the job, only the child process that claimed the job can complete the transition to `CANCELLED`. This prevents a second worker from overriding the status mid-run.
 - If the worker process itself shuts down (e.g., via `Worker.stop`), it forcefully terminates all running child processes. These processes do not have time to update queue status, so queue entries remain in `CLAIMED` state until the lease expires. The CRUD service will eventually reclaim these jobs and make them available again.
-- **CrewAI Flow Limitation**: CrewAI's `flow.kickoff()` does not support cancellation signals. If cancellation is requested during flow execution, the flow will complete normally, and the process will update status to `CANCELLED` after execution finishes. For immediate termination, the worker's shutdown process forcefully kills processes.
+- **CrewAI Flow Cancellation**: CrewAI's `flow.kickoff()` does not support cancellation signals directly. To enable cancellation during flow execution, `flow.kickoff()` runs in a separate thread, and the main thread periodically checks for cancellation every second. When cancellation is detected, the process immediately updates the queue status to `CANCELLED` and exits using `os._exit(0)`, which terminates all threads including the flow execution thread, providing immediate cancellation.
 - No CRUD side effects occur after `QueueStatus.COMPLETED`; `cancel_crew_run` rejects such requests at the service layer to avoid rewriting historical runs.
 
 For detailed information on the worker architecture and process lifecycle, see [Worker Architecture and Lifecycle](worker.md).
