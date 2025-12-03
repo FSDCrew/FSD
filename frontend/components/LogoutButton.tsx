@@ -3,6 +3,7 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { Button } from "@/components/ui/button";
 
 export default function LogoutButton() {
     const { isAuthenticated, loading, logout } = useAuth();
@@ -21,16 +22,11 @@ export default function LogoutButton() {
     }
 
     return (
-      <button
+      <Button
         onClick={handleLogout}
-        disabled={loading}
-        className={`flex text-sm px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:opacity-90 transition-opacity ${
-          loading
-            ? 'cursor-not-allowed'
-            : 'hover:cursor-pointer'
-        }`}
+        variant="outline"
       >
         <div>Logout</div>
-      </button>
+      </Button>
     )
 }

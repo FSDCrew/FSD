@@ -8,34 +8,22 @@ const StartNode = memo(({ isConnectable }: NodeProps) => {
     <>
       <div 
         style={{ 
-          padding: "20px 30px", 
+          padding: "10px", 
           minWidth: "120px", 
           position: "relative",
-          background: "black",
-          border: "3px solid #fff",
-          borderRadius: "50px",
-          boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
+          background: "#0d0f0eff",
+          border: "1px solid rgba(230, 230, 230, 0.96)",
+          borderRadius: "8px",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
         }}
       >
         <div style={{ 
-          fontSize: "16px", 
-          fontWeight: "700", 
+          fontSize: "12px", 
+          fontWeight: "600", 
           textAlign: "center",
           color: "white",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "8px"
         }}>
-          <span>START</span>
-        </div>
-        <div style={{ 
-          fontSize: "9px", 
-          textAlign: "center",
-          color: "rgba(255, 255, 255, 0.8)",
-          marginTop: "4px",
-          fontWeight: "500"
-        }}>
+          Kickoff
         </div>
       </div>
       <Handle
@@ -43,11 +31,11 @@ const StartNode = memo(({ isConnectable }: NodeProps) => {
         position={Position.Right}
         isConnectable={isConnectable}
         style={{
-          background: "#fff",
-          width: "14px",
-          height: "14px",
-          border: "3px solid #667eea",
-          right: "-7px",
+          background: "#555",
+          width: "12px",
+          height: "12px",
+          border: "2px solid white",
+          right: "-6px",
         }}
       />
     </>

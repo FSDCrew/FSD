@@ -25,7 +25,6 @@ export interface CrewRunItem {
  */
 export interface CrewRunsHistoryProps {
   crewRuns: CrewRunItem[];
-  onSelectRun: (run: CrewRunItem) => void;
 }
 
 /**
