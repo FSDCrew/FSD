@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CrewRead, getAllCrewsCrewGet, deleteCrewCrewCrewIdDelete } from "@/lib/api/crud";
+import { CrewRead, getAllCrewsCrewGet, deleteCrewCrewCrewIdDelete, syncUserUserSyncPost } from "@/lib/api/crud";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useEffect } from "react";
 
 export default function StudioPage() {
   const router = useRouter();
@@ -29,6 +30,12 @@ export default function StudioPage() {
     queryFn: () => getAllCrewsCrewGet({ responseStyle: 'data' }),
   })
   const crews = Array.isArray(data) ? data : data ? [data] : [];
+  
+  useEffect(()=>{
+    if(isAuthenticated && token){
+      syncUserUserSyncPost()
+    }
+  })
 
   const handleAddCard = () => {
     router.push("/studio/crew?title=Untitled&description=");
