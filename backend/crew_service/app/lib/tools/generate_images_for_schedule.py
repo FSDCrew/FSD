@@ -258,11 +258,25 @@ class GenerateImagesForScheduleTool(BaseTool):
 **CRITICAL REQUIREMENTS:**
 - Generate ONLY the image prompt text - no explanations, no meta-commentary
 - The prompt should be ready to use directly with an image generation AI
-- Focus on visual elements, composition, mood, and style
+- Focus on visual elements, composition, lighting, mood, and style
 - Base the prompt entirely on the schedule item's theme_concept, description, and objective
+
+- **STYLE SELECTION:** Based *strictly* on the description and theme, determine if this image should be **Photorealistic** or **Stylized**.
+  
+  * **CHOOSE PHOTOREALISTIC IF:**
+    - The content is about real events (e.g., "Patron's Day", "Concert", "Festival")
+    - It features real people, fashion, or specific physical products
+    - It describes a specific real-world location (e.g., "Campus Green", "Tokyo Street")
+    - *Keywords to use:* "Shot on 35mm", "Depth of field", "Studio lighting", "8k", "Documentary style", "photorealistic", "high-resolution photography", "professional photography", "realistic", "lifelike", "natural lighting", "DSLR quality"
+  
+  * **CHOOSE STYLIZED/ILLUSTRATION IF:**
+    - The content is abstract, conceptual, or educational (e.g., "Tips", "Growth", "Mindset")
+    - It describes a mood or vibe without specific physical subjects
+    - *Keywords to use:* "3D render", "C4D", "Vibrant vector art", "Minimalist", "Pop art", "illustrated", "stylized", "graphic design", "digital art"
+
 - **NO TEXT IN IMAGE:** The image must NOT contain any text, words, letters, numbers, or written content. These images will be used in poster renders where text will be added separately.
 - **VISUAL ONLY:** The prompt should describe only visual elements - no quotes, slogans, captions, or text overlays
-- Explicitly include in your prompt: "no text", "no words", "no letters", "visual only", "text-free"
+- Explicitly include in your prompt: "no text", "no words", "no letters", "visual only", "text-free", plus the appropriate style keywords based on your selection
 """
 
             # Generate prompt using LLM
