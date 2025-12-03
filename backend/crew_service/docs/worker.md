@@ -176,12 +176,17 @@ This includes:
 
 The process prepares data for flow execution:
 
-- **Extracts Inputs**: Converts `crew_run.run_metadata.inputs` to a dictionary
-- **Parses Tasks**: Validates task snapshots into `TaskInfo` objects
-- **Handles Retry Logic**: If `retry_feedback` is present:
-  - Finds the retry point (first `QUEUED` task)
-  - Collects outputs from upstream `COMPLETED` tasks
-  - Adds `_retry_info` to inputs dictionary
+- **Detects Retry**: Checks if `crew_run.run_metadata.retry_feedback` is present
+- **Normal Execution**: If not a retry:
+  - Extracts inputs from `crew_run.run_metadata.inputs` to a dictionary
+  - Parses all tasks from `crew_run.run_metadata.tasks_snapshot` into `TaskInfo` objects
+- **Retry Execution**: If `retry_feedback` is present:
+  - Calls `RetryExecutor.prepare_retry_execution(crew_run)` which:
+    - Filters tasks to only include the retry task and downstream tasks
+    - Extracts upstream task outputs from `crew_run.output.task_states` (where status is COMPLETED)
+    - Combines `run_metadata.inputs` + upstream outputs into a single inputs dict
+    - Modifies the retry task's description to prepend formatted retry feedback prompt
+  - Returns `(filtered_tasks, combined_inputs)` ready for flow building
 
 #### 6. Cancellation Check (Pre-Execution)
 

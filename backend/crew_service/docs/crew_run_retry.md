@@ -1,10 +1,11 @@
 # Crew Run Retry Modules
 
-This document explains the retry flow exclusively through the logic implemented inside:
+This document explains the retry flow through the logic implemented inside:
 
-- `app/services/retry/retry_service.py`
-- `app/services/retry/retry_task_analyzer.py`
-- `app/services/retry/retry_validator.py`
+- `app/services/retry/retry_service.py` - Retry creation (API endpoint)
+- `app/services/retry/retry_task_analyzer.py` - Task dependency analysis
+- `app/services/retry/retry_validator.py` - Retry request validation
+- `app/services/retry/retry_executor.py` - Retry execution preparation
 
 ## RetryService Overview
 
@@ -62,3 +63,47 @@ These helpers are designed to ensure upstream work is preserved while retry task
 2. The referenced task must currently be marked `TaskStatus.COMPLETED`.
 
 Any violation raises a `ValueError`, which `RetryService.retry_crew_run` wraps in an HTTP 400 response. This keeps retry execution limited to well-defined task boundaries.
+
+## RetryExecutor Overview
+
+`RetryExecutor` (`app/services/retry/retry_executor.py`) prepares crew run execution for retry scenarios. It is called by `run_entire_job` in `job_executor.py` when a crew run has `retry_feedback` set in its metadata.
+
+### `prepare_retry_execution`
+
+The `prepare_retry_execution()` static method orchestrates the preparation of a retry execution:
+
+1. **Detects retry**: Checks that `crew_run.run_metadata.retry_feedback` is not null and is a `RetryFeedback` object.
+2. **Extracts retry metadata**: Gets `retry_from_task_key` and `feedback` from the `retry_feedback` object.
+3. **Partitions tasks**: Uses `RetryTaskAnalyzer.find_upstream_tasks()` and `find_retry_and_downstream_tasks()` to identify which tasks are upstream (completed) and which need to be retried.
+4. **Filters tasks**: Creates a filtered list containing only `retry_from_task_key` and downstream tasks. This ensures the flow only executes tasks that need to be retried.
+5. **Modifies retry task description**: Prepends a formatted retry prompt to the retry task's description, instructing the agent to ground their work on the feedback. The prompt includes the feedback text in a structured format.
+6. **Extracts upstream outputs**: Collects outputs from all upstream tasks that have `TaskStatus.COMPLETED`. Outputs are extracted from `task_state.state.additional_properties` where field names are the keys.
+7. **Combines inputs**: Merges `run_metadata.inputs` (context fields and initial inputs) with upstream task outputs (data fields) into a single inputs dictionary. This ensures downstream tasks have access to all necessary data.
+8. **Returns prepared data**: Returns `(filtered_tasks, combined_inputs)` where:
+   - `filtered_tasks`: List of `TaskInfo` objects starting from `retry_from_task_key`, with the retry task's description already modified to include the retry prompt
+   - `combined_inputs`: Dictionary combining original inputs and upstream outputs
+
+The method ensures that:
+
+- Upstream work is preserved (outputs are extracted and merged into inputs)
+- Only tasks that need retrying are included in the flow
+- The retry task receives clear feedback instructions in its description
+- Flow builder remains retry-agnostic (it just receives pre-prepared tasks and inputs)
+
+### Helper Methods
+
+- `_extract_upstream_outputs(upstream_tasks)`: Extracts outputs from completed upstream tasks, returning a dictionary of field_name -> output_value. Only tasks with `TaskStatus.COMPLETED` are processed.
+- `_format_retry_prompt(original_description, feedback)`: Formats the retry prompt by prepending structured instructions and the feedback text to the original task description.
+
+## Retry Execution Flow
+
+When a retry crew run is executed:
+
+1. **Creation** (`RetryService.retry_crew_run`): Creates a new crew run with `retry_feedback` set, upstream tasks marked as COMPLETED, and retry/downstream tasks marked as QUEUED.
+2. **Queue Processing**: The worker picks up the retry crew run from the queue.
+3. **Execution Preparation** (`RetryExecutor.prepare_retry_execution`): When `run_entire_job` detects `retry_feedback`, it calls `RetryExecutor` to:
+   - Filter tasks to only include retry and downstream tasks
+   - Extract upstream outputs and merge with original inputs
+   - Modify retry task description with feedback prompt
+4. **Flow Building**: Flow builder receives filtered tasks and combined inputs, building a flow that starts from the retry task.
+5. **Flow Execution**: The flow executes normally, starting from the retry task (which now has feedback in its description) and continuing through downstream tasks. All necessary data from upstream tasks is available in the flow state.

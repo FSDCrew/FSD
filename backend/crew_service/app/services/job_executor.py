@@ -23,6 +23,8 @@ from app.api.crud_client.types import Unset
 from app.dependencies import get_flow_service
 from app.models.models import TaskInfo
 from app.services.flow.flow_utils import TaskStatusService
+from app.services.retry.retry_executor import RetryExecutor
+from app.api.crud_client.types import UNSET
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -219,14 +221,24 @@ def run_entire_job(job_metadata: dict):
         # Type narrowing: crew_run_response is now guaranteed to be CrewRunRead
         crew_run = crew_run_response
         
-        # Prepare execution data
-        stored_inputs = crew_run.run_metadata.inputs.to_dict()
-        stored_inputs['crew_run_id'] = str(crew_run_id)
+        # Check if this is a retry execution
+        retry_feedback = crew_run.run_metadata.retry_feedback
+        from app.api.crud_client.models import RetryFeedback
+        is_retry = retry_feedback is not None and isinstance(retry_feedback, RetryFeedback)
         
-        tasks = [
-            TaskInfo.model_validate(task.to_dict())
-            for task in crew_run.run_metadata.tasks_snapshot
-        ]
+        if is_retry:
+            # Prepare retry execution: filter tasks and combine inputs with upstream outputs
+            logger.info(f"Detected retry execution for crew_run {crew_run_id}")
+            tasks, stored_inputs = RetryExecutor.prepare_retry_execution(crew_run)
+        else:
+            # Normal execution: use all tasks and original inputs
+            stored_inputs = crew_run.run_metadata.inputs.to_dict()
+            stored_inputs['crew_run_id'] = str(crew_run_id)
+            
+            tasks = [
+                TaskInfo.model_validate(task.to_dict())
+                for task in crew_run.run_metadata.tasks_snapshot
+            ]
         
         # Check for cancellation before starting flow
         if cancellation_event.is_set():

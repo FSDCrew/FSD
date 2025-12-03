@@ -28,7 +28,6 @@ from app.api.crud_client.models import (
 )
 
 from app.models.models import CrewRunRetryRequest
-from app.services.retry.retry_state_builder import RetryStateBuilder
 from app.services.retry.retry_task_analyzer import RetryTaskAnalyzer
 from app.services.retry.retry_validator import RetryValidator
 
