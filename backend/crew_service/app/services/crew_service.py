@@ -276,12 +276,10 @@ class CrewService:
             tasks_snapshot=tasks_snapshot,  # Keep tasks_snapshot unchanged
         )
         new_metadata.inputs.additional_properties = filtered_inputs
-        new_metadata.retry_feedback = [
-            RetryFeedback(
-                retry_from_task_key=retry_request.retry_from_task_key,
-                feedback=retry_request.feedback,
-            )
-        ]
+        new_metadata.retry_feedback = RetryFeedback(
+            retry_from_task_key=retry_request.retry_from_task_key,
+            feedback=retry_request.feedback,
+        )
         
         # Create crew run output with all task states
         output = CrewRunOutputCreate(task_states=all_task_states)
@@ -314,6 +312,32 @@ class CrewService:
             raise ValueError("Failed to create retry crew run: received None response")
 
         retry_crew_run_result = CrewRun.model_validate(response.parsed.to_dict())
+        
+        # Copy artifacts from the original crew run to the retry crew run
+        # This is best-effort - failures should not prevent retry from succeeding
+        try:
+            copy_artifacts_url = f"{settings.CRUD_SERVICE_URL}/internal/crew-run/{crew_run_id}/copy-artifacts/{retry_crew_run_result.id}"
+            copy_response = await self.crud_client.get_httpx_client().post(
+                copy_artifacts_url,
+                headers={
+                    "X-Internal-API-Key": settings.INTERNAL_CREW_API_KEY,
+                },
+                timeout=httpx.Timeout(60.0),  # Artifact copying may take time
+            )
+            if copy_response.status_code == 200:
+                logger.info(
+                    f"Successfully copied artifacts from crew run {crew_run_id} to retry {retry_crew_run_result.id}"
+                )
+            else:
+                logger.warning(
+                    f"Failed to copy artifacts from crew run {crew_run_id} to retry {retry_crew_run_result.id}: "
+                    f"status {copy_response.status_code}"
+                )
+        except Exception as e:
+            # Log warning but don't fail the retry operation (artifact copying is best-effort)
+            logger.warning(
+                f"Failed to copy artifacts from crew run {crew_run_id} to retry {retry_crew_run_result.id}: {e}"
+            )
         
         # Cancel the original crew run after successfully creating the retry
         # Skip cancellation if already in terminal state (CANCELLED or COMPLETED)

@@ -23,15 +23,17 @@ class CrewRunMetadataCreate:
     Attributes:
         inputs (CrewRunMetadataCreateInputs):
         tasks_snapshot (list[TaskInfo]):
-        retry_feedback (list[RetryFeedback] | None | Unset):
+        retry_feedback (None | RetryFeedback | Unset):
     """
 
     inputs: CrewRunMetadataCreateInputs
     tasks_snapshot: list[TaskInfo]
-    retry_feedback: list[RetryFeedback] | None | Unset = UNSET
+    retry_feedback: None | RetryFeedback | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.retry_feedback import RetryFeedback
+
         inputs = self.inputs.to_dict()
 
         tasks_snapshot = []
@@ -39,15 +41,11 @@ class CrewRunMetadataCreate:
             tasks_snapshot_item = tasks_snapshot_item_data.to_dict()
             tasks_snapshot.append(tasks_snapshot_item)
 
-        retry_feedback: list[dict[str, Any]] | None | Unset
+        retry_feedback: dict[str, Any] | None | Unset
         if isinstance(self.retry_feedback, Unset):
             retry_feedback = UNSET
-        elif isinstance(self.retry_feedback, list):
-            retry_feedback = []
-            for retry_feedback_type_0_item_data in self.retry_feedback:
-                retry_feedback_type_0_item = retry_feedback_type_0_item_data.to_dict()
-                retry_feedback.append(retry_feedback_type_0_item)
-
+        elif isinstance(self.retry_feedback, RetryFeedback):
+            retry_feedback = self.retry_feedback.to_dict()
         else:
             retry_feedback = self.retry_feedback
 
@@ -80,27 +78,20 @@ class CrewRunMetadataCreate:
 
             tasks_snapshot.append(tasks_snapshot_item)
 
-        def _parse_retry_feedback(data: object) -> list[RetryFeedback] | None | Unset:
+        def _parse_retry_feedback(data: object) -> None | RetryFeedback | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             try:
-                if not isinstance(data, list):
+                if not isinstance(data, dict):
                     raise TypeError()
-                retry_feedback_type_0 = []
-                _retry_feedback_type_0 = data
-                for retry_feedback_type_0_item_data in _retry_feedback_type_0:
-                    retry_feedback_type_0_item = RetryFeedback.from_dict(
-                        retry_feedback_type_0_item_data
-                    )
-
-                    retry_feedback_type_0.append(retry_feedback_type_0_item)
+                retry_feedback_type_0 = RetryFeedback.from_dict(data)
 
                 return retry_feedback_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(list[RetryFeedback] | None | Unset, data)
+            return cast(None | RetryFeedback | Unset, data)
 
         retry_feedback = _parse_retry_feedback(d.pop("retry_feedback", UNSET))
 

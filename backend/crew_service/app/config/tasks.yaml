@@ -102,10 +102,7 @@ tasks:
         2. You must not include any information that is not related to the topic or the brand.
         3. You must not include any information that is not supported by the data you have collected.
         4. You must not include any information that is not supported by the tools you have used.
-        5. You must not include any information that is not supported by the data you have collected.
-        6. You must not include any information that is not supported by the tools you have used.
-        7. You must not include any information that is not supported by the data you have collected.
-        8. You must not include any information that is not supported by the tools you have used.
+        5. IMPORTANT: You MUST use the Markdown to Word Doc tool to save the report as a Word (.docx) file before returning the markdown report. The name of the report should be "market_research.docx".
       </important_rules>
 
       <context>
@@ -125,7 +122,7 @@ tasks:
           4. For any relevant topics related to the campaign theme, use the Search Instagram tool to gather data on recent posts related to the campaign theme. You MUST use the open_instagram_posts tool to open the posts and extract the text content.
           5. Analyze the data collected to identify patterns in content types, engagement tactics, visual styles, and posting frequencies that align with the brand and appeal to the target audience.
           6. You MUST generate a comprehensive and structured report summarizing your findings, including actionable insights, recommendations and references for the upcoming campaign.
-          7. You MUST use the Markdown to Word Doc tool to save the report as a Word (.docx) file before returning the markdown report. The name of the report should be "market_research.docx".
+          7. IMPORTANT You MUST use the Markdown to Word Doc tool to save the report as a Word (.docx) file before returning the markdown report. The name of the report should be "market_research.docx".
       </your_task>
 
       <additional_instructions>
@@ -171,6 +168,7 @@ tasks:
         2. Do not include any calendar dates, week assignments, posting schedule, or per-post topics.
         3. The strategy must remain high-level and non-operational.
         4. You MUST ensure each phase has valid duration_in_weeks, posting_cadence, themes, objectives, and recommended_content_types.
+        5. IMPORTANT: You MUST use the Markdown to Word Doc tool to save the content strategy as a Word (.docx) file before returning the markdown content strategy. The name of the content strategy should be "content_strategy.docx".
       </important_rules>
 
       <context>
@@ -217,8 +215,7 @@ tasks:
             - Do NOT produce HTML tables.
             - Do NOT perform any scheduling activities.
           - Double check that the total number of weeks across phases is equal to the <TOTAL_WEEKS> using the verify_sum_equals_expected tool
-          - You MUST the Markdown to Word Doc tool to save the content strategy as a Word (.docx) file before returning the markdown content strategy.
-            The name of the content strategy should be "content_strategy.docx".
+          - IMPORTANT: You MUST use the Markdown to Word Doc tool to save the content strategy as a Word (.docx) file before returning the markdown content strategy. The name of the content strategy should be "content_strategy.docx".
       </your_task>
 
     expected_output: >

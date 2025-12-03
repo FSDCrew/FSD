@@ -10,16 +10,14 @@ from pydantic import BaseModel
 from app.api.crud_client import AuthenticatedClient
 from app.api.crud_client.api.internal import (
     heartbeat_internal_internal_queue_queue_id_heartbeat_post as heartbeat_func,
-    update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put as update_crew_run_output_func,
     update_queue_status_internal_internal_queue_queue_id_status_put as update_queue_status_func,
 )
-from app.api.crud_client.models import HeartbeatResponse
+from app.api.crud_client.models import HeartbeatResponse, RetryFeedback
 from app.api.crud_client.models.heartbeat_request import HeartbeatRequest
 from app.api.crud_client.models.queue_status import QueueStatus
 from app.api.crud_client.models.update_status_request import UpdateStatusRequest
-from app.api.crud_client.models.update_crew_run_output_internal_internal_crew_run_crew_run_id_output_put_output import (
-    UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutOutput as CrewRunOutputUpdate,
-)
+from app.api.crud_client.models.task_status import TaskStatus
+from app.api.crud_client.types import UNSET
 from app.dependencies import get_flow_service
 from app.models.models import TaskInfo
 from app.services.crew_service import CrewService
@@ -463,9 +461,6 @@ class JobExecutor:
             # Execute flow in separate process
             result, flow_state = await self.process_manager.run_flow(crew_run_id, tasks, stored_inputs)
             
-            # Build and submit result with flow_state
-            await self._submit_result(crew_run_id, tasks, result, flow_state=flow_state)
-            
         except asyncio.CancelledError:
             logger.info(f"Crew run {crew_run_id} execution cancelled")
             await self._handle_cancellation(queue_id, lease_token)
@@ -474,21 +469,9 @@ class JobExecutor:
             # RuntimeError from run_flow may contain flow_state attribute
             flow_state = getattr(e, 'flow_state', None)
             logger.error(f"Error executing crew run {crew_run_id}: {e}", exc_info=True)
-            # Try to save flow_state even on error if we have it
-            if flow_state is not None and tasks is not None:
-                try:
-                    await self._submit_result(crew_run_id, tasks, None, flow_state=flow_state)
-                except Exception as submit_error:
-                    logger.warning(f"Failed to submit flow_state on error: {submit_error}", exc_info=True)
             raise
         except Exception as e:
             logger.error(f"Error executing crew run {crew_run_id}: {e}", exc_info=True)
-            # Try to save flow_state even on error if we have it
-            if flow_state is not None and tasks is not None:
-                try:
-                    await self._submit_result(crew_run_id, tasks, None, flow_state=flow_state)
-                except Exception as submit_error:
-                    logger.warning(f"Failed to submit flow_state on error: {submit_error}", exc_info=True)
             raise
         finally:
             await self._cleanup_heartbeat(heartbeat_task)
@@ -515,43 +498,55 @@ class JobExecutor:
             for task in crew_run.run_metadata.tasks_snapshot
         ]
         
-        return tasks, stored_inputs
-    
-    async def _submit_result(
-        self,
-        crew_run_id: UUID,
-        tasks: list[TaskInfo],
-        result: Any,
-        flow_state: Optional[dict] = None
-    ):
-        """
-        Build result payload and submit to CRUD service.
-        
-        Args:
-            crew_run_id: UUID of the crew run
-            tasks: List of task definitions
-            result: Flow execution result
-            flow_state: Optional flow_state dict from executed flow
-        """
-        task_status_service = TaskStatusService()
-        FlowStateModel, FlowClass, _ = self.flow_service.build_flow(tasks, task_status_service)
-        flow = FlowClass()
-        
-        # Build result payload using provided flow_state
-        result_data = ResultBuilder.build_payload(result, flow, FlowStateModel, flow_state=flow_state)
-        
-        output_body = CrewRunOutputUpdate()
-        if isinstance(result_data, dict):
-            output_body.additional_properties = result_data
-        else:
-            # If result_data is not a dict (e.g., a primitive), wrap it in result key
-            output_body.additional_properties = {"result": result_data}
-        
-        await update_crew_run_output_func.asyncio(
-            crew_run_id=crew_run_id,
-            client=self.crud_client,
-            body=output_body,
+        retry_feedback = crew_run.run_metadata.retry_feedback
+        is_retry = (
+            retry_feedback is not UNSET 
+            and retry_feedback is not None
         )
+        
+        if is_retry:
+            # Get retry feedback text
+            assert isinstance(retry_feedback, RetryFeedback)
+            retry_feedback_text = retry_feedback.feedback or ''
+            if not isinstance(retry_feedback_text, str):
+                retry_feedback_text = str(retry_feedback_text)
+            
+            # Use sorted task_states by order to determine retry point and upstream outputs
+            task_states = crew_run.output.task_states.additional_properties
+            retry_from_task_key = None
+            upstream_outputs = {}
+            
+            # Sort task states by order to process in execution order
+            sorted_task_states = sorted(
+                task_states.items(),
+                key=lambda x: x[1].order
+            )
+            
+            # Find first QUEUED task (this is where retry starts)
+            # Collect outputs from COMPLETED tasks before it (upstream tasks)
+            for task_key, task_state in sorted_task_states:
+                if task_state.status == TaskStatus.QUEUED:
+                    retry_from_task_key = task_key
+                    break
+                elif task_state.status == TaskStatus.COMPLETED:
+                    # Collect outputs from COMPLETED tasks (upstream tasks)
+                    task_state_state = task_state.state.additional_properties
+                    if 'task_outputs' in task_state_state:
+                        task_outputs = task_state_state['task_outputs']
+                        if isinstance(task_outputs, dict):
+                            for key, value in task_outputs.items():
+                                upstream_outputs[key] = value
+            
+            # Only add retry info if we found a retry point
+            if retry_from_task_key is not None:
+                stored_inputs['_retry_info'] = {
+                    'is_retry': True,
+                    'retry_from_task_key': str(retry_from_task_key),
+                    'retry_feedback': str(retry_feedback_text),
+                    'upstream_outputs': upstream_outputs,
+                }
+        
+        return tasks, stored_inputs
     
     async def _handle_cancellation(self, queue_id: UUID, lease_token: str):
         """Handle cancellation by updating queue status."""

@@ -58,6 +58,7 @@ def build_task_step_function(
     crew_agents: Dict[str, CrewAIAgent],
     graph: FlowDependencyGraph,
     task_status_service: TaskStatusService | None = None,
+    flow_tasks: List[TaskInfo] | None = None,
 ):
     """Build the method that will run a single step of the flow for one task."""
 
@@ -69,6 +70,75 @@ def build_task_step_function(
         raise ValueError(f"agent not found in tasks.yaml for task {task_key}")
 
     def step(self, previous_result: str):
+        # Check if this is a retry flow and if this task is upstream (should be skipped)
+        retry_from_task_key = getattr(self, '_retry_from_task_key', None)
+        retry_feedback = getattr(self, '_retry_feedback', None)
+        
+        if retry_from_task_key and flow_tasks:
+            # Find indices of current task and retry task
+            current_task_index = step_index
+            retry_task_index = None
+            for idx, task in enumerate(flow_tasks):
+                if task.key == retry_from_task_key:
+                    retry_task_index = idx
+                    break
+            
+            # If current task is before retry task, it's upstream and should be skipped
+            if retry_task_index is not None and current_task_index < retry_task_index:
+                
+                # Skip execution - just update status to COMPLETED using preserved outputs
+                crew_run_id = getattr(self.state, "crew_run_id", None)
+                status_service = task_status_service
+                if crew_run_id and not status_service:
+                    status_service = TaskStatusService()
+                
+                if crew_run_id and status_service:
+                    try:
+                        if isinstance(crew_run_id, str):
+                            crew_run_id_uuid = UUID(crew_run_id)
+                        else:
+                            crew_run_id_uuid = crew_run_id
+                        
+                        # Get preserved outputs from state (they were initialized in initialize_flow)
+                        task_outputs = {}
+                        write_specs = graph.task_write_specs.get(task_key, [])
+                        for write_spec in write_specs:
+                            field_name = write_spec["field"]
+                            value = getattr(self.state, field_name, None)
+                            if value is not None:
+                                if isinstance(value, BaseModel):
+                                    task_outputs[field_name] = value.model_dump(mode='json')
+                                else:
+                                    task_outputs[field_name] = value
+                        
+                        # Get inputs from state
+                        step_inputs = {}
+                        read_specs = graph.task_read_specs.get(task_key, [])
+                        for read_spec in read_specs:
+                            field_name = read_spec["field"]
+                            value = getattr(self.state, field_name, None)
+                            if value is not None:
+                                step_inputs[field_name] = value
+                        
+                        task_inputs = _serialize_task_data(step_inputs)
+                        
+                        status_service.update_task_status_in_worker(
+                            crew_run_id=crew_run_id_uuid,
+                            task_key=task_key,
+                            status=TaskStatus.COMPLETED,
+                            task_inputs=task_inputs,
+                            task_outputs=task_outputs,
+                            completed_at=datetime.now(timezone.utc),
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to update upstream task {task_key} status to COMPLETED: {e}",
+                            exc_info=True,
+                        )
+                
+                return f"{task_key} completed (skipped - upstream task in retry)"
+        
+        # Normal task execution (not upstream in retry)
         task_yaml = tasks_config.get(task_key, {})
 
         step_inputs: Dict[str, Any] = {}
@@ -110,6 +180,19 @@ def build_task_step_function(
             step_inputs["crew_run_id"] = crew_run_id
 
         description_template = task_yaml.get("description", "")
+        
+        if retry_feedback and retry_from_task_key and task_key == retry_from_task_key:
+            retry_prompt = (
+                "<IMPORTANT>\n",
+                "- You MUST ground your work on the retry feedback exactly. Do not deviate from the retry feedback.\n",
+                "- This task was previously executed and the outputs were not satisfactory. The retry feedback is provided to help you improve the output.\n",
+                "- The retry feedback is as follows: <RETRY FEEDBACK>",
+                "{retry_feedback}",
+                "</RETRY FEEDBACK>\n",
+                "</IMPORTANT>\n\n",
+            )
+            description_template = f"{retry_prompt}\n{description_template}"
+        
         formatted_description = interpolate_task_description(
             description_template, step_inputs
         )
@@ -306,6 +389,46 @@ def build_dynamic_flow_class(
     def initialize_flow(self) -> str:
         inputs = cast(dict[str, Any], baggage.get_baggage("flow_inputs") or {})
         filtered_inputs = {k: v for k, v in inputs.items() if k != "id"}
+        
+        retry_info = filtered_inputs.pop('_retry_info', None)
+        is_retry = retry_info is not None and retry_info.get('is_retry', False)
+        
+        if is_retry:
+            self._retry_from_task_key = retry_info.get('retry_from_task_key')
+            self._retry_feedback = retry_info.get('retry_feedback', '')
+            upstream_outputs = retry_info.get('upstream_outputs', {})
+            
+            # Initialize state with upstream task outputs first
+            for field_name, value in upstream_outputs.items():
+                if hasattr(self.state, field_name):
+                    field_spec = graph.state_field_specs.get(field_name)
+                    if field_spec and isinstance(value, dict):
+                        field_type_str = field_spec.get("type", "")
+                        if field_type_str in CUSTOM_TYPE_REGISTRY:
+                            model_class = CUSTOM_TYPE_REGISTRY[field_type_str]
+                            if issubclass(model_class, BaseModel):
+                                try:
+                                    value = model_class.model_validate(value)
+                                except Exception as e:
+                                    logger.warning(
+                                        f"Failed to validate upstream output {field_name} as {field_type_str}: {e}"
+                                    )
+                    
+                    try:
+                        setattr(self.state, field_name, value)
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to set upstream output %s via setattr (%s); falling back to model_copy",
+                            field_name,
+                            e,
+                        )
+                        if hasattr(self.state, "model_copy"):
+                            self.state = self.state.model_copy(
+                                update={field_name: value}
+                            )
+        else:
+            self._retry_from_task_key = None
+            self._retry_feedback = None
 
         if filtered_inputs:
             for field_name, value in filtered_inputs.items():
@@ -364,6 +487,7 @@ def build_dynamic_flow_class(
             crew_agents,
             graph,
             task_status_service,
+            flow_tasks=flow_tasks,
         )
         fn.__name__ = f"step_{task_record.key}"
         step_functions[task_record.key] = fn

@@ -149,7 +149,7 @@ class RetryFeedback(BaseModel):
 class CrewRunMetadataBase(BaseModel):
     inputs: dict[str, Any]
     tasks_snapshot: list[TaskInfo]
-    retry_feedback: Optional[list[RetryFeedback]] = None
+    retry_feedback: Optional[RetryFeedback] | None = None
 
 
 class CrewRunMetadataCreate(CrewRunMetadataBase):
