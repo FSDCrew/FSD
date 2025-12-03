@@ -22,18 +22,20 @@ T = TypeVar("T", bound="CrewRunOutputRead")
 class CrewRunOutputRead:
     """
     Attributes:
+        task_states (CrewRunOutputReadTaskStates):
         flow_state (CrewRunOutputReadFlowStateType0 | None | Unset):
-        task_states (CrewRunOutputReadTaskStates | Unset):
     """
 
+    task_states: CrewRunOutputReadTaskStates
     flow_state: CrewRunOutputReadFlowStateType0 | None | Unset = UNSET
-    task_states: CrewRunOutputReadTaskStates | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.crew_run_output_read_flow_state_type_0 import (
             CrewRunOutputReadFlowStateType0,
         )
+
+        task_states = self.task_states.to_dict()
 
         flow_state: dict[str, Any] | None | Unset
         if isinstance(self.flow_state, Unset):
@@ -43,17 +45,15 @@ class CrewRunOutputRead:
         else:
             flow_state = self.flow_state
 
-        task_states: dict[str, Any] | Unset = UNSET
-        if not isinstance(self.task_states, Unset):
-            task_states = self.task_states.to_dict()
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({})
+        field_dict.update(
+            {
+                "task_states": task_states,
+            }
+        )
         if flow_state is not UNSET:
             field_dict["flow_state"] = flow_state
-        if task_states is not UNSET:
-            field_dict["task_states"] = task_states
 
         return field_dict
 
@@ -67,6 +67,7 @@ class CrewRunOutputRead:
         )
 
         d = dict(src_dict)
+        task_states = CrewRunOutputReadTaskStates.from_dict(d.pop("task_states"))
 
         def _parse_flow_state(
             data: object,
@@ -87,16 +88,9 @@ class CrewRunOutputRead:
 
         flow_state = _parse_flow_state(d.pop("flow_state", UNSET))
 
-        _task_states = d.pop("task_states", UNSET)
-        task_states: CrewRunOutputReadTaskStates | Unset
-        if isinstance(_task_states, Unset):
-            task_states = UNSET
-        else:
-            task_states = CrewRunOutputReadTaskStates.from_dict(_task_states)
-
         crew_run_output_read = cls(
-            flow_state=flow_state,
             task_states=task_states,
+            flow_state=flow_state,
         )
 
         crew_run_output_read.additional_properties = d

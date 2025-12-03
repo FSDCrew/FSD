@@ -23,6 +23,9 @@ class CrewRunCreateRequest(BaseModel):
 class CrewRunRetryRequest(BaseModel):
     feedback: str
     retry_from_task_key: str
+    
+class CrewRunRetryResponse(BaseModel):
+    crew_run_id: UUID
 
 
 class TaskFieldRead(BaseModel):

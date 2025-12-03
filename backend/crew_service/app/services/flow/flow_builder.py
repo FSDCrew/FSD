@@ -392,6 +392,8 @@ def build_dynamic_flow_class(
         
         retry_info = filtered_inputs.pop('_retry_info', None)
         is_retry = retry_info is not None and retry_info.get('is_retry', False)
+        upstream_outputs = {}
+        successfully_set_upstream_fields = set()
         
         if is_retry:
             self._retry_from_task_key = retry_info.get('retry_from_task_key')
@@ -399,6 +401,7 @@ def build_dynamic_flow_class(
             upstream_outputs = retry_info.get('upstream_outputs', {})
             
             # Initialize state with upstream task outputs first
+            # Track which fields were successfully set
             for field_name, value in upstream_outputs.items():
                 if hasattr(self.state, field_name):
                     field_spec = graph.state_field_specs.get(field_name)
@@ -413,9 +416,12 @@ def build_dynamic_flow_class(
                                     logger.warning(
                                         f"Failed to validate upstream output {field_name} as {field_type_str}: {e}"
                                     )
+                                    # Skip this field - validation failed, will try from run_metadata.inputs
+                                    continue
                     
                     try:
                         setattr(self.state, field_name, value)
+                        successfully_set_upstream_fields.add(field_name)
                     except Exception as e:
                         logger.warning(
                             "Failed to set upstream output %s via setattr (%s); falling back to model_copy",
@@ -423,15 +429,38 @@ def build_dynamic_flow_class(
                             e,
                         )
                         if hasattr(self.state, "model_copy"):
-                            self.state = self.state.model_copy(
-                                update={field_name: value}
-                            )
+                            try:
+                                self.state = self.state.model_copy(
+                                    update={field_name: value}
+                                )
+                                successfully_set_upstream_fields.add(field_name)
+                            except Exception as copy_error:
+                                logger.warning(
+                                    f"Failed to set upstream output {field_name} via model_copy: {copy_error}"
+                                )
+                                # Field not successfully set, will try from run_metadata.inputs
         else:
             self._retry_from_task_key = None
             self._retry_feedback = None
 
         if filtered_inputs:
-            for field_name, value in filtered_inputs.items():
+            # For retry flows, filter out non-context fields that were successfully set from upstream_outputs
+            # Context fields should always come from run_metadata.inputs
+            # Fields that failed to set from upstream_outputs can still be set from run_metadata.inputs
+            inputs_to_set = {}
+            if is_retry:
+                for field_name, value in filtered_inputs.items():
+                    field_spec = graph.state_field_specs.get(field_name)
+                    is_context_field = field_spec and field_spec.get("field_kind") == "context"
+                    
+                    # Always include context fields
+                    # Exclude non-context fields that were successfully set from upstream_outputs
+                    if is_context_field or field_name not in successfully_set_upstream_fields:
+                        inputs_to_set[field_name] = value
+            else:
+                inputs_to_set = filtered_inputs
+            
+            for field_name, value in inputs_to_set.items():
                 if hasattr(self.state, field_name):
                     field_spec = graph.state_field_specs.get(field_name)
                     if field_spec and isinstance(value, dict):
