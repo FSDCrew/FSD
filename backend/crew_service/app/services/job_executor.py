@@ -242,6 +242,9 @@ class ResultBuilder:
 class HeartbeatManager:
     """Manages heartbeat loop for queue lease extension."""
     
+    MAX_HEARTBEAT_RETRIES = 3
+    INITIAL_BACKOFF_SECONDS = 1.0
+    
     def __init__(self, crud_client: AuthenticatedClient):
         self.crud_client = crud_client
     
@@ -272,32 +275,111 @@ class HeartbeatManager:
         lease_token: str,
         execute_task: Optional[asyncio.Task] = None
     ):
-        """Send periodic heartbeats to extend lease."""
+        """Send periodic heartbeats to extend lease with retry logic."""
         try:
             while True:
                 await asyncio.sleep(settings.HEARTBEAT_INTERVAL_SECONDS)
-                try:
-                    from app.api.crud_client.types import Unset
-                    
-                    timeout: Union[int, Unset] = settings.JOB_VISIBILITY_TIMEOUT_SECONDS
-                    body = HeartbeatRequest(lease_token=lease_token)
-                    response = await heartbeat_func.asyncio(
-                        queue_id=queue_id,
-                        client=self.crud_client,
-                        body=body,
-                        visibility_timeout_seconds=timeout
+                
+                # Attempt heartbeat with retry logic
+                success = await self._send_heartbeat_with_retry(
+                    queue_id, lease_token, execute_task
+                )
+                
+                if not success:
+                    logger.error(
+                        f"Failed to send heartbeat for queue {queue_id} after "
+                        f"{self.MAX_HEARTBEAT_RETRIES} retries. Continuing heartbeat loop."
                     )
-                    if isinstance(response, HeartbeatResponse) and response.cancel_requested:
-                        logger.info(f"Cancellation requested for queue {queue_id}")
-                        if execute_task and not execute_task.done():
-                            logger.info(f"Cancelling execute task for queue {queue_id}")
-                            execute_task.cancel()
-                        raise asyncio.CancelledError()
-                except Exception as e:
-                    logger.error(f"Failed to send heartbeat: {e}", exc_info=True)
         except asyncio.CancelledError:
             logger.info(f"Heartbeat loop for queue {queue_id} cancelled")
             raise
+    
+    async def _send_heartbeat_with_retry(
+        self,
+        queue_id: UUID,
+        lease_token: str,
+        execute_task: Optional[asyncio.Task] = None
+    ) -> bool:
+        """
+        Send heartbeat request with retry logic and exponential backoff.
+        
+        Args:
+            queue_id: UUID of the queue
+            lease_token: Token for the queue lease
+            execute_task: Task to cancel if cancellation is requested
+            
+        Returns:
+            True if heartbeat succeeded, False if all retries failed
+        """
+        from app.api.crud_client.types import Unset
+        
+        timeout: Union[int, Unset] = settings.JOB_VISIBILITY_TIMEOUT_SECONDS
+        body = HeartbeatRequest(lease_token=lease_token)
+        
+        backoff = self.INITIAL_BACKOFF_SECONDS
+        
+        for attempt in range(self.MAX_HEARTBEAT_RETRIES):
+            try:
+                response = await heartbeat_func.asyncio(
+                    queue_id=queue_id,
+                    client=self.crud_client,
+                    body=body,
+                    visibility_timeout_seconds=timeout
+                )
+                
+                # Check for cancellation request
+                if isinstance(response, HeartbeatResponse) and response.cancel_requested:
+                    logger.info(f"Cancellation requested for queue {queue_id}")
+                    if execute_task and not execute_task.done():
+                        logger.info(f"Cancelling execute task for queue {queue_id}")
+                        execute_task.cancel()
+                    raise asyncio.CancelledError()
+                
+                # Success - reset backoff for next heartbeat interval
+                if attempt > 0:
+                    logger.info(
+                        f"Heartbeat succeeded for queue {queue_id} on attempt {attempt + 1}"
+                    )
+                return True
+                
+            except asyncio.CancelledError:
+                # Re-raise cancellation immediately
+                raise
+                
+            except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.TimeoutException) as e:
+                # Network timeout errors - retry with backoff
+                if attempt < self.MAX_HEARTBEAT_RETRIES - 1:
+                    logger.warning(
+                        f"Heartbeat timeout for queue {queue_id} (attempt {attempt + 1}/"
+                        f"{self.MAX_HEARTBEAT_RETRIES}): {e}. Retrying in {backoff}s..."
+                    )
+                    await asyncio.sleep(backoff)
+                    backoff *= 2  # Exponential backoff
+                else:
+                    logger.error(
+                        f"Heartbeat timeout for queue {queue_id} after "
+                        f"{self.MAX_HEARTBEAT_RETRIES} attempts: {e}",
+                        exc_info=True
+                    )
+                    
+            except Exception as e:
+                # Other exceptions - retry with backoff
+                if attempt < self.MAX_HEARTBEAT_RETRIES - 1:
+                    logger.warning(
+                        f"Heartbeat failed for queue {queue_id} (attempt {attempt + 1}/"
+                        f"{self.MAX_HEARTBEAT_RETRIES}): {e}. Retrying in {backoff}s...",
+                        exc_info=True
+                    )
+                    await asyncio.sleep(backoff)
+                    backoff *= 2  # Exponential backoff
+                else:
+                    logger.error(
+                        f"Heartbeat failed for queue {queue_id} after "
+                        f"{self.MAX_HEARTBEAT_RETRIES} attempts: {e}",
+                        exc_info=True
+                    )
+        
+        return False
 
 
 class JobExecutor:
@@ -411,9 +493,12 @@ class JobExecutor:
         # Build result payload
         result_data = ResultBuilder.build_payload(result, flow, FlowStateModel)
         
-        # Submit to CRUD service
         output_body = CrewRunOutputUpdate()
-        output_body.additional_properties = {"result": result_data}
+        if isinstance(result_data, dict):
+            output_body.additional_properties = result_data
+        else:
+            # If result_data is not a dict (e.g., a primitive), wrap it in result key
+            output_body.additional_properties = {"result": result_data}
         
         await update_crew_run_output_func.asyncio(
             crew_run_id=crew_run_id,

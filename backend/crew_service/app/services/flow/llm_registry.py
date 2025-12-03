@@ -9,3 +9,9 @@ general_llm = LLM(
     # reasoning_effort="none",
     seed=42,
 )
+
+function_calling_llm = LLM(
+    model="openai/gpt-4.1-mini",
+    temperature=0.7,
+    seed=42,
+)

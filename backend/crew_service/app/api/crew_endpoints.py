@@ -1,9 +1,10 @@
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from app.dependencies import get_crew_service, get_user_token
 from app.models.models import (
     CrewRun,
     CrewRunCreateRequest,
+    CrewRunRetryRequest,
     RequiredInputsResponse,
 )
 from app.services.crew_service import CrewService
@@ -49,3 +50,17 @@ async def crew_run_cancel(
 ):
     """Cancel a crew run."""
     return await crew_service.cancel_crew_run(crew_run_id, user_token)
+
+@crew_router.post(
+    "/crew-run/{crew_run_id}/retry",
+    response_model=CrewRun,
+    status_code=201,
+)
+async def crew_run_retry(
+    retry_request: CrewRunRetryRequest,
+    crew_run_id: UUID,
+    user_token: str = Depends(get_user_token),
+    crew_service: CrewService = Depends(get_crew_service)
+):
+    """Retry a crew run."""
+    return await crew_service.retry_crew_run(retry_request, crew_run_id, user_token)

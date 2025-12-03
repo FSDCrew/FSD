@@ -25,6 +25,7 @@ from app.services.flow.guardrails import (
     llm_judge_guardrail,
     structured_output_guardrail,
 )
+from app.services.flow.llm_registry import function_calling_llm
 from app.services.flow.state_builder import (
     build_flow_state_model,
     extract_inner_type_from_list,
@@ -143,6 +144,7 @@ def build_task_step_function(
             tasks=[crew_task],
             process=Process.sequential,
             verbose=True,
+            function_calling_llm=function_calling_llm,
         )
         
         # Update task status to RUNNING before kickoff
