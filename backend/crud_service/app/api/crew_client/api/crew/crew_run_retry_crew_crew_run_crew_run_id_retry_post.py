@@ -1,30 +1,34 @@
 from http import HTTPStatus
-from typing import Any, cast
+from typing import Any
 from uuid import UUID
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.crew_run import CrewRun
+from ...models.crew_run_retry_request import CrewRunRetryRequest
 from ...models.http_validation_error import HTTPValidationError
-from ...types import UNSET, Response, Unset
+from ...types import Response
 
 
 def _get_kwargs(
-    artifact_id: UUID,
+    crew_run_id: UUID,
     *,
-    x_internal_api_key: None | str | Unset = UNSET,
+    body: CrewRunRetryRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-    if not isinstance(x_internal_api_key, Unset):
-        headers["X-Internal-Api-Key"] = x_internal_api_key
 
     _kwargs: dict[str, Any] = {
-        "method": "get",
-        "url": "/internal/artifact/{artifact_id}".format(
-            artifact_id=artifact_id,
+        "method": "post",
+        "url": "/crew/crew-run/{crew_run_id}/retry".format(
+            crew_run_id=crew_run_id,
         ),
     }
+
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -32,10 +36,11 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> HTTPValidationError | str | None:
-    if response.status_code == 200:
-        response_200 = cast(str, response.json())
-        return response_200
+) -> CrewRun | HTTPValidationError | None:
+    if response.status_code == 201:
+        response_201 = CrewRun.from_dict(response.json())
+
+        return response_201
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
@@ -50,7 +55,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[HTTPValidationError | str]:
+) -> Response[CrewRun | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -60,30 +65,30 @@ def _build_response(
 
 
 def sync_detailed(
-    artifact_id: UUID,
+    crew_run_id: UUID,
     *,
     client: AuthenticatedClient,
-    x_internal_api_key: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | str]:
-    """Get Artifact
+    body: CrewRunRetryRequest,
+) -> Response[CrewRun | HTTPValidationError]:
+    """Crew Run Retry
 
-     Retrieve an artifact by its ID.
+     Retry a crew run.
 
     Args:
-        artifact_id (UUID): Artifact ID to retrieve
-        x_internal_api_key (None | str | Unset):
+        crew_run_id (UUID):
+        body (CrewRunRetryRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | str]
+        Response[CrewRun | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
-        artifact_id=artifact_id,
-        x_internal_api_key=x_internal_api_key,
+        crew_run_id=crew_run_id,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -94,59 +99,59 @@ def sync_detailed(
 
 
 def sync(
-    artifact_id: UUID,
+    crew_run_id: UUID,
     *,
     client: AuthenticatedClient,
-    x_internal_api_key: None | str | Unset = UNSET,
-) -> HTTPValidationError | str | None:
-    """Get Artifact
+    body: CrewRunRetryRequest,
+) -> CrewRun | HTTPValidationError | None:
+    """Crew Run Retry
 
-     Retrieve an artifact by its ID.
+     Retry a crew run.
 
     Args:
-        artifact_id (UUID): Artifact ID to retrieve
-        x_internal_api_key (None | str | Unset):
+        crew_run_id (UUID):
+        body (CrewRunRetryRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | str
+        CrewRun | HTTPValidationError
     """
 
     return sync_detailed(
-        artifact_id=artifact_id,
+        crew_run_id=crew_run_id,
         client=client,
-        x_internal_api_key=x_internal_api_key,
+        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
-    artifact_id: UUID,
+    crew_run_id: UUID,
     *,
     client: AuthenticatedClient,
-    x_internal_api_key: None | str | Unset = UNSET,
-) -> Response[HTTPValidationError | str]:
-    """Get Artifact
+    body: CrewRunRetryRequest,
+) -> Response[CrewRun | HTTPValidationError]:
+    """Crew Run Retry
 
-     Retrieve an artifact by its ID.
+     Retry a crew run.
 
     Args:
-        artifact_id (UUID): Artifact ID to retrieve
-        x_internal_api_key (None | str | Unset):
+        crew_run_id (UUID):
+        body (CrewRunRetryRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | str]
+        Response[CrewRun | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
-        artifact_id=artifact_id,
-        x_internal_api_key=x_internal_api_key,
+        crew_run_id=crew_run_id,
+        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -155,31 +160,31 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    artifact_id: UUID,
+    crew_run_id: UUID,
     *,
     client: AuthenticatedClient,
-    x_internal_api_key: None | str | Unset = UNSET,
-) -> HTTPValidationError | str | None:
-    """Get Artifact
+    body: CrewRunRetryRequest,
+) -> CrewRun | HTTPValidationError | None:
+    """Crew Run Retry
 
-     Retrieve an artifact by its ID.
+     Retry a crew run.
 
     Args:
-        artifact_id (UUID): Artifact ID to retrieve
-        x_internal_api_key (None | str | Unset):
+        crew_run_id (UUID):
+        body (CrewRunRetryRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | str
+        CrewRun | HTTPValidationError
     """
 
     return (
         await asyncio_detailed(
-            artifact_id=artifact_id,
+            crew_run_id=crew_run_id,
             client=client,
-            x_internal_api_key=x_internal_api_key,
+            body=body,
         )
     ).parsed

@@ -311,6 +311,118 @@ class SocialMediaSchedule(BaseModel):
         }
 
 
+class PostCaption(BaseModel):
+    """
+    Represents copywriting output for a single schedule item.
+    Contains the generated caption, hashtags, and phrases for one post/story.
+    """
+    schedule_item_id: int = Field(
+        ...,
+        description="ID of the schedule item this copywriting corresponds to"
+    )
+    caption: str = Field(
+        ...,
+        description="The Instagram caption text"
+    )
+    hashtags: List[str] = Field(
+        ...,
+        description="List of hashtags (without '#' prefix)"
+    )
+    phrases: List[str] = Field(
+        ...,
+        description="List of 2-3 engaging phrases or taglines"
+    )
+    
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "schedule_item_id": 1,
+                "caption": "Welcome to a new semester! 🌟 Get ready for an amazing journey...",
+                "hashtags": ["campuslife", "university", "studentlife", "backtoschool"],
+                "phrases": ["New beginnings, endless possibilities", "Your journey starts here"]
+            }
+        }
+    )
+
+
+class CopywriterOutput(BaseModel):
+    """
+    Contains copywriting outputs for all items in a social media schedule.
+    Each PostCaption corresponds to one schedule item.
+    """
+    post_captions: List[PostCaption] = Field(
+        ...,
+        description="List of copywriting outputs, one for each schedule item"
+    )
+    
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "post_captions": [
+                    {
+                        "schedule_item_id": 1,
+                        "caption": "Welcome to a new semester! 🌟",
+                        "hashtags": ["campuslife", "university"],
+                        "phrases": ["New beginnings"]
+                    }
+                ]
+            }
+        }
+    )
+
+
+class ImageAsset(BaseModel):
+    """
+    Represents an image asset for a single schedule item.
+    Contains the S3 URL of the generated image.
+    """
+    schedule_item_id: int = Field(
+        ...,
+        description="ID of the schedule item this image corresponds to"
+    )
+    image_url: str = Field(
+        ...,
+        description="S3 URL of the generated image"
+    )
+    
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "schedule_item_id": 1,
+                "image_url": "https://s3.amazonaws.com/bucket/image-123.png"
+            }
+        }
+    )
+
+
+class OrshotRender(BaseModel):
+    """
+    Represents an Orshot render for a single schedule item.
+    Contains the S3 URL of the rendered image.
+    """
+    schedule_item_id: int = Field(
+        ...,
+        description="ID of the schedule item this render corresponds to"
+    )
+    render_url: str = Field(
+        ...,
+        description="S3 URL of the rendered Orshot image"
+    )
+    
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "schedule_item_id": 1,
+                "render_url": "https://s3.amazonaws.com/bucket/render-123.png"
+            }
+        }
+    )
+
+
 class AllowedTemplateId(IntEnum):
     """
     Registry of supported Orshot Templates.
@@ -357,6 +469,16 @@ CUSTOM_TYPE_REGISTRY: Dict[str, Type[BaseModel] | Type[IntEnum]] = {
     # Social Media
     "SocialMediaSchedule": SocialMediaSchedule,
     "ScheduleItem": ScheduleItem,
+    
+    # Copywriting
+    "PostCaption": PostCaption,
+    "CopywriterOutput": CopywriterOutput,
+    
+    # Image Assets
+    "ImageAsset": ImageAsset,
+    
+    # Orshot Renders
+    "OrshotRender": OrshotRender,
     
     # Orshot
     "AllowedTemplateId": AllowedTemplateId,

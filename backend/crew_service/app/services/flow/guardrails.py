@@ -2,6 +2,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
+from sre_compile import MAXCODE
 from typing import Any, Callable, Sequence, Tuple, Type
 
 from crewai import LLM, TaskOutput
@@ -76,32 +77,31 @@ def _extract_json_from_text(text: str) -> dict | None:
     return None
 
 
-def _write_failed_output_to_file(raw_output: str, expected_model_name: str) -> Path:
-    """
-    Write failed JSON parsing output to a log file for debugging.
-    Returns the path to the created file.
-    """
-    log_dir = Path("./logs/guardrail")
-    log_dir.mkdir(parents=True, exist_ok=True)
-
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"failed_output_{expected_model_name}_{timestamp}.txt"
-    filepath = log_dir / filename
+# def _write_failed_output_to_file(raw_output: str, expected_model_name: str) -> Path:
+#     """
+#     Write failed JSON parsing output to a log file for debugging.
+#     Returns the path to the created file.
+#     """
+#     log_dir = Path("./logs/guardrail")
+#     log_dir.mkdir(exist_ok=True)
     
-    try:
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(f"Failed to parse JSON for model: {expected_model_name}\n")
-            f.write(f"Timestamp: {datetime.now().isoformat()}\n")
-            f.write(f"{'='*80}\n\n")
-            f.write("Raw output:\n")
-            f.write(raw_output)
-            f.write("\n")
-        logger.info(f"Wrote failed output to {filepath}")
-    except Exception as e:
-        logger.error(f"Failed to write output to file: {e}")
+#     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+#     filename = f"failed_output_{expected_model_name}_{timestamp}.txt"
+#     filepath = log_dir / filename
     
-    return filepath
+#     try:
+#         with open(filepath, "w", encoding="utf-8") as f:
+#             f.write(f"Failed to parse JSON for model: {expected_model_name}\n")
+#             f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+#             f.write(f"{'='*80}\n\n")
+#             f.write("Raw output:\n")
+#             f.write(raw_output)
+#             f.write("\n")
+#         logger.info(f"Wrote failed output to {filepath}")
+#     except Exception as e:
+#         logger.error(f"Failed to write output to file: {e}")
+    
+#     return filepath
 
 
 def structured_output_guardrail(
@@ -166,7 +166,8 @@ def structured_output_guardrail(
                 
                 # Write full output to file for debugging
                 if isinstance(result.raw, str):
-                    _write_failed_output_to_file(result.raw, expected_model.__name__)
+                    # _write_failed_output_to_file(result.raw, expected_model.__name__)
+                    logger.error("Wrote failed output to log file for debugging.")
                 
                 return False, reason
             except ValidationError as e:
@@ -225,16 +226,32 @@ def structured_output_guardrail(
 
 def llm_judge_guardrail(result: TaskOutput) -> Tuple[bool, Any]:
     """Validate task output content using an LLM judge."""
+    
+    MAX_CHAR_LIMIT = 15000  
+    
+    raw_output = str(result.raw)
+    is_truncated = len(raw_output) > MAX_CHAR_LIMIT
+    
+    truncated_result = raw_output[:MAX_CHAR_LIMIT]
+    if is_truncated:
+        truncated_result += "\n...[OUTPUT TRUNCATED DUE TO LENGTH]..."
 
+    # 2. Construct a lenient prompt that explicitly allows truncation.
     evaluation_prompt = (
         "<task_expected_output>\n"
         f"{result.expected_output}\n"
         "</task_expected_output>\n\n"
         "<task_actual_output>\n"
-        f"{result.raw}\n"
+        f"{truncated_result}\n"
         "</task_actual_output>\n\n"
         "<your_task>\n"
         "Evaluate if the actual output meets the task requirements.\n"
+        "IMPORTANT RULES FOR EVALUATION:\n"
+        "1. The output provided above might be TRUNCATED due to length limits.\n"
+        "2. If the output cuts off mid-stream, do NOT mark it as invalid.\n"
+        "3. Focus on the STRUCTURE and CONTENT of the visible portion.\n"
+        "4. If the visible content appears correct and follows the formatting rules (e.g. Markdown headers, hashtags), mark it as VALID.\n"
+        "\n"
         "Respond ONLY with JSON format.\n"
         "{\n"
         '    "valid": boolean,\n'

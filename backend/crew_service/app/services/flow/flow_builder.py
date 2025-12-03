@@ -125,10 +125,12 @@ def build_task_step_function(
         if not agent:
             raise ValueError(f"Agent {agent_key} not found")
 
-        output_pydantic_model = _resolve_task_output_model(task_key, graph)
+        output_pydantic_model, is_list_type = _resolve_task_output_model(task_key, graph)
 
         guardrails_to_use = []
-        if output_pydantic_model:
+        # Only use structured output guardrail for non-list types
+        # List types are validated by the state model itself
+        if output_pydantic_model and not is_list_type:
             guardrails_to_use.append(structured_output_guardrail(output_pydantic_model))
         guardrails_to_use.append(llm_judge_guardrail)
 
@@ -141,7 +143,9 @@ def build_task_step_function(
             "guardrail_max_retries": 3,
         }
 
-        if output_pydantic_model:
+        # Only set output_pydantic for non-list types
+        # List types are handled differently - the raw JSON array is validated by the state model
+        if output_pydantic_model and not is_list_type:
             crew_task_kwargs["output_pydantic"] = output_pydantic_model
 
         crew_task = CrewAITask(**crew_task_kwargs)
@@ -232,6 +236,16 @@ def build_task_step_function(
                 output_value = pydantic_value
             else:
                 output_value = getattr(result, "raw", result)
+                
+            # For list types, parse the JSON string if needed
+            if isinstance(output_value, str):
+                try:
+                    import json
+                    parsed = json.loads(output_value)
+                    if isinstance(parsed, list):
+                        output_value = parsed
+                except (json.JSONDecodeError, ValueError):
+                    pass  # Keep as string if parsing fails
 
             if mode == "replace":
                 setattr(self.state, field_name, output_value)
@@ -283,7 +297,15 @@ def build_task_step_function(
 
 def _resolve_task_output_model(
     task_key: str, graph: FlowDependencyGraph
-) -> Type[BaseModel] | None:
+) -> tuple[Type[BaseModel] | None, bool]:
+    """
+    Resolve the output model for a task.
+    
+    Returns:
+        Tuple of (model_type, is_list_type):
+        - model_type: The Pydantic model type, or None if not applicable
+        - is_list_type: True if the field type is a list type (e.g., list[ImageAsset])
+    """
     write_specs = graph.task_write_specs.get(task_key, [])
     for write_spec in write_specs:
         field_name = write_spec["field"]
@@ -292,13 +314,18 @@ def _resolve_task_output_model(
             continue
 
         field_type_str = field_spec.get("type", "string")
+        is_list_type = (
+            field_type_str.startswith("list[") 
+            or field_type_str.startswith("List[") 
+            or field_type_str.endswith("[]")
+        )
         inner_type_str = extract_inner_type_from_list(field_type_str)
         python_type = resolve_python_type(inner_type_str)
 
         if isinstance(python_type, type) and issubclass(python_type, BaseModel):
-            return python_type
+            return python_type, is_list_type
 
-    return None
+    return None, False
 
 
 def build_dynamic_flow_class(
