@@ -32,6 +32,8 @@ class Settings(BaseSettings):
 
     ORSHOT_API_KEY: str
     ORSHOT_API_URL: str = "https://api.orshot.com/v1/studio/render"
+    ORSHOT_MOCK_MODE: bool
+
     GEMINI_API_KEY: str
     
     class Config:

@@ -390,6 +390,31 @@ class ImageAsset(BaseModel):
     )
 
 
+class OrshotRender(BaseModel):
+    """
+    Represents an Orshot render for a single schedule item.
+    Contains the S3 URL of the rendered image.
+    """
+    schedule_item_id: int = Field(
+        ...,
+        description="ID of the schedule item this render corresponds to"
+    )
+    render_url: str = Field(
+        ...,
+        description="S3 URL of the rendered Orshot image"
+    )
+    
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "schedule_item_id": 1,
+                "render_url": "https://s3.amazonaws.com/bucket/render-123.png"
+            }
+        }
+    )
+
+
 class AllowedTemplateId(IntEnum):
     """
     Registry of supported Orshot Templates.
@@ -443,6 +468,9 @@ CUSTOM_TYPE_REGISTRY: Dict[str, Type[BaseModel] | Type[IntEnum]] = {
     
     # Image Assets
     "ImageAsset": ImageAsset,
+    
+    # Orshot Renders
+    "OrshotRender": OrshotRender,
     
     # Orshot
     "AllowedTemplateId": AllowedTemplateId,
