@@ -623,6 +623,17 @@ export default function CrewPage() {
     }
   }, [reactFlowInstance, nodes.length]);
 
+  // Update node draggability and selectability when mode changes
+  useEffect(() => {
+    setNodes((nds) =>
+      nds.map((node) => ({
+        ...node,
+        draggable: mode === "edit",
+        selectable: mode === "edit",
+      }))
+    );
+  }, [mode, setNodes]);
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -785,6 +796,10 @@ export default function CrewPage() {
                 nodesDraggable={mode === "edit"}
                 nodesConnectable={mode === "edit"}
                 elementsSelectable={mode === "edit"}
+                panOnDrag={mode === "edit"}
+                zoomOnScroll={mode === "edit"}
+                zoomOnPinch={mode === "edit"}
+                zoomOnDoubleClick={mode === "edit"}
                 onInit={setReactFlowInstance}
               >
                 <Controls />
