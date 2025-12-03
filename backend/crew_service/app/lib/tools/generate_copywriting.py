@@ -157,18 +157,18 @@ class GenerateCopywritingTool(BaseTool):
 # Export a ready‑to‑use instance of the tool.
 generate_copywriting_tool = GenerateCopywritingTool()
 
-if __name__ == "__main__":
-    schedule_item = {
-        "id": 1,
-        "phase_name": "Phase 1",
-        "week": 1,
-        "date": "2023-01-01",
-        "post_type": "POST",
-        "theme_concept": "Theme Concept",
-        "objective": "Objective",
-        "description": "Description",
-    }
-    print(generate_copywriting_tool._run(schedule_item_json=json.dumps(schedule_item)))
-    with open("copywriting.md", "w") as f:
-        f.write(generate_copywriting_tool._run(schedule_item_json=json.dumps(schedule_item)))
-    print(f"Copywriting written to copywriting.md")
+# if __name__ == "__main__":
+#     schedule_item = {
+#         "id": 1,
+#         "phase_name": "Phase 1",
+#         "week": 1,
+#         "date": "2023-01-01",
+#         "post_type": "POST",
+#         "theme_concept": "Theme Concept",
+#         "objective": "Objective",
+#         "description": "Description",
+#     }
+#     print(generate_copywriting_tool._run(schedule_item_json=json.dumps(schedule_item)))
+#     with open("copywriting.md", "w") as f:
+#         f.write(generate_copywriting_tool._run(schedule_item_json=json.dumps(schedule_item)))
+#     print(f"Copywriting written to copywriting.md")

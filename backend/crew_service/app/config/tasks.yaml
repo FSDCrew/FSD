@@ -217,7 +217,7 @@ tasks:
             - Do NOT produce HTML tables.
             - Do NOT perform any scheduling activities.
           - Double check that the total number of weeks across phases is equal to the <TOTAL_WEEKS> using the verify_sum_equals_expected tool
-          - You MUST the Markdown to Word Doc tool to save the content strategy as a Word (.docx) file before returning the markdown content strategy.
+          - You MUST USE the Markdown to Word Doc tool to save the content strategy as a Word (.docx) file before returning the markdown content strategy.
             The name of the content strategy should be "content_strategy.docx".
       </your_task>
 
@@ -316,14 +316,8 @@ tasks:
 
   copywriter:
     reads:
-      - field: theme
+      - field: social_media_schedule
         cardinality: required
-      - field: brand_description
-        cardinality: required
-      - field: target_audience_description
-        cardinality: required
-      - field: content_strategy
-        cardinality: optional
     writes:
       - field: post_captions
         mode: replace
@@ -331,124 +325,93 @@ tasks:
     agent: copywriter_agent
     name: Copywriting Task
     task_description: >
-      Generate Instagram post captions, hashtags, and phrases. If content strategy is provided, generate for every post.
-      If content strategy is missing, generate creative ideas based on theme, brand, and target audience.
+      Loop through each item in the social media schedule and generate Instagram captions, hashtags, and phrases.
+      Accumulate all copywriting into a single Word document.
     description: >
       <important_rules>
         1. You must not make up any information. Only include information that you are confident about.
         2. You must not include any information that is not related to the topic or the brand.
-        3. All captions must align with the brand voice and target audience.
+        3. All captions must align with the phase_name, post_type, date, theme_concept, objective, and description provided in each schedule item.
         4. You must carefully review all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
+        5. You MUST loop through EVERY item in the social_media_schedule and generate copywriting for each one.
+        6. You MUST accumulate all copywriting into a single markdown document before converting to Word using the markdown_to_word_doc tool.
       </important_rules>
 
       <context>
-        1. The theme of the marketing campaign is described as <THEME>{theme}</THEME>.
-        2. The brand you are creating copy for is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
-        3. The target audience is described as <TARGET_AUDIENCE_DESCRIPTION>{target_audience_description}</TARGET_AUDIENCE_DESCRIPTION>.
-        4. The content strategy (if provided) is as follows:
-          <content_strategy>
-            {content_strategy}
-          </content_strategy>
+        1. The social media schedule is provided here:
+          <SOCIAL_MEDIA_SCHEDULE>
+            {social_media_schedule}
+          </SOCIAL_MEDIA_SCHEDULE>
+
+        2. The social media schedule contains a list of schedule items. Each item has:
+           - id: Unique identifier for the schedule item
+           - phase_name: Name of the strategy phase (if available)
+           - week: Week number within the campaign
+           - date: Calendar date for the post (YYYY-MM-DD format)
+           - post_type: Type of content ("POST" or "STORY")
+           - theme_concept: Theme or concept for the post's content
+           - objective: Objective for the post (e.g., awareness, engagement, CTA)
+           - description: Detailed description of the post's content
       </context>
 
-      <tools>
-        - name: markdown_to_word_doc
-          description: Convert Markdown to a Word (.docx) file with GitHub-flavored Markdown features preserved. Automatically removes common leading indentation so pasted/triple-quoted Markdown isn't treated as a code block.
-          input:
-            markdown: string
-          examples:
-            - markdown: "# Title\n\n- [x] done\n- [ ] todo\n"
-            - markdown: |
-                # Report
-                | A | B |
-                | - | - |
-                | 1 | 2 |
-      </tools>
-
       <markdown_formatting_rules>
-        1. **Hashtag Formatting:** To prevent hashtags from being interpreted as markdown headers, format them in one of these ways:
-           - Use backticks: `#hashtag` (recommended)
-           - Escape with backslash: \#hashtag
-           - Put hashtags in a code block or inline code
-           - Place hashtags on lines that are NOT at the start of a paragraph
-        2. **Structure:** Use proper markdown headings (##, ###) to organize content by post or section.
+        1. **Hashtag Formatting:** To prevent hashtags from being interpreted as markdown headers, format them using backticks: `#hashtag` (recommended).
+        2. **Structure:** Use proper markdown headings (##, ###) to organize content by schedule item.
         3. **Lists:** Use markdown list syntax (- or *) for hashtag sets and phrases.
         4. **No Code Blocks:** Do NOT wrap the entire output in ``` markdown code blocks.
         5. **Clean Formatting:** Ensure proper spacing and line breaks for readability.
       </markdown_formatting_rules>
 
       <your_task>
-        You must determine which mode to operate in based on whether content_strategy is provided.
+        **STEP 1: Parse the Social Media Schedule**
+        The social_media_schedule is a JSON object with an "items" array. Extract the items list and prepare to loop through each item.
 
-        **IF CONTENT_STRATEGY IS PROVIDED:**
-        For every post identified in the content strategy:
-          1. Analyze the post's theme, objective, and description.
-          2. Generate a compelling Instagram caption that:
-             - Opens with an engaging hook
-             - Tells a story or provides value
-             - Includes a clear call-to-action (CTA)
-             - Aligns with the brand voice and target audience
-             - Is optimized for Instagram (appropriate length, emoji usage, formatting)
-          3. Generate a strategic hashtag set (5-10 hashtags) including:
-             - Broad/trending hashtags relevant to the theme
-             - Niche hashtags specific to the target audience
-             - Campaign-specific or branded hashtags
-             - Format hashtags using backticks (e.g., `#hashtag`) to prevent markdown header interpretation
-          4. Generate 2-3 engaging phrases or taglines that:
-             - Capture the essence of the post's message
-             - Can be used as alternative captions or in other campaign materials
-             - Are memorable and shareable
-          5. Carefully review and refine all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
-          6. Format the output in clean markdown, organizing by post with clear headings (##, ###) and labels for captions, hashtags, and phrases.
-          7. Ensure all hashtags are properly formatted with backticks (e.g., `#hashtag`) to prevent markdown parsing issues.
-          8. **CRITICAL STEP:** Use the `markdown_to_word_doc` tool to convert your output.
-             - The `markdown` argument MUST be the **full text string** of the report you just generated.
-             - Do NOT pass a dictionary or schema definition (e.g., `{{'type': 'str'}}`).
-             - Pass the actual string content directly.
+        **STEP 2: Initialize Accumulation**
+        Create an empty markdown string that will accumulate all copywriting content. Start with a title heading like "# Instagram Campaign Copywriting".
 
-        **IF CONTENT_STRATEGY IS MISSING:**
-        Generate creative content ideas based on the theme, brand, and target audience:
-          1. Create 3-5 sample post captions showcasing different angles:
-             - Different hooks and storytelling approaches
-             - Various CTAs and engagement strategies
-             - Different tones (inspirational, educational, entertaining, etc.)
-          2. Generate a comprehensive hashtag list (15-20 hashtags) including:
-             - Broad hashtags relevant to the theme
-             - Niche hashtags for the target audience
-             - Branded hashtag suggestions
-             - Format hashtags using backticks (e.g., `#hashtag`) to prevent markdown header interpretation
-          3. Generate 5-7 memorable phrases and taglines that:
-             - Capture the brand essence
-             - Resonate with the target audience
-             - Can be used across different campaign materials
-          4. Carefully review and refine all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
-          5. Format the output in clean markdown as a collection of creative ideas with clear sections and headings.
-          6. Ensure all hashtags are properly formatted with backticks (e.g., `#hashtag`) to prevent markdown parsing issues.
-          7. **CRITICAL STEP:** Use the `markdown_to_word_doc` tool to convert your output.
-             - The `markdown` argument MUST be the **full text string** of the report you just generated.
-             - Do NOT pass a dictionary or schema definition.
-             - Pass the actual string content directly.
+        **STEP 3: Process Schedule Items**        
+        - **CRITICAL: Process ALL items in sequential order (item 1, then item 2, then item 3, etc.)**
+        - For EACH item in the schedule items list IN ORDER:
+          1. Convert the item to a JSON string
+          2. Call the `generate_copywriting_for_item` tool with:
+             - schedule_item_json: The JSON string of the schedule item
+          3. **VERIFY:** Check that the tool returned a complete markdown section (not empty, not a summary)
+          4. Append the markdown section to your accumulating markdown string immediately
+          5. Move to the next item and repeat
+        - **FINAL CHECK:** Count the total number of items processed - it MUST equal the total number of items in the schedule
 
-        Regardless of mode, ensure all output is:
-        - On-brand and aligned with brand voice
-        - Tailored to the target audience
-        - Engaging and optimized for Instagram
-        - Free of grammar, spelling, and punctuation errors
+        **STEP 3: Convert to Word Document and Output**
+        Once you have accumulated ALL copywriting for ALL items into a single markdown string:
+          1. **CRITICAL:** You MUST call the `markdown_to_word_doc` tool to save the Word document as an artifact.
+          2. Call the `markdown_to_word_doc` tool with these EXACT parameters:
+             - markdown: The complete accumulated markdown string containing all items
+             - file_name: "post_captions.docx" (exactly this string)
+             - crew_run_id: "{crew_run_id}" (use the crew_run_id value shown above in the context, copy it exactly)
+          3. **VERIFY:** After calling the tool, check if it returned an error message starting with "Error:". If it did, that means the artifact was NOT saved - you must report this error.
+          4. The tool will convert the entire markdown document to Word format and save it as an artifact (it returns an S3 URL on success, but you should ignore that URL)
+          5. Output the accumulated markdown content as your final result (this markdown content is what gets written to the post_captions field)
+
+        **IMPORTANT NOTES:**
+        - You MUST process EVERY item in the schedule
+        - You MUST accumulate all tool outputs into ONE markdown document before converting
+        - Only call markdown_to_word_doc tool ONCE at the end with all content to convert to a .docx file.
+        - The tools handle all formatting, so you just need to accumulate the results
+        - For large schedules (20+ items), prefer batch processing to avoid context limit issues
       </your_task>
 
     expected_output: >
-      Generate markdown-formatted content with proper hashtag formatting (using backticks like `#hashtag`).
-
-      If content strategy is provided:
-      - For each post: caption, hashtags, and phrases clearly labeled and organized with markdown headings.
-
-      If content strategy is missing:
-      - A collection of creative ideas including sample captions, hashtag suggestions, and memorable phrases with clear markdown sections.
-
-      After generating the markdown, convert it to a Word document using the markdown_to_word_doc tool.
-      Format as markdown without wrapping in ``` code blocks.
+      Generate copywriting content for ALL items in the social media schedule. For each schedule item, include:
+      - Item ID, Week, Date, Post Type
+      - Theme/Concept
+      - Objective
+      - Description
+      - Generated Caption
+      - Hashtags (formatted with backticks like `#hashtag`)
+      - Phrases/Taglines
+      
       Do NOT describe whether the output meets requirements.
-      Only output the captions, hashtags, and phrases themselves in markdown format.
+      Do NOT evaluate or summarize the structure.
+      The final report should be formatted as markdown without '```'.
 
   image_generator:
     reads:
