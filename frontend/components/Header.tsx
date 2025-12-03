@@ -10,14 +10,13 @@ export default function Header() {
 
   return (
     <header className="w-full flex items-center justify-between py-4 px-6 border-b border-border bg-card">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push("/studio")}>
         <Image
           src="/logo-black.png"
           alt="Company Logo"
-          width={120}
+          width={150}
           height={40}
-          className="mx-auto"
-          style={{ width: "auto", height: "auto" }}
+          className="h-13 w-auto"
         />
       </div>
       <nav className="flex items-center gap-4">

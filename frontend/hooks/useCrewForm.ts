@@ -22,9 +22,10 @@ function checkIfFieldIsNullable(field: RequiredInputField, typeInfo: any): boole
 
 export function useCrewForm(
   crewId: string | null,
-  notificationService: INotificationService
+  notificationService: INotificationService,
+  enabled: boolean = false
 ) {
-  const { data: requiredInputsData, isLoading: isLoadingRequiredInputs, error: requiredInputsError, refetch: fetchRequiredInputs } = useRequiredInputs(crewId);
+  const { data: requiredInputsData, isLoading: isLoadingRequiredInputs, error: requiredInputsError, refetch: fetchRequiredInputs } = useRequiredInputs(crewId, enabled);
   const kickoffMutation = useCrewKickoff();
   const [dynamicFormData, setDynamicFormData] = useState<Record<string, any>>({});
 
@@ -119,33 +120,250 @@ export function useCrewForm(
       return;
     }
 
-    const missingFields = requiredInputs
-      .filter(field => {
-        if (!field.required) return false;
-        const value = dynamicFormData[field.field_name];
-        const typeInfo = field.type_info as any;
+    const missingFields: string[] = [];
 
-        // Check for empty arrays
-        if (Array.isArray(value)) {
-          return value.length === 0;
+    console.log('=== VALIDATION DEBUG ===');
+    console.log('Required inputs:', requiredInputs);
+    console.log('Form data:', dynamicFormData);
+
+    requiredInputs.forEach(field => {
+      const value = dynamicFormData[field.field_name];
+      const typeInfo = field.type_info as any;
+      
+      console.log(`Checking field: ${field.field_name}`, { value, typeInfo, required: field.required });
+      
+      // If field is not required but is a custom model, check if it's null or empty
+      if (!field.required) {
+        // For custom models, if value is null, it means it hasn't been filled
+        // Check if this will cause backend errors by looking at nested required fields
+        if (typeInfo.is_custom_model) {
+          const modelSchema = typeInfo.model_schema;
+          // If the custom model has required nested fields and the value is null or empty, flag it
+          if (modelSchema?.required && Array.isArray(modelSchema.required) && modelSchema.required.length > 0) {
+            if (value === null || value === undefined) {
+              missingFields.push(field.field_name);
+              return;
+            }
+          }
         }
-
-        // Check for empty objects (custom models)
+        
+        // For optional custom models, if they have any value, validate nested required fields
         if (typeInfo.is_custom_model && typeof value === "object" && value !== null) {
-          return !Object.values(value).some((v: any) => {
-            if (typeof v === "string") return v.trim() !== "";
-            if (typeof v === "boolean") return true;
-            return v !== null && v !== undefined;
+          const modelSchema = typeInfo.model_schema;
+          console.log(`Optional custom model ${field.field_name} has value, checking nested required fields:`, { value, modelSchema });
+          
+          if (modelSchema?.required && Array.isArray(modelSchema.required)) {
+            modelSchema.required.forEach((propName: string) => {
+              const propValue = value[propName];
+              const propSchema = modelSchema.properties?.[propName];
+              
+              // Check if nested field is empty
+              if (propValue === null || propValue === undefined || propValue === "") {
+                missingFields.push(`${field.field_name}.${propName}`);
+                return;
+              }
+              
+              // Check for empty strings
+              if (typeof propValue === "string" && propValue.trim() === "") {
+                missingFields.push(`${field.field_name}.${propName}`);
+                return;
+              }
+              
+              // Check for empty arrays
+              if (Array.isArray(propValue) && propValue.length === 0) {
+                missingFields.push(`${field.field_name}.${propName}`);
+                return;
+              }
+              
+              // Check for dynamic objects (nested key-value pairs)
+              if (typeof propValue === "object" && propValue !== null && !Array.isArray(propValue) && propSchema?.additionalProperties) {
+                const validEntries = Object.entries(propValue).filter(([k, v]) => {
+                  if (k.startsWith('__empty_key_') || k.startsWith('__duplicate_') || k === '') return false;
+                  if (v === null || v === undefined || v === "" || (typeof v === "string" && (v as string).trim() === "")) return false;
+                  return true;
+                });
+                if (validEntries.length === 0) {
+                  missingFields.push(`${field.field_name}.${propName}`);
+                }
+              }
+            });
+          }
+        }
+        return;
+      }
+
+      // Check for arrays (including arrays of custom models)
+      if (Array.isArray(value)) {
+        if (value.length === 0) {
+          missingFields.push(field.field_name);
+          return;
+        }
+        
+        // If it's an array of custom models (is_list and is_custom_model), validate each item
+        if (typeInfo.is_list && typeInfo.is_custom_model && typeInfo.model_schema) {
+          const modelSchema = typeInfo.model_schema;
+          const requiredProps = modelSchema.required || [];
+          
+          // Check each item in the array for required nested fields
+          value.forEach((item, itemIndex) => {
+            if (typeof item === "object" && item !== null) {
+              requiredProps.forEach((propName: string) => {
+                const propValue = item[propName];
+                const propSchema = modelSchema.properties?.[propName];
+                
+                // Check if nested field is empty
+                if (propValue === null || propValue === undefined || propValue === "") {
+                  missingFields.push(`${field.field_name}[${itemIndex + 1}].${propName}`);
+                  return;
+                }
+                
+                // Check for empty strings
+                if (typeof propValue === "string" && propValue.trim() === "") {
+                  missingFields.push(`${field.field_name}[${itemIndex + 1}].${propName}`);
+                  return;
+                }
+                
+                // Check for dynamic objects (nested key-value pairs)
+                if (typeof propValue === "object" && propValue !== null && propSchema?.additionalProperties) {
+                  const validEntries = Object.entries(propValue).filter(([k, v]) => {
+                    if (k.startsWith('__empty_key_') || k.startsWith('__duplicate_') || k === '') return false;
+                    if (v === null || v === undefined || v === "" || (typeof v === "string" && (v as string).trim() === "")) return false;
+                    return true;
+                  });
+                  if (validEntries.length === 0) {
+                    missingFields.push(`${field.field_name}[${itemIndex + 1}].${propName}`);
+                  }
+                }
+              });
+            }
           });
         }
+        return;
+      }
 
-        // Check for empty strings, null, undefined
-        return !value || (typeof value === "string" && value.trim() === "");
-      })
-      .map(field => field.field_name);
+      // Check for dynamic objects (key-value pairs like posting_cadence)
+      if (typeof value === "object" && value !== null && !typeInfo.is_custom_model) {
+        // Filter out temporary/empty keys
+        const validEntries = Object.entries(value).filter(([k, v]) => {
+          // Skip temporary markers and empty keys
+          if (k.startsWith('__empty_key_') || k.startsWith('__duplicate_') || k === '') {
+            return false;
+          }
+          // Skip empty values
+          if (v === null || v === undefined || v === "" || (typeof v === "string" && v.trim() === "")) {
+            return false;
+          }
+          return true;
+        });
+        // If no valid entries, consider it empty
+        if (validEntries.length === 0) {
+          missingFields.push(field.field_name);
+        }
+        return;
+      }
+
+      // Check for empty objects (custom models) - check nested required fields
+      if (typeInfo.is_custom_model && typeof value === "object" && value !== null) {
+        const modelSchema = typeInfo.model_schema;
+        console.log(`Custom model ${field.field_name}:`, { value, modelSchema });
+        
+        // Check if the object has any content at all
+        const hasAnyValue = Object.values(value).some((v: any) => {
+          if (typeof v === "string") return v.trim() !== "";
+          if (typeof v === "boolean") return true;
+          if (typeof v === "object" && v !== null) {
+            // For nested objects, check if they have valid entries
+            if (Object.keys(v).length > 0) {
+              const validEntries = Object.entries(v).filter(([k, val]) => {
+                if (k.startsWith('__empty_key_') || k.startsWith('__duplicate_') || k === '') return false;
+                if (val === null || val === undefined || val === "" || (typeof val === "string" && (val as string).trim() === "")) return false;
+                return true;
+              });
+              return validEntries.length > 0;
+            }
+            return false;
+          }
+          return v !== null && v !== undefined;
+        });
+
+        if (!hasAnyValue) {
+          missingFields.push(field.field_name);
+          return;
+        }
+
+        // Check required nested fields within the custom model
+        if (modelSchema?.required && Array.isArray(modelSchema.required)) {
+          const missingNestedFields: string[] = [];
+          console.log(`Checking required nested fields for ${field.field_name}:`, modelSchema.required);
+          
+          modelSchema.required.forEach((propName: string) => {
+            const propValue = value[propName];
+            const propSchema = modelSchema.properties?.[propName];
+            
+            // Check if nested field is empty
+            if (propValue === null || propValue === undefined || propValue === "") {
+              missingNestedFields.push(propName);
+              return;
+            }
+            
+            // Check for empty strings
+            if (typeof propValue === "string" && propValue.trim() === "") {
+              missingNestedFields.push(propName);
+              return;
+            }
+            
+            // Check for empty arrays
+            if (Array.isArray(propValue) && propValue.length === 0) {
+              missingNestedFields.push(propName);
+              return;
+            }
+            
+            // Check for dynamic objects (nested key-value pairs)
+            if (typeof propValue === "object" && propValue !== null && !Array.isArray(propValue) && propSchema?.additionalProperties) {
+              const validEntries = Object.entries(propValue).filter(([k, v]) => {
+                if (k.startsWith('__empty_key_') || k.startsWith('__duplicate_') || k === '') return false;
+                if (v === null || v === undefined || v === "" || (typeof v === "string" && (v as string).trim() === "")) return false;
+                return true;
+              });
+              if (validEntries.length === 0) {
+                missingNestedFields.push(propName);
+              }
+            }
+          });
+          
+          if (missingNestedFields.length > 0) {
+            // Add nested field names to missing fields with parent context
+            missingNestedFields.forEach(nestedField => {
+              missingFields.push(`${field.field_name}.${nestedField}`);
+            });
+          }
+        }
+        return;
+      }
+
+      // Check for empty strings, null, undefined
+      if (!value || (typeof value === "string" && value.trim() === "")) {
+        missingFields.push(field.field_name);
+      }
+    });
 
     if (missingFields.length > 0) {
-      notificationService.error(`Please fill in required fields: ${missingFields.join(", ")}`);
+      // Format field names for better readability
+      const formattedFields = missingFields.map(name => {
+        // Handle array indices and nested fields (e.g., "phases[1].name" or "content_strategy.posting_cadence")
+        const parts = name.split('.');
+        return parts.map(part => {
+          // Check if part contains array index (e.g., "phases[1]")
+          const arrayMatch = part.match(/^(.+)\[(\d+)\]$/);
+          if (arrayMatch) {
+            const fieldName = arrayMatch[1].split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+            const index = arrayMatch[2];
+            return `${fieldName} Item ${index}`;
+          }
+          return part.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+        }).join(" > ");
+      });
+      notificationService.error(`Please fill in required fields: ${formattedFields.join(", ")}`);
       return;
     }
 
@@ -171,14 +389,26 @@ export function useCrewForm(
           submitData[key] = filtered;
         }
       } else if (typeof value === "object" && value !== null) {
-        // For single custom models, check if at least one property has a value
-        const hasValue = Object.values(value).some((v) => {
-          if (typeof v === "string") return v.trim() !== "";
-          if (typeof v === "boolean") return true;
-          return v !== null && v !== undefined;
-        });
-        if (hasValue) {
-          submitData[key] = value;
+        // For dynamic objects (like key-value pairs), filter out empty/temporary keys and empty values
+        const filteredObj: Record<string, any> = {};
+        for (const [k, v] of Object.entries(value)) {
+          // Skip temporary markers and empty keys
+          if (k.startsWith('__empty_key_') || k.startsWith('__duplicate_') || k === '') {
+            continue;
+          }
+          // Skip empty values
+          if (typeof v === "string" && v.trim() === "") {
+            continue;
+          }
+          if (v === null || v === undefined || v === "") {
+            continue;
+          }
+          filteredObj[k] = v;
+        }
+        
+        // Only include if there are valid key-value pairs
+        if (Object.keys(filteredObj).length > 0) {
+          submitData[key] = filteredObj;
         }
       } else {
         // For primitives, include if not empty
