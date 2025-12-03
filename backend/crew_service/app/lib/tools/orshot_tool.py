@@ -1,5 +1,5 @@
 import os
-
+import json
 import requests
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
@@ -10,6 +10,7 @@ from app.lib.tools.utils.artifact import get_default_artifact_service
 
 ORSHOT_API_KEY = os.getenv("ORSHOT_API_KEY")
 ORSHOT_API_URL = os.getenv("ORSHOT_API_URL", "https://api.orshot.com/v1/studio/render")
+ORSHOT_MOCK_MODE = os.getenv("ORSHOT_MOCK_MODE", "false").lower() == "true"
 
 class OrshotToolInput(BaseModel):
     templateId: int = Field(..., description="The ID of the Orshot template")
@@ -39,6 +40,13 @@ class OrshotRenderTool(BaseTool):
             str: The URL of the final rendered image or an error message.
         """
         try:
+            if ORSHOT_MOCK_MODE:
+                print(f"\n[MOCK ORSHOT] Skipping API Call for Template {templateId}")
+                print(f"[MOCK ORSHOT] Generated Modifications:\n{json.dumps(modifications, indent=2)}")
+                
+                # Return a dummy placeholder image URL so the batch tool continues successfully
+                return "https://placehold.co/1080x1080/png?text=Mock+Orshot+Render"
+            
             orshot_payload = {
                 "templateId": templateId,
                 "modifications": modifications,

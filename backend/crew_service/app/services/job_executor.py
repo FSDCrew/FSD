@@ -1,6 +1,8 @@
-import asyncio
 import logging
 import multiprocessing
+import os
+import threading
+import time
 from typing import Any, Optional, Union
 from uuid import UUID
 
@@ -9,19 +11,20 @@ from pydantic import BaseModel
 
 from app.api.crud_client import AuthenticatedClient
 from app.api.crud_client.api.internal import (
+    get_crew_run_by_id_internal_crew_run_crew_run_id_get as get_crew_run_func,
     heartbeat_internal_internal_queue_queue_id_heartbeat_post as heartbeat_func,
     update_queue_status_internal_internal_queue_queue_id_status_put as update_queue_status_func,
 )
-from app.api.crud_client.models import HeartbeatResponse, RetryFeedback
+from app.api.crud_client.models import HeartbeatResponse, HTTPValidationError
 from app.api.crud_client.models.heartbeat_request import HeartbeatRequest
 from app.api.crud_client.models.queue_status import QueueStatus
 from app.api.crud_client.models.update_status_request import UpdateStatusRequest
-from app.api.crud_client.models.task_status import TaskStatus
-from app.api.crud_client.types import UNSET, Unset
+from app.api.crud_client.types import Unset
 from app.dependencies import get_flow_service
 from app.models.models import TaskInfo
-from app.services.crew_service import CrewService
 from app.services.flow.flow_utils import TaskStatusService
+from app.services.retry.retry_executor import RetryExecutor
+from app.api.crud_client.types import UNSET
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -29,144 +32,378 @@ logger = logging.getLogger(__name__)
 _mp_context = multiprocessing.get_context('spawn')
 
 
-def run_flow_worker(tasks_dict: list[dict], inputs: dict, result_queue: multiprocessing.Queue):
-    """
-    Worker function that runs in a separate process to execute flow.kickoff().
+class HeartbeatThread:
+    """Manages synchronous heartbeat loop in a background thread."""
     
-    This function must be at module level for multiprocessing to work correctly.
+    MAX_HEARTBEAT_RETRIES = 3
+    INITIAL_BACKOFF_SECONDS = 1.0
+    
+    def __init__(
+        self,
+        crud_client: AuthenticatedClient,
+        queue_id: UUID,
+        lease_token: str,
+        cancellation_event: threading.Event
+    ):
+        self.crud_client = crud_client
+        self.queue_id = queue_id
+        self.lease_token = lease_token
+        self.cancellation_event = cancellation_event
+        self.thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+    
+    def start(self):
+        """Start the heartbeat thread."""
+        self.thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
+        self.thread.start()
+        logger.info(f"Started heartbeat thread for queue {self.queue_id}")
+    
+    def stop(self):
+        """Stop the heartbeat thread."""
+        self._stop_event.set()
+        if self.thread:
+            self.thread.join(timeout=5.0)
+            if self.thread.is_alive():
+                logger.warning(f"Heartbeat thread for queue {self.queue_id} did not stop within timeout")
+    
+    def _heartbeat_loop(self):
+        """Send periodic heartbeats to extend lease with retry logic."""
+        try:
+            while not self._stop_event.is_set():
+                time.sleep(settings.HEARTBEAT_INTERVAL_SECONDS)
+                
+                if self._stop_event.is_set():
+                    break
+                
+                # Attempt heartbeat with retry logic
+                success, cancel_requested = self._send_heartbeat_with_retry()
+                
+                if cancel_requested:
+                    logger.info(f"Cancellation requested for queue {self.queue_id}")
+                    self.cancellation_event.set()
+                    break
+                
+                if not success:
+                    logger.error(
+                        f"Failed to send heartbeat for queue {self.queue_id} after "
+                        f"{self.MAX_HEARTBEAT_RETRIES} retries. Continuing heartbeat loop."
+                    )
+        except Exception as e:
+            logger.error(f"Error in heartbeat loop for queue {self.queue_id}: {e}", exc_info=True)
+    
+    def _send_heartbeat_with_retry(self) -> tuple[bool, bool]:
+        """
+        Send heartbeat request with retry logic and exponential backoff.
+        
+        Returns:
+            Tuple of (success: bool, cancel_requested: bool)
+        """
+        from app.api.crud_client.types import Unset
+        
+        timeout: Union[int, Unset] = settings.JOB_VISIBILITY_TIMEOUT_SECONDS
+        body = HeartbeatRequest(lease_token=self.lease_token)
+        
+        backoff = self.INITIAL_BACKOFF_SECONDS
+        
+        for attempt in range(self.MAX_HEARTBEAT_RETRIES):
+            try:
+                response = heartbeat_func.sync(
+                    queue_id=self.queue_id,
+                    client=self.crud_client,
+                    body=body,
+                    visibility_timeout_seconds=timeout
+                )
+                
+                # Check for cancellation request
+                if isinstance(response, HeartbeatResponse) and response.cancel_requested:
+                    return True, True
+                
+                # Success - reset backoff for next heartbeat interval
+                if attempt > 0:
+                    logger.info(
+                        f"Heartbeat succeeded for queue {self.queue_id} on attempt {attempt + 1}"
+                    )
+                return True, False
+                
+            except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.TimeoutException) as e:
+                # Network timeout errors - retry with backoff
+                if attempt < self.MAX_HEARTBEAT_RETRIES - 1:
+                    logger.warning(
+                        f"Heartbeat timeout for queue {self.queue_id} (attempt {attempt + 1}/"
+                        f"{self.MAX_HEARTBEAT_RETRIES}): {e}. Retrying in {backoff}s..."
+                    )
+                    time.sleep(backoff)
+                    backoff *= 2  # Exponential backoff
+                else:
+                    logger.error(
+                        f"Heartbeat timeout for queue {self.queue_id} after "
+                        f"{self.MAX_HEARTBEAT_RETRIES} attempts: {e}",
+                        exc_info=True
+                    )
+                    
+            except Exception as e:
+                # Other exceptions - retry with backoff
+                if attempt < self.MAX_HEARTBEAT_RETRIES - 1:
+                    logger.warning(
+                        f"Heartbeat failed for queue {self.queue_id} (attempt {attempt + 1}/"
+                        f"{self.MAX_HEARTBEAT_RETRIES}): {e}. Retrying in {backoff}s...",
+                        exc_info=True
+                    )
+                    time.sleep(backoff)
+                    backoff *= 2  # Exponential backoff
+                else:
+                    logger.error(
+                        f"Heartbeat failed for queue {self.queue_id} after "
+                        f"{self.MAX_HEARTBEAT_RETRIES} attempts: {e}",
+                        exc_info=True
+                    )
+        
+        return False, False
+
+
+def run_entire_job(job_metadata: dict):
+    """
+    Execute entire job lifecycle in a child process.
+    
+    This function runs in a separate process and handles:
+    - Fetching crew_run data
+    - Preparing execution data
+    - Running heartbeat loop in background thread
+    - Building and executing flow
+    - Handling cancellation
+    - Updating queue status
     
     Args:
-        tasks_dict: List of task dictionaries (serialized TaskInfo objects)
-        inputs: Dictionary of input values for the flow
-        result_queue: Queue to put the result or error, along with flow_state
+        job_metadata: Dictionary containing:
+            - crew_run_id: UUID
+            - crew_id: UUID
+            - queue_id: UUID
+            - lease_token: str
     """
-    flow = None
-    FlowStateModel = None
+    crew_run_id = UUID(job_metadata['crew_run_id'])
+    crew_id = UUID(job_metadata['crew_id'])
+    queue_id = UUID(job_metadata['queue_id'])
+    lease_token = job_metadata['lease_token']
+    
+    # Initialize synchronous HTTP client
+    timeout = httpx.Timeout(30.0)
+    crud_client = AuthenticatedClient(
+        base_url=settings.CRUD_SERVICE_URL,
+        token=settings.INTERNAL_CREW_API_KEY,
+        timeout=timeout
+    )
+    
+    # Cancellation event for heartbeat thread to signal cancellation
+    cancellation_event = threading.Event()
+    heartbeat_thread: Optional[HeartbeatThread] = None
+    
     try:
-        flow_service = get_flow_service()
-        tasks = [TaskInfo.model_validate(task_dict) for task_dict in tasks_dict]
+        logger.info(f"Starting job execution for queue {queue_id}, crew_run {crew_run_id}")
         
-        task_status_service = TaskStatusService()
-        FlowStateModel, FlowClass, _ = flow_service.build_flow(tasks, task_status_service)
-        flow = FlowClass()
-        result = flow.kickoff(inputs=inputs)
-        
-        # Extract flow_state from executed flow instance
-        flow_state = ResultBuilder._extract_flow_state(flow, FlowStateModel)
-        result_queue.put(("ok", result, flow_state))
-    except Exception as e:
-        logger.error(f"Error in flow worker process: {e}", exc_info=True)
-        # Extract flow_state even on error to capture partial state
-        flow_state = None
-        if flow is not None and FlowStateModel is not None:
-            try:
-                flow_state = ResultBuilder._extract_flow_state(flow, FlowStateModel)
-            except Exception as state_error:
-                logger.warning(f"Failed to extract flow_state on error: {state_error}", exc_info=True)
-        result_queue.put(("error", str(e), flow_state))
-
-
-class FlowProcessManager:
-    """Manages the lifecycle of flow execution processes."""
-    
-    def __init__(self, process_registry: dict[UUID, Any]):
-        self.process_registry = process_registry
-    
-    async def run_flow(
-        self,
-        crew_run_id: UUID,
-        tasks: list[TaskInfo],
-        stored_inputs: dict
-    ) -> tuple[Any, Optional[dict]]:
-        """
-        Execute flow in a separate process and return the result and flow_state.
-        
-        Args:
-            crew_run_id: UUID of the crew run
-            tasks: List of task definitions
-            stored_inputs: Input dictionary for the flow
-            
-        Returns:
-            Tuple of (flow execution result, flow_state dict or None)
-            
-        Raises:
-            RuntimeError: If flow execution fails or process crashes
-            asyncio.CancelledError: If execution is cancelled
-        """
-        tasks_dict = [task.model_dump() for task in tasks]
-        result_queue = _mp_context.Queue()
-        flow_process = _mp_context.Process(
-            target=run_flow_worker,
-            args=(tasks_dict, stored_inputs, result_queue)
+        # Start heartbeat loop
+        heartbeat_thread = HeartbeatThread(
+            crud_client=crud_client,
+            queue_id=queue_id,
+            lease_token=lease_token,
+            cancellation_event=cancellation_event
         )
-        self.process_registry[crew_run_id] = flow_process
+        heartbeat_thread.start()
         
-        try:
-            flow_process.start()
-            logger.info(f"Started flow process {flow_process.pid} for crew_run {crew_run_id}")
+        # Fetch crew_run data
+        crew_run_response = get_crew_run_func.sync(
+            crew_run_id=crew_run_id,
+            client=crud_client
+        )
+        
+        if not crew_run_response or isinstance(crew_run_response, (Exception, HTTPValidationError)):
+            raise ValueError(f"Failed to fetch crew_run {crew_run_id}")
+        
+        # Type narrowing: crew_run_response is now guaranteed to be CrewRunRead
+        crew_run = crew_run_response
+        
+        # Check if this is a retry execution
+        retry_feedback = crew_run.run_metadata.retry_feedback
+        from app.api.crud_client.models import RetryFeedback
+        is_retry = retry_feedback is not None and isinstance(retry_feedback, RetryFeedback)
+        
+        if is_retry:
+            # Prepare retry execution: filter tasks and combine inputs with upstream outputs
+            logger.info(f"Detected retry execution for crew_run {crew_run_id}")
+            tasks, stored_inputs = RetryExecutor.prepare_retry_execution(crew_run)
+        else:
+            # Normal execution: use all tasks and original inputs
+            stored_inputs = crew_run.run_metadata.inputs.to_dict()
+            stored_inputs['crew_run_id'] = str(crew_run_id)
             
-            # Wait for result from worker process
-            queue_result = await self._wait_for_result(flow_process, result_queue)
-            
-            status, result_or_error, flow_state = queue_result
-            if status == "error":
-                # Store flow_state before raising error so caller can access it
-                error_with_state = RuntimeError(f"Flow execution failed: {result_or_error}")
-                error_with_state.flow_state = flow_state  # type: ignore
-                raise error_with_state
-            
-            # Gracefully terminate process
-            self._terminate_process(flow_process, timeout=5.0)
-            return result_or_error, flow_state
-            
-        except asyncio.CancelledError:
-            logger.info(f"Flow execution cancelled for crew_run {crew_run_id}")
-            self._terminate_process(flow_process, timeout=5.0, force=True)
-            raise
-        finally:
-            self._cleanup(crew_run_id, result_queue)
-    
-    async def _wait_for_result(
-        self,
-        flow_process: Any,
-        result_queue: multiprocessing.Queue
-    ) -> tuple[str, Any, Optional[dict]]:
-        """Wait for result from worker process, handling process crashes."""
-        try:
-            return await asyncio.to_thread(result_queue.get, timeout=None)
-        except Exception as queue_error:
-            if not flow_process.is_alive() and flow_process.exitcode != 0:
-                raise RuntimeError(
-                    f"Flow process {flow_process.pid} exited with code {flow_process.exitcode}"
-                ) from queue_error
-            raise
-    
-    def _terminate_process(self, process: Any, timeout: float = 5.0, force: bool = False):
-        """Terminate a process gracefully, with fallback to kill if needed."""
-        if not process or not process.is_alive():
+            tasks = [
+                TaskInfo.model_validate(task.to_dict())
+                for task in crew_run.run_metadata.tasks_snapshot
+            ]
+        
+        # Check for cancellation before starting flow
+        if cancellation_event.is_set():
+            logger.info(f"Cancellation detected before flow execution for queue {queue_id}")
+            body = UpdateStatusRequest(
+                lease_token=lease_token,
+                status=QueueStatus.CANCELLED
+            )
+            update_queue_status_func.sync(
+                queue_id=queue_id,
+                client=crud_client,
+                body=body
+            )
             return
         
-        if force:
-            logger.info(f"Terminating flow process {process.pid}")
-        else:
-            logger.debug(f"Waiting for flow process {process.pid} to terminate")
+        # Build and execute flow
+        flow_service = get_flow_service()
+        task_status_service = TaskStatusService()
+        _, FlowClass, _ = flow_service.build_flow(tasks, task_status_service)
+        flow = FlowClass()
         
-        process.terminate()
-        process.join(timeout=2.0)
+        # Execute flow in a separate thread to allow cancellation monitoring
+        # Note: CrewAI flow.kickoff() doesn't support cancellation signals directly,
+        # so we run it in a thread and periodically check for cancellation
+        flow_result: list[Any] = []  # Use list to store result (thread-safe mutable container)
+        flow_exception: list[Optional[Exception]] = [None]  # Use list to store exception
         
-        if process.is_alive():
-            logger.warning(f"Process {process.pid} did not terminate, killing...")
-            process.kill()
-            process.join()
-    
-    def _cleanup(self, crew_run_id: UUID, result_queue: multiprocessing.Queue):
-        """Clean up process registry and result queue."""
-        self.process_registry.pop(crew_run_id, None)
+        def run_flow():
+            """Wrapper function to run flow.kickoff() and capture result/exception."""
+            try:
+                result = flow.kickoff(inputs=stored_inputs)
+                flow_result.append(result)
+            except Exception as e:
+                flow_exception[0] = e
+        
+        # Start flow execution in a separate thread
+        flow_thread = threading.Thread(target=run_flow, daemon=False)
+        flow_thread.start()
+        logger.info(f"Started flow execution thread for queue {queue_id}")
+        
+        # Monitor flow execution and check for cancellation periodically
         try:
-            result_queue.close()
-            result_queue.join_thread()
-        except Exception as cleanup_error:
-            logger.warning(f"Error cleaning up queue: {cleanup_error}")
+            while flow_thread.is_alive():
+                # Wait for thread with timeout to allow periodic cancellation checks
+                flow_thread.join(timeout=1.0)
+                
+                # Check for cancellation request (only if thread is still running)
+                if flow_thread.is_alive() and cancellation_event.is_set():
+                    logger.info(f"Cancellation detected during flow execution for queue {queue_id}")
+                    
+                    # Update queue status to CANCELLED
+                    try:
+                        body = UpdateStatusRequest(
+                            lease_token=lease_token,
+                            status=QueueStatus.CANCELLED
+                        )
+                        update_queue_status_func.sync(
+                            queue_id=queue_id,
+                            client=crud_client,
+                            body=body
+                        )
+                    except Exception as update_error:
+                        logger.error(f"Failed to update queue {queue_id} status to CANCELLED: {update_error}")
+                    
+                    # Stop heartbeat thread before exiting
+                    if heartbeat_thread:
+                        heartbeat_thread.stop()
+                    
+                    # Close HTTP client before exiting
+                    try:
+                        sync_client = crud_client.get_httpx_client()
+                        sync_client.close()
+                    except Exception as e:
+                        logger.warning(f"Error closing HTTP client: {e}")
+                    
+                    # Exit process immediately (terminates all threads including flow execution)
+                    logger.info(f"Exiting process for queue {queue_id} due to cancellation")
+                    os._exit(0)
+            
+            # Flow thread completed - check for exceptions
+            if flow_exception[0]:
+                raise flow_exception[0]
+            
+            # Flow completed successfully
+            result = flow_result[0] if flow_result else None
+            
+            # Check for cancellation after flow execution (in case it was set right before completion)
+            if cancellation_event.is_set():
+                logger.info(f"Cancellation detected after flow execution for queue {queue_id}")
+                body = UpdateStatusRequest(
+                    lease_token=lease_token,
+                    status=QueueStatus.CANCELLED
+                )
+                update_queue_status_func.sync(
+                    queue_id=queue_id,
+                    client=crud_client,
+                    body=body
+                )
+                return
+            
+            # Flow completed successfully
+            body = UpdateStatusRequest(
+                lease_token=lease_token,
+                status=QueueStatus.COMPLETED
+            )
+            update_queue_status_func.sync(
+                queue_id=queue_id,
+                client=crud_client,
+                body=body
+            )
+            logger.info(f"Job {queue_id} completed successfully")
+            
+        except Exception as flow_error:
+            logger.error(f"Flow execution failed for queue {queue_id}: {flow_error}", exc_info=True)
+            
+            # Check if cancellation was requested
+            if cancellation_event.is_set():
+                status = QueueStatus.CANCELLED
+                logger.info(f"Updating queue {queue_id} status to CANCELLED due to cancellation")
+            else:
+                status = QueueStatus.FAILED
+                logger.info(f"Updating queue {queue_id} status to FAILED due to error")
+            
+            body = UpdateStatusRequest(
+                lease_token=lease_token,
+                status=status
+            )
+            try:
+                update_queue_status_func.sync(
+                    queue_id=queue_id,
+                    client=crud_client,
+                    body=body
+                )
+            except Exception as update_error:
+                logger.error(f"Failed to update queue {queue_id} status to {status}: {update_error}")
+            raise
+    
+    except Exception as e:
+        logger.error(f"Error executing job {queue_id}: {e}", exc_info=True)
+        
+        # Try to update status to FAILED if not already updated
+        try:
+            body = UpdateStatusRequest(
+                lease_token=lease_token,
+                status=QueueStatus.FAILED
+            )
+            update_queue_status_func.sync(
+                queue_id=queue_id,
+                client=crud_client,
+                body=body
+            )
+        except Exception as update_error:
+            logger.error(f"Failed to update queue {queue_id} status to FAILED: {update_error}")
+    
+    finally:
+        # Stop heartbeat thread
+        if heartbeat_thread:
+            heartbeat_thread.stop()
+        
+        # Close HTTP client
+        try:
+            sync_client = crud_client.get_httpx_client()
+            sync_client.close()
+        except Exception as e:
+            logger.warning(f"Error closing HTTP client: {e}")
 
 
 class ResultBuilder:
@@ -193,7 +430,6 @@ class ResultBuilder:
         """
         result_data = ResultBuilder._serialize_value(result)
         
-        # Use provided flow_state if available, otherwise extract from flow instance
         if flow_state is not None:
             state_dict = flow_state
         else:
@@ -262,319 +498,3 @@ class ResultBuilder:
         
         return str(value)
 
-
-class HeartbeatManager:
-    """Manages heartbeat loop for queue lease extension."""
-    
-    MAX_HEARTBEAT_RETRIES = 3
-    INITIAL_BACKOFF_SECONDS = 1.0
-    
-    def __init__(self, crud_client: AuthenticatedClient):
-        self.crud_client = crud_client
-    
-    async def start_heartbeat_loop(
-        self,
-        queue_id: UUID,
-        lease_token: str,
-        execute_task: Optional[asyncio.Task] = None
-    ) -> asyncio.Task:
-        """
-        Start heartbeat loop to extend queue lease.
-        
-        Args:
-            queue_id: UUID of the queue
-            lease_token: Token for the queue lease
-            execute_task: Task to cancel if cancellation is requested
-            
-        Returns:
-            asyncio.Task for the heartbeat loop
-        """
-        return asyncio.create_task(
-            self._heartbeat_loop(queue_id, lease_token, execute_task)
-        )
-    
-    async def _heartbeat_loop(
-        self,
-        queue_id: UUID,
-        lease_token: str,
-        execute_task: Optional[asyncio.Task] = None
-    ):
-        """Send periodic heartbeats to extend lease with retry logic."""
-        try:
-            while True:
-                await asyncio.sleep(settings.HEARTBEAT_INTERVAL_SECONDS)
-                
-                # Attempt heartbeat with retry logic
-                success = await self._send_heartbeat_with_retry(
-                    queue_id, lease_token, execute_task
-                )
-                
-                if not success:
-                    logger.error(
-                        f"Failed to send heartbeat for queue {queue_id} after "
-                        f"{self.MAX_HEARTBEAT_RETRIES} retries. Continuing heartbeat loop."
-                    )
-        except asyncio.CancelledError:
-            logger.info(f"Heartbeat loop for queue {queue_id} cancelled")
-            raise
-    
-    async def _send_heartbeat_with_retry(
-        self,
-        queue_id: UUID,
-        lease_token: str,
-        execute_task: Optional[asyncio.Task] = None
-    ) -> bool:
-        """
-        Send heartbeat request with retry logic and exponential backoff.
-        
-        Args:
-            queue_id: UUID of the queue
-            lease_token: Token for the queue lease
-            execute_task: Task to cancel if cancellation is requested
-            
-        Returns:
-            True if heartbeat succeeded, False if all retries failed
-        """
-        from app.api.crud_client.types import Unset
-        
-        timeout: Union[int, Unset] = settings.JOB_VISIBILITY_TIMEOUT_SECONDS
-        body = HeartbeatRequest(lease_token=lease_token)
-        
-        backoff = self.INITIAL_BACKOFF_SECONDS
-        
-        for attempt in range(self.MAX_HEARTBEAT_RETRIES):
-            try:
-                response = await heartbeat_func.asyncio(
-                    queue_id=queue_id,
-                    client=self.crud_client,
-                    body=body,
-                    visibility_timeout_seconds=timeout
-                )
-                
-                # Check for cancellation request
-                if isinstance(response, HeartbeatResponse) and response.cancel_requested:
-                    logger.info(f"Cancellation requested for queue {queue_id}")
-                    if execute_task and not execute_task.done():
-                        logger.info(f"Cancelling execute task for queue {queue_id}")
-                        execute_task.cancel()
-                    raise asyncio.CancelledError()
-                
-                # Success - reset backoff for next heartbeat interval
-                if attempt > 0:
-                    logger.info(
-                        f"Heartbeat succeeded for queue {queue_id} on attempt {attempt + 1}"
-                    )
-                return True
-                
-            except asyncio.CancelledError:
-                # Re-raise cancellation immediately
-                raise
-                
-            except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.TimeoutException) as e:
-                # Network timeout errors - retry with backoff
-                if attempt < self.MAX_HEARTBEAT_RETRIES - 1:
-                    logger.warning(
-                        f"Heartbeat timeout for queue {queue_id} (attempt {attempt + 1}/"
-                        f"{self.MAX_HEARTBEAT_RETRIES}): {e}. Retrying in {backoff}s..."
-                    )
-                    await asyncio.sleep(backoff)
-                    backoff *= 2  # Exponential backoff
-                else:
-                    logger.error(
-                        f"Heartbeat timeout for queue {queue_id} after "
-                        f"{self.MAX_HEARTBEAT_RETRIES} attempts: {e}",
-                        exc_info=True
-                    )
-                    
-            except Exception as e:
-                # Other exceptions - retry with backoff
-                if attempt < self.MAX_HEARTBEAT_RETRIES - 1:
-                    logger.warning(
-                        f"Heartbeat failed for queue {queue_id} (attempt {attempt + 1}/"
-                        f"{self.MAX_HEARTBEAT_RETRIES}): {e}. Retrying in {backoff}s...",
-                        exc_info=True
-                    )
-                    await asyncio.sleep(backoff)
-                    backoff *= 2  # Exponential backoff
-                else:
-                    logger.error(
-                        f"Heartbeat failed for queue {queue_id} after "
-                        f"{self.MAX_HEARTBEAT_RETRIES} attempts: {e}",
-                        exc_info=True
-                    )
-        
-        return False
-
-
-class JobExecutor:
-    """Executes crew runs by building flows and running them."""
-    
-    def __init__(self, crew_service: CrewService, process_registry: Optional[dict[UUID, Any]] = None):
-        timeout = httpx.Timeout(30.0)
-        self.crud_client = AuthenticatedClient(
-            base_url=settings.CRUD_SERVICE_URL,
-            token=settings.INTERNAL_CREW_API_KEY,
-            timeout=timeout
-        )
-        self.flow_service = get_flow_service()
-        self.crew_service = crew_service
-        self.process_registry = process_registry or {}
-        
-        # Initialize helper components
-        self.process_manager = FlowProcessManager(self.process_registry)
-        self.heartbeat_manager = HeartbeatManager(self.crud_client)
-    
-    async def execute(
-        self,
-        crew_run_id: UUID,
-        crew_id: UUID,
-        queue_id: UUID,
-        lease_token: str
-    ):
-        """
-        Execute a crew run:
-        1. Fetch crew_run to get stored inputs and tasks snapshot
-        2. Run flow with inputs in separate process
-        3. Build result payload and send to CrudService
-        4. Handle heartbeat and cancellation
-        
-        Args:
-            crew_run_id: UUID of the crew run to execute
-            crew_id: UUID of the crew
-            queue_id: UUID of the queue job
-            lease_token: Token for the queue lease
-        """
-        heartbeat_task = None
-        execute_task = asyncio.current_task()
-        flow_state = None
-        tasks = None
-        
-        try:
-            # Start heartbeat loop
-            heartbeat_task = await self.heartbeat_manager.start_heartbeat_loop(
-                queue_id, lease_token, execute_task
-            )
-            
-            # Prepare execution data
-            tasks, stored_inputs = await self._prepare_execution_data(crew_run_id)
-            
-            # Execute flow in separate process
-            result, flow_state = await self.process_manager.run_flow(crew_run_id, tasks, stored_inputs)
-            
-        except asyncio.CancelledError:
-            logger.info(f"Crew run {crew_run_id} execution cancelled")
-            await self._handle_cancellation(queue_id, lease_token)
-            raise
-        except RuntimeError as e:
-            # RuntimeError from run_flow may contain flow_state attribute
-            flow_state = getattr(e, 'flow_state', None)
-            logger.error(f"Error executing crew run {crew_run_id}: {e}", exc_info=True)
-            raise
-        except Exception as e:
-            logger.error(f"Error executing crew run {crew_run_id}: {e}", exc_info=True)
-            raise
-        finally:
-            await self._cleanup_heartbeat(heartbeat_task)
-    
-    async def _prepare_execution_data(
-        self,
-        crew_run_id: UUID
-    ) -> tuple[list[TaskInfo], dict]:
-        """
-        Fetch crew run and prepare tasks and inputs for execution.
-        
-        Args:
-            crew_run_id: UUID of the crew run
-            
-        Returns:
-            Tuple of (tasks list, inputs dictionary)
-        """
-        crew_run = await self.crew_service.get_crew_run(crew_run_id)
-        stored_inputs = crew_run.run_metadata.inputs.to_dict()
-        stored_inputs['crew_run_id'] = str(crew_run_id)
-        
-        tasks = [
-            TaskInfo.model_validate(task.to_dict())
-            for task in crew_run.run_metadata.tasks_snapshot
-        ]
-        
-        retry_feedback = crew_run.run_metadata.retry_feedback
-        is_retry = (
-            retry_feedback is not UNSET 
-            and retry_feedback is not None
-        )
-        
-        if is_retry:
-            # Get retry feedback text
-            assert isinstance(retry_feedback, RetryFeedback)
-            retry_feedback_text = retry_feedback.feedback or ''
-            if not isinstance(retry_feedback_text, str):
-                retry_feedback_text = str(retry_feedback_text)
-            
-            # Use sorted task_states by order to determine retry point and upstream outputs
-            retry_from_task_key = None
-            upstream_outputs = {}
-            
-            # Check if task_states is available (not UNSET)
-            if isinstance(crew_run.output.task_states, Unset):
-                # If task_states is UNSET, skip retry logic
-                logger.warning(f"task_states is UNSET for crew_run {crew_run_id}, skipping retry logic")
-            else:
-                task_states = crew_run.output.task_states.additional_properties
-                
-                # Sort task states by order to process in execution order
-                sorted_task_states = sorted(
-                    task_states.items(),
-                    key=lambda x: x[1].order
-                )
-                
-                # Find first QUEUED task (this is where retry starts)
-                # Collect outputs from COMPLETED tasks before it (upstream tasks)
-                for task_key, task_state in sorted_task_states:
-                    if task_state.status == TaskStatus.QUEUED:
-                        retry_from_task_key = task_key
-                        break
-                    elif task_state.status == TaskStatus.COMPLETED:
-                        # Collect outputs from COMPLETED tasks (upstream tasks)
-                        task_state_state = task_state.state.additional_properties
-                        if 'task_outputs' in task_state_state:
-                            task_outputs = task_state_state['task_outputs']
-                            if isinstance(task_outputs, dict):
-                                for key, value in task_outputs.items():
-                                    upstream_outputs[key] = value
-            
-            # Only add retry info if we found a retry point
-            if retry_from_task_key is not None:
-                stored_inputs['_retry_info'] = {
-                    'is_retry': True,
-                    'retry_from_task_key': str(retry_from_task_key),
-                    'retry_feedback': str(retry_feedback_text),
-                    'upstream_outputs': upstream_outputs,
-                }
-        
-        return tasks, stored_inputs
-    
-    async def _handle_cancellation(self, queue_id: UUID, lease_token: str):
-        """Handle cancellation by updating queue status."""
-        try:
-            body = UpdateStatusRequest(
-                lease_token=lease_token,
-                status=QueueStatus.CANCELLED
-            )
-            await update_queue_status_func.asyncio(
-                queue_id=queue_id,
-                client=self.crud_client,
-                body=body
-            )
-            logger.info(f"Updated queue {queue_id} status to CANCELLED")
-        except Exception as update_error:
-            logger.error(f"Failed to update queue {queue_id} status to CANCELLED: {update_error}")
-    
-    async def _cleanup_heartbeat(self, heartbeat_task: Optional[asyncio.Task]):
-        """Cancel and await heartbeat task cleanup."""
-        if heartbeat_task:
-            heartbeat_task.cancel()
-            try:
-                await heartbeat_task
-            except asyncio.CancelledError:
-                pass

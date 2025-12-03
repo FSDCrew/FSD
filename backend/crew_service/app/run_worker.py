@@ -4,7 +4,6 @@ import signal
 import sys
 
 from app.services.worker import Worker
-from app.dependencies import get_crew_service
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 async def run_worker():
-    crew_service = get_crew_service()
-    worker = Worker(crew_service=crew_service)
+    worker = Worker()
     logger.info("💼 Worker starting...")
 
     try:
@@ -30,7 +28,7 @@ async def run_worker():
 def install_signal_handlers(loop, worker_task):
     """Install POSIX signal handlers, skip for Windows."""
     if sys.platform.startswith("win"):
-        logger.info("Windows detected — skipping SIGINT/SIGTERM handlers")
+        logger.info("Windows detected — skipping SIGINT/SIGTERM handlers") # Windows doesn't support SIGTERM
         return
 
     def shutdown(sig):

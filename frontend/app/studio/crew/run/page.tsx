@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { useCrewById } from "@/hooks/useCrewById";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, XCircle, RotateCcw } from "lucide-react";
 import {
   Select,
@@ -97,6 +98,7 @@ export default function RunDetailsPage() {
   const runId = searchParams.get("runId");
   const crewName = searchParams.get("crewName");
 
+  const queryClient = useQueryClient();
   const { data: crewData, isLoading: isLoadingCrew } = useCrewById(crewId);
   const [preDefinedTasks, setPreDefinedTasks] = React.useState<PreDefinedTask[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = React.useState(true);
@@ -258,7 +260,7 @@ export default function RunDetailsPage() {
       console.log("No task_states found:", selectedRun?.output);
       return [];
     }
-    
+
     const tasks = Object.entries(selectedRun.output.task_states)
       .filter(([_, taskState]: [string, any]) => taskState.status === "COMPLETED")
       .map(([taskKey, taskState]: [string, any]) => ({
@@ -266,7 +268,7 @@ export default function RunDetailsPage() {
         order: taskState.order,
       }))
       .sort((a, b) => a.order - b.order);
-    
+
     console.log("Completed tasks:", tasks);
     return tasks;
   }, [selectedRun]);
@@ -316,17 +318,24 @@ export default function RunDetailsPage() {
     }
   };
 
-  const handleRetry = async () => {
-    if (!selectedRun || !token || !selectedRetryTask || !retryFeedback.trim()) {
-      toast.error("Please select a task and provide feedback");
-      return;
-    }
+  // Retry crew run mutation
+  const retryCrewRunMutation = useMutation({
+    mutationFn: async ({
+      runId,
+      retryFromTaskKey,
+      feedback,
+    }: {
+      runId: string;
+      retryFromTaskKey: string;
+      feedback: string;
+    }) => {
+      if (!token) {
+        throw new Error("Authentication token is required");
+      }
 
-    const apiUrl = process.env.NEXT_PUBLIC_CREW_API_BASE_URL || "http://localhost:8001";
-    
-    try {
+      const apiUrl = process.env.NEXT_PUBLIC_CREW_API_BASE_URL || "http://localhost:8001";
       const response = await fetch(
-        `${apiUrl}/crew/crew-run/${selectedRun.id}/retry`,
+        `${apiUrl}/crew/crew-run/${runId}/retry`,
         {
           method: "POST",
           headers: {
@@ -334,22 +343,13 @@ export default function RunDetailsPage() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            retry_from_task_key: selectedRetryTask,
-            feedback: retryFeedback,
+            retry_from_task_key: retryFromTaskKey,
+            feedback: feedback,
           }),
         }
       );
 
-      if (response.ok) {
-        const result = await response.json();
-        toast.success("Crew run retry initiated successfully");
-        // Navigate to the new retry run
-        setTimeout(() => {
-          router.push(
-            `/studio/crew/run?crewId=${crewId}&runId=${result.id}&crewName=${encodeURIComponent(crewName || "")}`
-          );
-        }, 1000);
-      } else {
+      if (!response.ok) {
         let errorMessage = "Unknown error";
         try {
           const error = await response.json();
@@ -357,16 +357,46 @@ export default function RunDetailsPage() {
         } catch {
           errorMessage = await response.text();
         }
-        toast.error(`Failed to retry crew run: ${errorMessage}`);
+        throw new Error(errorMessage);
       }
-    } catch (error) {
-      console.error("Error retrying crew run:", error);
-      toast.error(`Failed to retry crew run: ${error}`);
-    } finally {
-      setIsRetrying(false);
+
+      return await response.json();
+    },
+    onSuccess: (result) => {
+      toast.success("Crew run retry initiated successfully");
+      // Invalidate crew query to refetch updated data
+      if (crewId) {
+        queryClient.invalidateQueries({ queryKey: ['crew', crewId] });
+      }
+      // Navigate to the new retry run
+      setTimeout(() => {
+        router.push(
+          `/studio/crew/run?crewId=${crewId}&runId=${result.id}&crewName=${encodeURIComponent(crewName || "")}`
+        );
+      }, 1000);
+      // Reset form state
       setSelectedRetryTask("");
       setRetryFeedback("");
+      setIsRetrying(false);
+    },
+    onError: (error: Error) => {
+      console.error("Error retrying crew run:", error);
+      toast.error(`Failed to retry crew run: ${error.message}`);
+      setIsRetrying(false);
+    },
+  });
+
+  const handleRetry = () => {
+    if (!selectedRun || !token || !selectedRetryTask || !retryFeedback.trim()) {
+      toast.error("Please select a task and provide feedback");
+      return;
     }
+
+    retryCrewRunMutation.mutate({
+      runId: selectedRun.id,
+      retryFromTaskKey: selectedRetryTask,
+      feedback: retryFeedback,
+    });
   };
 
   if (isLoadingCrew) {
@@ -468,7 +498,7 @@ export default function RunDetailsPage() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-card border-2 border-border rounded-lg p-6 max-w-md w-full mx-4">
               <h3 className="text-xl font-semibold mb-4">Retry Crew Run</h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
@@ -513,10 +543,10 @@ export default function RunDetailsPage() {
                   </Button>
                   <Button
                     onClick={handleRetry}
-                    disabled={!selectedRetryTask || !retryFeedback.trim()}
+                    disabled={!selectedRetryTask || !retryFeedback.trim() || retryCrewRunMutation.isPending}
                   >
                     <RotateCcw className="mr-2 h-4 w-4" />
-                    Retry
+                    {retryCrewRunMutation.isPending ? "Retrying..." : "Retry"}
                   </Button>
                 </div>
               </div>
