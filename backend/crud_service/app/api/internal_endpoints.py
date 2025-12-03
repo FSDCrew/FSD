@@ -177,3 +177,16 @@ async def create_artifact_internal(
         crew_run_id=crew_run_id,
         user_id=crew_run_owner_id,
     )
+
+@internal_router.get(
+    "/artifact/{artifact_id}",
+    status_code=200,
+    response_model=str,
+    dependencies=[Depends(require_internal_api_key)],
+)
+async def get_artifact_internal(
+    artifact_id: UUID = Path(..., description="Artifact ID to retrieve", example="123e4567-e89b-12d3-a456-426614174000"),
+    artifact_service: ArtifactService = Depends(get_artifact_service),
+):
+    """Retrieve an artifact by its ID (internal use only)."""
+    return await artifact_service.get_artifact_presigned_url(artifact_id)

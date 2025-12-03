@@ -24,9 +24,6 @@ state:
     end_date:
       type: date
       field_kind: context
-    image_description:
-      type: string
-      field_kind: context
     templateId:
       type: list[AllowedTemplateId]
       field_kind: context
@@ -62,7 +59,7 @@ state:
       placeholder: "Provide social media schedule"
 
     image_assets:
-      type: string
+      type: list[ImageAsset]
       field_kind: data
 
     orshot_render:
@@ -70,8 +67,7 @@ state:
       field_kind: data
 
     post_captions:
-      # type: PostCaptions
-      type: string
+      type: CopywriterOutput
       field_kind: data
 
 tasks:
@@ -94,7 +90,7 @@ tasks:
     agent: market_researcher
     name: Marketing Research Task
     task_description: >
-      Conduct theme-aligned market research using required web-scraping and search tools to identify competitors, trends, and relevant Instagram content,
+      Conduct theme-aligned market research using required web-scraping and search tools to identify competitors, trends, and relevant Instagram content, 
       then produces a structured report.
     description: >
       <important_rules>
@@ -217,7 +213,7 @@ tasks:
             - Do NOT produce HTML tables.
             - Do NOT perform any scheduling activities.
           - Double check that the total number of weeks across phases is equal to the <TOTAL_WEEKS> using the verify_sum_equals_expected tool
-          - You MUST the Markdown to Word Doc tool to save the content strategy as a Word (.docx) file before returning the markdown content strategy.
+          - You MUST USE the Markdown to Word Doc tool to save the content strategy as a Word (.docx) file before returning the markdown content strategy.
             The name of the content strategy should be "content_strategy.docx".
       </your_task>
 
@@ -316,14 +312,8 @@ tasks:
 
   copywriter:
     reads:
-      - field: theme
+      - field: social_media_schedule
         cardinality: required
-      - field: brand_description
-        cardinality: required
-      - field: target_audience_description
-        cardinality: required
-      - field: content_strategy
-        cardinality: optional
     writes:
       - field: post_captions
         mode: replace
@@ -331,134 +321,78 @@ tasks:
     agent: copywriter_agent
     name: Copywriting Task
     task_description: >
-      Generate Instagram post captions, hashtags, and phrases. If content strategy is provided, generate for every post.
-      If content strategy is missing, generate creative ideas based on theme, brand, and target audience.
+      Generate Instagram captions, hashtags, and phrases for all items in the social media schedule.
+      The tool handles iteration automatically and saves the final Word document as an artifact.
     description: >
       <important_rules>
         1. You must not make up any information. Only include information that you are confident about.
         2. You must not include any information that is not related to the topic or the brand.
-        3. All captions must align with the brand voice and target audience.
-        4. You must carefully review all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
+        3. All captions must align with the phase_name, post_type, date, theme_concept, objective, and description provided in each schedule item.
+        4. You must ensure all copy is error-free with proper grammar, spelling, and punctuation.
       </important_rules>
 
       <context>
-        1. The theme of the marketing campaign is described as <THEME>{theme}</THEME>.
-        2. The brand you are creating copy for is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
-        3. The target audience is described as <TARGET_AUDIENCE_DESCRIPTION>{target_audience_description}</TARGET_AUDIENCE_DESCRIPTION>.
-        4. The content strategy (if provided) is as follows:
-          <content_strategy>
-            {content_strategy}
-          </content_strategy>
+        1. The social media schedule is provided here:
+          <SOCIAL_MEDIA_SCHEDULE>
+            {social_media_schedule}
+          </SOCIAL_MEDIA_SCHEDULE>
+
+        2. The social media schedule contains a list of schedule items. Each item has:
+           - id: Unique identifier for the schedule item
+           - phase_name: Name of the strategy phase (if available)
+           - week: Week number within the campaign
+           - date: Calendar date for the post (YYYY-MM-DD format)
+           - post_type: Type of content ("POST" or "STORY")
+           - theme_concept: Theme or concept for the post's content
+           - objective: Objective for the post (e.g., awareness, engagement, CTA)
+           - description: Detailed description of the post's content
+
+        3. Your crew run ID is: <CREW_RUN_ID>{crew_run_id}</CREW_RUN_ID>
+
+        IMPORTANT: When calling generate_copywriting_for_schedule, you MUST pass the social_media_schedule_json parameter
+        as a valid JSON string containing the SocialMediaSchedule object with all required fields, and ensure the JSON string
+        does not contain any backslashes (i.e., it should be properly escaped and formatted).
       </context>
 
-      <tools>
-        - name: markdown_to_word_doc
-          description: Convert Markdown to a Word (.docx) file with GitHub-flavored Markdown features preserved. Automatically removes common leading indentation so pasted/triple-quoted Markdown isn't treated as a code block.
-          input:
-            markdown: string
-          examples:
-            - markdown: "# Title\n\n- [x] done\n- [ ] todo\n"
-            - markdown: |
-                # Report
-                | A | B |
-                | - | - |
-                | 1 | 2 |
-      </tools>
-
-      <markdown_formatting_rules>
-        1. **Hashtag Formatting:** To prevent hashtags from being interpreted as markdown headers, format them in one of these ways:
-           - Use backticks: `#hashtag` (recommended)
-           - Escape with backslash: \#hashtag
-           - Put hashtags in a code block or inline code
-           - Place hashtags on lines that are NOT at the start of a paragraph
-        2. **Structure:** Use proper markdown headings (##, ###) to organize content by post or section.
-        3. **Lists:** Use markdown list syntax (- or *) for hashtag sets and phrases.
-        4. **No Code Blocks:** Do NOT wrap the entire output in ``` markdown code blocks.
-        5. **Clean Formatting:** Ensure proper spacing and line breaks for readability.
-      </markdown_formatting_rules>
-
       <your_task>
-        You must determine which mode to operate in based on whether content_strategy is provided.
+        **STEP 1: Call the Tool**
+        Call the `generate_copywriting_for_schedule` tool with:
+        - social_media_schedule_json: The entire social_media_schedule object as a JSON string (convert the schedule object to JSON format without any backslashes.)
+        - crew_run_id: "{crew_run_id}" (use the crew_run_id value shown above in the context)
 
-        **IF CONTENT_STRATEGY IS PROVIDED:**
-        For every post identified in the content strategy:
-          1. Analyze the post's theme, objective, and description.
-          2. Generate a compelling Instagram caption that:
-             - Opens with an engaging hook
-             - Tells a story or provides value
-             - Includes a clear call-to-action (CTA)
-             - Aligns with the brand voice and target audience
-             - Is optimized for Instagram (appropriate length, emoji usage, formatting)
-          3. Generate a strategic hashtag set (5-10 hashtags) including:
-             - Broad/trending hashtags relevant to the theme
-             - Niche hashtags specific to the target audience
-             - Campaign-specific or branded hashtags
-             - Format hashtags using backticks (e.g., `#hashtag`) to prevent markdown header interpretation
-          4. Generate 2-3 engaging phrases or taglines that:
-             - Capture the essence of the post's message
-             - Can be used as alternative captions or in other campaign materials
-             - Are memorable and shareable
-          5. Carefully review and refine all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
-          6. Format the output in clean markdown, organizing by post with clear headings (##, ###) and labels for captions, hashtags, and phrases.
-          7. Ensure all hashtags are properly formatted with backticks (e.g., `#hashtag`) to prevent markdown parsing issues.
-          8. **CRITICAL STEP:** Use the `markdown_to_word_doc` tool to convert your output.
-             - The `markdown` argument MUST be the **full text string** of the report you just generated.
-             - Do NOT pass a dictionary or schema definition (e.g., `{{'type': 'str'}}`).
-             - Pass the actual string content directly.
+        **STEP 2: Verify and Output**
+        The tool will:
+        1. Process ALL items in the schedule automatically (handles iteration in code)
+        2. Generate copywriting for each item (captions, hashtags, phrases)
+        3. Create structured PostCaption objects for each item
+        4. Convert results to markdown and save as Word document artifact
+        5. Return a CopywriterOutput JSON object containing all PostCaption objects
 
-        **IF CONTENT_STRATEGY IS MISSING:**
-        Generate creative content ideas based on the theme, brand, and target audience:
-          1. Create 3-5 sample post captions showcasing different angles:
-             - Different hooks and storytelling approaches
-             - Various CTAs and engagement strategies
-             - Different tones (inspirational, educational, entertaining, etc.)
-          2. Generate a comprehensive hashtag list (15-20 hashtags) including:
-             - Broad hashtags relevant to the theme
-             - Niche hashtags for the target audience
-             - Branded hashtag suggestions
-             - Format hashtags using backticks (e.g., `#hashtag`) to prevent markdown header interpretation
-          3. Generate 5-7 memorable phrases and taglines that:
-             - Capture the brand essence
-             - Resonate with the target audience
-             - Can be used across different campaign materials
-          4. Carefully review and refine all copy to ensure it is error-free with proper grammar, spelling, and punctuation.
-          5. Format the output in clean markdown as a collection of creative ideas with clear sections and headings.
-          6. Ensure all hashtags are properly formatted with backticks (e.g., `#hashtag`) to prevent markdown parsing issues.
-          7. **CRITICAL STEP:** Use the `markdown_to_word_doc` tool to convert your output.
-             - The `markdown` argument MUST be the **full text string** of the report you just generated.
-             - Do NOT pass a dictionary or schema definition.
-             - Pass the actual string content directly.
+        **VERIFY:** Check if the tool returned an error message starting with "Error:". If it did, report that error.
+        Otherwise, output the JSON string returned by the tool as your final result (this JSON contains the CopywriterOutput object that gets written to the post_captions field).
 
-        Regardless of mode, ensure all output is:
-        - On-brand and aligned with brand voice
-        - Tailored to the target audience
-        - Engaging and optimized for Instagram
-        - Free of grammar, spelling, and punctuation errors
+        **IMPORTANT NOTES:**
+        - The tool handles ALL iteration and processing automatically - you don't need to loop through items
+        - The tool ensures ALL items are processed - no items will be skipped
+        - The tool automatically saves the Word document as an artifact
+        - Simply call the tool once with the entire schedule and output the returned JSON string
       </your_task>
 
     expected_output: >
-      Generate markdown-formatted content with proper hashtag formatting (using backticks like `#hashtag`).
-
-      If content strategy is provided:
-      - For each post: caption, hashtags, and phrases clearly labeled and organized with markdown headings.
-
-      If content strategy is missing:
-      - A collection of creative ideas including sample captions, hashtag suggestions, and memorable phrases with clear markdown sections.
-
-      After generating the markdown, convert it to a Word document using the markdown_to_word_doc tool.
-      Format as markdown without wrapping in ``` code blocks.
+      Return a CopywriterOutput JSON object containing a list of PostCaption objects, one for each schedule item.
+      Each PostCaption must include:
+      - schedule_item_id: The ID of the schedule item
+      - caption: The generated Instagram caption text
+      - hashtags: Array of hashtag strings (without '#' prefix)
+      - phrases: Array of 2-3 phrase/tagline strings
+      
+      The output must be valid JSON matching the CopywriterOutput schema.
       Do NOT describe whether the output meets requirements.
-      Only output the captions, hashtags, and phrases themselves in markdown format.
-
+      Do NOT evaluate or summarize the structure.
+  
   image_generator:
     reads:
-      - field: theme
-        cardinality: required
-      - field: brand_description
-        cardinality: required
-      - field: target_audience_description
-        cardinality: required
-      - field: image_description
+      - field: social_media_schedule
         cardinality: required
     writes:
       - field: image_assets
@@ -467,41 +401,74 @@ tasks:
     agent: image_generator_agent
     name: Image Generation Task
     task_description: >
-      Create images used to create orshot renders.
+      Generate images for all items in the social media schedule.
+      The tool handles iteration automatically and generates images based on each schedule item's context.
     description: >
       <important_rules>
         1. You must not make up any information. Only include information that you are confident about.
         2. You must not include any information that is not related to the topic or the brand.
+        3. All images must align with the theme_concept, description, objective, and post_type provided in each schedule item.
       </important_rules>
 
-      <tools>
-        - name: generate_imagen_tool
-          description: Generates an image based on a textual prompt and provides a secure S3 link.
-          input:
-            prompt: string
-          examples:
-            - prompt: "A serene beach at sunset with palm trees and gentle waves."
-      </tools>
-
       <context>
-        1. You are to create high-quality images for a marketing campaign to be executed on instagram.
-        2. The theme of the marketing campaign is described as <THEME>{theme}</THEME>.
-        3. The brand you are creating images for is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
-        4. The target audience is described as <TARGET_AUDIENCE_DESCRIPTION>{target_audience_description}</TARGET_AUDIENCE_DESCRIPTION>.
-        5. The specific image requirements are described as <IMAGE_DESCRIPTION>{image_description}</IMAGE_DESCRIPTION>.
+        1. The social media schedule is provided here:
+          <SOCIAL_MEDIA_SCHEDULE>
+            {social_media_schedule}
+          </SOCIAL_MEDIA_SCHEDULE>
+
+        2. Your crew run ID is: <CREW_RUN_ID>{crew_run_id}</CREW_RUN_ID>
       </context>
 
       <your_task>
-        Based on the context, you are to create high-quality images that align with the content strategy.
-          1. Analyze the content strategy to identify key themes, concepts, and visual styles needed for the campaign.
-          2. For each identified image requirement, generate a detailed prompt that captures the desired aesthetics, mood, and elements.
-          3. Use the generate_imagen_tool tool to create each image based on the prompts.
-            - parameters: prompt, {crew_run_id}
-          4. Collect and output the S3 links of all generated images.
+        **STEP 1: Call the Tool**
+        Call the `generate_images_for_schedule` tool with:
+        - social_media_schedule_json: The entire social_media_schedule object as a JSON string (convert the schedule object to JSON)
+        - crew_run_id: "{crew_run_id}" (use the crew_run_id value shown above in the context)
+
+        **STEP 2: Output the Result**
+        The tool will:
+        1. Process ALL items in the schedule automatically (handles iteration in code)
+        2. Generate a detailed image prompt for each item based on its theme_concept, description, objective, and post_type
+        3. Generate images using Imagen for each item (images will be text-free for use in poster renders)
+        4. Save all images as artifacts
+        5. Return a JSON array of ImageAsset objects (one per schedule item)
+
+        **CRITICAL OUTPUT INSTRUCTIONS:**
+        After calling the tool, you will receive a JSON array string. You MUST output this JSON array EXACTLY as-is.
+        
+        **DO NOT:**
+        - Extract URLs from the JSON
+        - Convert URLs to a newline-separated string
+        - Modify the JSON structure
+        - Add any text before or after the JSON
+        - Parse or reformat the JSON
+        
+        **DO:**
+        - Output the exact JSON array string returned by the tool
+        - Copy the tool's return value directly to your output
+        - Ensure your output starts with "[" and ends with "]"
+        
+        **VERIFY:** Check if the tool returned an error message starting with "Error:". If it did, report that error.
+        Otherwise, output the tool's return value EXACTLY as returned, without any modifications.
+
+        **IMPORTANT NOTES:**
+        - The tool handles ALL iteration and processing automatically - you don't need to loop through items
+        - The tool ensures ALL items get images generated - no items will be skipped
+        - Images are generated without text (text-free) for use in poster renders
+        - Your output must be the exact JSON string returned by the tool - no modifications whatsoever
       </your_task>
 
     expected_output: >
-      A list of S3 links of the generated images, one per line.
+      A valid JSON List of ImageAsset objects (starting with '[').
+      
+      CRITICAL: Output the JSON array EXACTLY as returned by the tool.
+      Do NOT extract URLs.
+      Do NOT output URLs as a newline-separated string.
+      Do NOT modify the JSON structure.
+      Do NOT add any text before or after the JSON.
+      Output ONLY the JSON array string, nothing else.
+      Do NOT describe whether the output meets requirements.
+      Do NOT evaluate or summarize the structure.      
 
   orshot_render:
     reads:
@@ -509,9 +476,9 @@ tasks:
         cardinality: required
       - field: orshot_schema
         cardinality: required
-      - field: theme
+      - field: theme                
         cardinality: required
-      - field: brand_description
+      - field: brand_description    
         cardinality: required
       - field: target_audience_description
         cardinality: required
@@ -596,7 +563,7 @@ tasks:
                   b. **PROMPT ENGINEERING:** Rewrite this requirement into a detailed, high-quality prompt for the image generator. Explicitly describe the subject, style, lighting, and mood.
                   c. **GENERATE:** Call the `generate_imagen_tool` tool using your optimized prompt.
                   d. **MAP:** Use the S3 URL returned by the tool.
-        
+
         **PART 3: BACKGROUND FIELDS**
         For each background field:
            1. **ANALYZE:** Check if the description specifies a color.
