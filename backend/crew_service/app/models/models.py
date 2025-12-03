@@ -365,6 +365,31 @@ class CopywriterOutput(BaseModel):
     )
 
 
+class ImageAsset(BaseModel):
+    """
+    Represents an image asset for a single schedule item.
+    Contains the S3 URL of the generated image.
+    """
+    schedule_item_id: int = Field(
+        ...,
+        description="ID of the schedule item this image corresponds to"
+    )
+    image_url: str = Field(
+        ...,
+        description="S3 URL of the generated image"
+    )
+    
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "schedule_item_id": 1,
+                "image_url": "https://s3.amazonaws.com/bucket/image-123.png"
+            }
+        }
+    )
+
+
 class AllowedTemplateId(IntEnum):
     """
     Registry of supported Orshot Templates.
@@ -415,6 +440,9 @@ CUSTOM_TYPE_REGISTRY: Dict[str, Type[BaseModel] | Type[IntEnum]] = {
     # Copywriting
     "PostCaption": PostCaption,
     "CopywriterOutput": CopywriterOutput,
+    
+    # Image Assets
+    "ImageAsset": ImageAsset,
     
     # Orshot
     "AllowedTemplateId": AllowedTemplateId,

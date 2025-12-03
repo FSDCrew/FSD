@@ -18,6 +18,7 @@ from app.lib.tools.search import open_pages, search_internet, search_instagram
 from app.lib.tools.social_media_schedule import generate_social_media_schedule_tool
 from app.lib.tools.generate_copywriting import generate_copywriting_tool
 from app.lib.tools.generate_copywriting_for_schedule import generate_copywriting_for_schedule_tool
+from app.lib.tools.generate_images_for_schedule import generate_images_for_schedule_tool
 from app.models.models import CUSTOM_TYPE_REGISTRY
 
 
@@ -205,6 +206,7 @@ TOOL_MAP = {
     "generate_social_media_schedule": generate_social_media_schedule_tool,
     "generate_copywriting_for_item": generate_copywriting_tool,
     "generate_copywriting_for_schedule": generate_copywriting_for_schedule_tool,
+    "generate_images_for_schedule": generate_images_for_schedule_tool,
     "html_table_to_excel": html_table_to_excel_tool,
     "markdown_to_word_doc": markdown_to_word_doc,
     "open_instagram_posts": open_instagram_posts,

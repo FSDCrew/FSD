@@ -24,9 +24,6 @@ state:
     end_date:
       type: date
       field_kind: context
-    image_description:
-      type: string
-      field_kind: context
     templateId:
       type: list[AllowedTemplateId]
       field_kind: context
@@ -62,7 +59,7 @@ state:
       placeholder: "Provide social media schedule"
 
     image_assets:
-      type: string
+      type: list[ImageAsset]
       field_kind: data
 
     orshot_render:
@@ -395,13 +392,7 @@ tasks:
   
   image_generator:
     reads:
-      - field: theme
-        cardinality: required
-      - field: brand_description
-        cardinality: required
-      - field: target_audience_description
-        cardinality: required
-      - field: image_description
+      - field: social_media_schedule
         cardinality: required
     writes:
       - field: image_assets
@@ -410,41 +401,74 @@ tasks:
     agent: image_generator_agent
     name: Image Generation Task
     task_description: >
-      Create images used to create orshot renders.
+      Generate images for all items in the social media schedule.
+      The tool handles iteration automatically and generates images based on each schedule item's context.
     description: >
       <important_rules>
         1. You must not make up any information. Only include information that you are confident about.
         2. You must not include any information that is not related to the topic or the brand.
+        3. All images must align with the theme_concept, description, objective, and post_type provided in each schedule item.
       </important_rules>
 
-      <tools>
-        - name: generate_imagen_tool
-          description: Generates an image based on a textual prompt and provides a secure S3 link.
-          input:
-            prompt: string
-          examples:
-            - prompt: "A serene beach at sunset with palm trees and gentle waves."
-      </tools>
-
       <context>
-        1. You are to create high-quality images for a marketing campaign to be executed on instagram.
-        2. The theme of the marketing campaign is described as <THEME>{theme}</THEME>.
-        3. The brand you are creating images for is described as <BRAND_DESCRIPTION>{brand_description}</BRAND_DESCRIPTION>.
-        4. The target audience is described as <TARGET_AUDIENCE_DESCRIPTION>{target_audience_description}</TARGET_AUDIENCE_DESCRIPTION>.
-        5. The specific image requirements are described as <IMAGE_DESCRIPTION>{image_description}</IMAGE_DESCRIPTION>.
+        1. The social media schedule is provided here:
+          <SOCIAL_MEDIA_SCHEDULE>
+            {social_media_schedule}
+          </SOCIAL_MEDIA_SCHEDULE>
+
+        2. Your crew run ID is: <CREW_RUN_ID>{crew_run_id}</CREW_RUN_ID>
       </context>
 
       <your_task>
-        Based on the context, you are to create high-quality images that align with the content strategy.
-          1. Analyze the content strategy to identify key themes, concepts, and visual styles needed for the campaign.
-          2. For each identified image requirement, generate a detailed prompt that captures the desired aesthetics, mood, and elements.
-          3. Use the generate_imagen_tool tool to create each image based on the prompts.
-            - parameters: prompt, {crew_run_id}
-          4. Collect and output the S3 links of all generated images.
+        **STEP 1: Call the Tool**
+        Call the `generate_images_for_schedule` tool with:
+        - social_media_schedule_json: The entire social_media_schedule object as a JSON string (convert the schedule object to JSON)
+        - crew_run_id: "{crew_run_id}" (use the crew_run_id value shown above in the context)
+
+        **STEP 2: Output the Result**
+        The tool will:
+        1. Process ALL items in the schedule automatically (handles iteration in code)
+        2. Generate a detailed image prompt for each item based on its theme_concept, description, objective, and post_type
+        3. Generate images using Imagen for each item (images will be text-free for use in poster renders)
+        4. Save all images as artifacts
+        5. Return a JSON array of ImageAsset objects (one per schedule item)
+
+        **CRITICAL OUTPUT INSTRUCTIONS:**
+        After calling the tool, you will receive a JSON array string. You MUST output this JSON array EXACTLY as-is.
+        
+        **DO NOT:**
+        - Extract URLs from the JSON
+        - Convert URLs to a newline-separated string
+        - Modify the JSON structure
+        - Add any text before or after the JSON
+        - Parse or reformat the JSON
+        
+        **DO:**
+        - Output the exact JSON array string returned by the tool
+        - Copy the tool's return value directly to your output
+        - Ensure your output starts with "[" and ends with "]"
+        
+        **VERIFY:** Check if the tool returned an error message starting with "Error:". If it did, report that error.
+        Otherwise, output the tool's return value EXACTLY as returned, without any modifications.
+
+        **IMPORTANT NOTES:**
+        - The tool handles ALL iteration and processing automatically - you don't need to loop through items
+        - The tool ensures ALL items get images generated - no items will be skipped
+        - Images are generated without text (text-free) for use in poster renders
+        - Your output must be the exact JSON string returned by the tool - no modifications whatsoever
       </your_task>
 
     expected_output: >
-      A list of S3 links of the generated images, one per line.      
+      A valid JSON List of ImageAsset objects (starting with '[').
+      
+      CRITICAL: Output the JSON array EXACTLY as returned by the tool.
+      Do NOT extract URLs.
+      Do NOT output URLs as a newline-separated string.
+      Do NOT modify the JSON structure.
+      Do NOT add any text before or after the JSON.
+      Output ONLY the JSON array string, nothing else.
+      Do NOT describe whether the output meets requirements.
+      Do NOT evaluate or summarize the structure.      
 
   orshot_render:
     reads:
