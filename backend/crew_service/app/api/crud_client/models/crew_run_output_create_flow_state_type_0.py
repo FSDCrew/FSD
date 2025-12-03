@@ -6,51 +6,28 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="RetryFeedback")
+T = TypeVar("T", bound="CrewRunOutputCreateFlowStateType0")
 
 
 @_attrs_define
-class RetryFeedback:
-    """
-    Attributes:
-        feedback (str):
-        retry_from_task_key (str):
-    """
+class CrewRunOutputCreateFlowStateType0:
+    """ """
 
-    feedback: str
-    retry_from_task_key: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        feedback = self.feedback
-
-        retry_from_task_key = self.retry_from_task_key
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "feedback": feedback,
-                "retry_from_task_key": retry_from_task_key,
-            }
-        )
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        feedback = d.pop("feedback")
+        crew_run_output_create_flow_state_type_0 = cls()
 
-        retry_from_task_key = d.pop("retry_from_task_key")
-
-        retry_feedback = cls(
-            feedback=feedback,
-            retry_from_task_key=retry_from_task_key,
-        )
-
-        retry_feedback.additional_properties = d
-        return retry_feedback
+        crew_run_output_create_flow_state_type_0.additional_properties = d
+        return crew_run_output_create_flow_state_type_0
 
     @property
     def additional_keys(self) -> list[str]:

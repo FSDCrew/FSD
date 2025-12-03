@@ -16,9 +16,15 @@ from app.api.crud_client.models import (
     CrewRunCreate,
     CrewRunMetadataCreate,
     CrewRunMetadataCreateInputs,
+    CrewRunOutputCreate,
+    CrewRunOutputCreateTaskStates,
+    RetryFeedback,
     HTTPValidationError,
     TaskInfo as CrudTaskInfo,
     TaskRead as CrudTaskRead,
+    TaskStateSnapshot,
+    TaskStateSnapshotState,
+    TaskStatus,
 )
 
 from app.models.models import CrewRun, CrewRunCreateRequest, TaskInfo
@@ -120,10 +126,22 @@ class CrewService:
         )
         if crew_run_data.inputs:
             metadata.inputs.additional_properties = crew_run_data.inputs
+
+        task_states_dict: dict[str, TaskStateSnapshot] = {}
+        for index, task in enumerate(tasks_full):
+            task_states_dict[task.key] = TaskStateSnapshot(
+                order=index,
+                state=TaskStateSnapshotState(),
+                status=TaskStatus.QUEUED,
+            )
+        task_states = CrewRunOutputCreateTaskStates()
+        task_states.additional_properties = task_states_dict
+        output = CrewRunOutputCreate(task_states=task_states)
         
         crew_run_create = CrewRunCreate(
             crew_id=crew_run_data.crew_id,
             run_metadata=metadata,
+            output=output,
         )
         
         response = await create_crew_run_func.asyncio_detailed(

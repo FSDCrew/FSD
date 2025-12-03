@@ -136,13 +136,14 @@ class TaskStatus(Enum):
 
 class TaskStateSnapshot(BaseModel):
     state: dict[str, Any]
-    completed_at: datetime
+    completed_at: datetime | None = None
     status: TaskStatus
+    order: int
 
 
 class RetryFeedback(BaseModel):
     feedback: str
-    retry_task_key: str
+    retry_from_task_key: str
 
 
 class CrewRunMetadataBase(BaseModel):
@@ -161,7 +162,7 @@ class CrewRunMetadataRead(CrewRunMetadataBase):
 class CrewRunOutputBase(BaseModel):
     result: dict[str, Any] | None = None
     flow_state: dict[str, Any] | None = None
-    task_states: list[TaskStateSnapshot] = []
+    task_states: dict[str, TaskStateSnapshot]
 
 
 class CrewRunOutputCreate(CrewRunOutputBase):
@@ -171,18 +172,19 @@ class CrewRunOutputRead(CrewRunOutputBase):
     pass
 
 class CrewRunBase(BaseModel):
-    output: dict[str, Any] | None = None
+    pass
 
 
 class CrewRunCreate(CrewRunBase):
     crew_id: UUID
     run_metadata: CrewRunMetadataCreate
+    output: CrewRunOutputCreate
 
 
 class CrewRunRead(CrewRunBase):
     id: UUID
     crew_id: UUID
-    output: dict[str, Any] | None = None
+    output: CrewRunOutputRead
     artifacts: list[ArtifactRead] | None = None
     queue_status: QueueStatus | None = None
     retry_count: int | None = None
