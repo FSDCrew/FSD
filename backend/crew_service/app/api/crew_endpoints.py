@@ -38,7 +38,7 @@ async def crew_kickoff(
     """Kick off a crew run. Only crew owners can kick off their crews."""
     return await crew_service.kickoff_crew_run(crew_run_data, user_token)
 
-@crew_router.get(
+@crew_router.post(
     "/crew-run/{crew_run_id}/cancel",
     status_code=204,
 )
