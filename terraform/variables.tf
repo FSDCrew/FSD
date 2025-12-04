@@ -211,7 +211,7 @@ variable "bright_data_zone" {
 }
 
 variable "orshot_api_key" {
-   description = "Orshot API key"
+  description = "Orshot API key"
   type        = string
 }
 
@@ -223,6 +223,12 @@ variable "orshot_api_url" {
 variable "gemini_api_key" {
   description = "Gemini API key"
   type        = string
+}
+
+variable "orshot_mock_mode" {
+  description = "Orshot mock mode"
+  type        = string
+  default     = "false"
 }
 
 
