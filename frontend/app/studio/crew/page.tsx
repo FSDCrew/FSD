@@ -330,7 +330,7 @@ export default function CrewPage() {
       crewFlow.setHasUnsavedChanges(false);
 
       queryClient.invalidateQueries({ queryKey: ["crews"] });
-      router.push(`/studio/crew?id=${crewData.id}&title=${encodeURIComponent(crewData.name)}`);
+      router.push(`/studio/crew?id=${crewData.id}&title=${encodeURIComponent(crewData.name || "")}`);
       toast.success("Crew created successfully!");
     },
     onError: (error) => {
@@ -385,10 +385,11 @@ export default function CrewPage() {
       return;
     }
 
+
     try {
       const response = await getAllCrewsCrewGet();
       const allCrews = Array.isArray(response.data) ? response.data : response.data ? [response.data] : [];
-      const duplicateCrew = allCrews.find((crew: CrewRead) => crew.name.trim().toLowerCase() === title.trim().toLowerCase() && crew.id !== crewId);
+      const duplicateCrew = allCrews.find((crew: CrewRead) => crew.name?.trim().toLowerCase() === title.trim().toLowerCase() && crew.id !== crewId);
 
       if (duplicateCrew) {
         toast.error(`A crew with the name "${title}" already exists. Please choose a different name.`);
