@@ -39,12 +39,41 @@ export function useCrewForm(
       const cacheKey = getCacheKey();
       let initialData: Record<string, any> = {};
 
+      console.log('Field names:', requiredInputsData.fields.map((f: RequiredInputField) => f.field_name));
+
       // Try to restore from localStorage first
       if (cacheKey) {
         try {
           const cached = localStorage.getItem(cacheKey);
           if (cached) {
             initialData = JSON.parse(cached);
+            
+            // Ensure orshot_schema always has at least one item
+            const orshotField = requiredInputsData.fields.find((f: RequiredInputField) => 
+              f.field_name === "orshot_schema"
+            );
+            console.log('Found orshot field:', orshotField?.field_name);
+            if (orshotField && (!initialData.orshot_schema || initialData.orshot_schema.length === 0)) {
+              const typeInfo = orshotField.type_info as any;
+              if (typeInfo.is_custom_model && typeInfo.model_schema) {
+                const properties = typeInfo.model_schema.properties || {};
+                const emptyItem: Record<string, any> = {};
+                Object.keys(properties).forEach((propName) => {
+                  const propSchema = properties[propName];
+                  if (propSchema.type === "string") {
+                    emptyItem[propName] = "";
+                  } else if (propSchema.type === "number" || propSchema.type === "integer") {
+                    emptyItem[propName] = "";
+                  } else if (propSchema.type === "boolean") {
+                    emptyItem[propName] = false;
+                  } else {
+                    emptyItem[propName] = "";
+                  }
+                });
+                initialData.orshot_schema = [emptyItem];
+              }
+            }
+            
             setDynamicFormData(initialData);
             return;
           }
@@ -63,7 +92,30 @@ export function useCrewForm(
         if (isNullable) {
           initialData[field.field_name] = null;
         } else if (typeInfo.is_list) {
-          initialData[field.field_name] = [];
+          // Special handling for orshot_schema - always initialize with one empty item
+          if (field.field_name === "orshot_schema") {
+            if (typeInfo.is_custom_model && typeInfo.model_schema) {
+              const properties = typeInfo.model_schema.properties || {};
+              const emptyItem: Record<string, any> = {};
+              Object.keys(properties).forEach((propName) => {
+                const propSchema = properties[propName];
+                if (propSchema.type === "string") {
+                  emptyItem[propName] = "";
+                } else if (propSchema.type === "number" || propSchema.type === "integer") {
+                  emptyItem[propName] = "";
+                } else if (propSchema.type === "boolean") {
+                  emptyItem[propName] = false;
+                } else {
+                  emptyItem[propName] = "";
+                }
+              });
+              initialData[field.field_name] = [emptyItem];
+            } else {
+              initialData[field.field_name] = [{}];
+            }
+          } else {
+            initialData[field.field_name] = [];
+          }
         } else if (typeInfo.is_custom_model && typeInfo.model_schema) {
           initialData[field.field_name] = {};
         } else if (typeInfo.type === "boolean" || typeInfo.type === "bool") {
@@ -459,7 +511,30 @@ export function useCrewForm(
         if (isNullable) {
           initialData[field.field_name] = null;
         } else if (typeInfo.is_list) {
-          initialData[field.field_name] = [];
+          // Special handling for orshot_schema - always initialize with one empty item
+          if (field.field_name === "orshot_schema") {
+            if (typeInfo.is_custom_model && typeInfo.model_schema) {
+              const properties = typeInfo.model_schema.properties || {};
+              const emptyItem: Record<string, any> = {};
+              Object.keys(properties).forEach((propName) => {
+                const propSchema = properties[propName];
+                if (propSchema.type === "string") {
+                  emptyItem[propName] = "";
+                } else if (propSchema.type === "number" || propSchema.type === "integer") {
+                  emptyItem[propName] = "";
+                } else if (propSchema.type === "boolean") {
+                  emptyItem[propName] = false;
+                } else {
+                  emptyItem[propName] = "";
+                }
+              });
+              initialData[field.field_name] = [emptyItem];
+            } else {
+              initialData[field.field_name] = [{}];
+            }
+          } else {
+            initialData[field.field_name] = [];
+          }
         } else if (typeInfo.is_custom_model && typeInfo.model_schema) {
           initialData[field.field_name] = {};
         } else if (typeInfo.type === "boolean" || typeInfo.type === "bool") {

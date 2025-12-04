@@ -124,6 +124,9 @@ export default function CrewPage() {
   const [preDefinedTasks, setPreDefinedTasks] = useState<PreDefinedTask[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [kickoffDialogOpen, setKickoffDialogOpen] = useState(false);
+  const [showTemplateInDialog, setShowTemplateInDialog] = useState(false);
+  const [isLoadingTemplateInDialog, setIsLoadingTemplateInDialog] = useState(false);
+  const [isLoadingTemplateOnPage, setIsLoadingTemplateOnPage] = useState(false);
   const [lastSavedTitle, setLastSavedTitle] = useState("");
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -457,7 +460,12 @@ export default function CrewPage() {
 
   const handleOrshotModalChange = (e: React.MouseEvent) => {
     e.preventDefault();
-    setOrshotModalOpen((prev) => !prev);
+    setOrshotModalOpen((prev) => {
+      if (!prev) {
+        setIsLoadingTemplateOnPage(true);
+      }
+      return !prev;
+    });
   }
 
   const confirmModeChange = () => {
@@ -837,10 +845,17 @@ export default function CrewPage() {
           <div className="flex">
             {mode === "edit" && orshotModalOpen ? (
               <>
-                <div className="flex w-80">
-                  <embed 
+                <div className="flex w-80 relative">
+                  {isLoadingTemplateOnPage && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
+                      <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+                      <p className="text-muted-foreground mt-4">Loading template...</p>
+                    </div>
+                  )}
+                  <iframe 
                     src="https://orshot.com/templates/shared/l5k1r4ju/embed?view=presentation"
-                    style={{ width: "100%", height: "100%", minHeight: "500px", borderRadius: "8px" }} 
+                    style={{ width: "100%", height: "100%", minHeight: "500px", borderRadius: "8px", border: "none" }}
+                    onLoad={() => setIsLoadingTemplateOnPage(false)}
                   />
                 </div>
               </>
@@ -900,9 +915,89 @@ export default function CrewPage() {
                   <RotateCcw className="h-4 w-4" />
                 </Button>
                 <DialogHeader>
-                  <DialogTitle>Required Inputs for Kickoff</DialogTitle>
+                  <div className="flex items-center gap-3">
+                    {showTemplateInDialog && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowTemplateInDialog(false)}
+                      >
+                        Back to Form
+                      </Button>
+                    )}
+                    <DialogTitle>
+                      {showTemplateInDialog ? "Orshot Templates" : "Required Inputs for Kickoff"}
+                    </DialogTitle>
+                  </div>
                 </DialogHeader>
-                {crewForm.isLoadingRequiredInputs ? (
+                {showTemplateInDialog ? (
+                  <div className="space-y-4">
+                    <div className="relative">
+                      {isLoadingTemplateInDialog && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10" style={{ height: "600px" }}>
+                          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+                          <p className="text-muted-foreground mt-4">Loading template...</p>
+                        </div>
+                      )}
+                      <iframe 
+                        src="https://orshot.com/templates/shared/l5k1r4ju/embed?view=presentation"
+                        style={{ width: "100%", height: "400px", borderRadius: "8px", border: "none" }}
+                        onLoad={() => setIsLoadingTemplateInDialog(false)}
+                      />
+                    </div>
+                    
+                    <div className="border rounded-lg p-4">
+                      <h3 className="font-semibold mb-3">Required Parameters</h3>
+                      <div className="text-sm text-muted-foreground mb-3">
+                        These are the fields that must be included in your Orshot Schema:
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 px-3 font-medium">Field Name</th>
+                              <th className="text-left py-2 px-3 font-medium">Data Type</th>
+                              <th className="text-left py-2 px-3 font-medium">Description</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 font-mono text-xs">backgroundColor</td>
+                              <td className="py-2 px-3">TEXT</td>
+                              <td className="py-2 px-3 text-muted-foreground">Background color (e.g., '#ffffff')</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 font-mono text-xs">mainImage</td>
+                              <td className="py-2 px-3">IMAGE</td>
+                              <td className="py-2 px-3 text-muted-foreground">Main image URL (1080x1350)</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 font-mono text-xs">mainTitle</td>
+                              <td className="py-2 px-3">TEXT</td>
+                              <td className="py-2 px-3 text-muted-foreground">Main title text</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 font-mono text-xs">mainText</td>
+                              <td className="py-2 px-3">TEXT</td>
+                              <td className="py-2 px-3 text-muted-foreground">Main body text</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 font-mono text-xs">subText1</td>
+                              <td className="py-2 px-3">TEXT</td>
+                              <td className="py-2 px-3 text-muted-foreground">First subtitle text</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 px-3 font-mono text-xs">subText2</td>
+                              <td className="py-2 px-3">TEXT</td>
+                              <td className="py-2 px-3 text-muted-foreground">Second subtitle text</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                ) : crewForm.isLoadingRequiredInputs ? (
                   <div className="flex justify-center items-center py-8">
                     <div className="text-gray-500">Loading form...</div>
                   </div>
@@ -913,6 +1008,11 @@ export default function CrewPage() {
                       dynamicFormData={crewForm.dynamicFormData}
                       onFormChange={crewForm.handleDynamicFormChange}
                       onSubmit={handleKickoffSubmit}
+                      onViewTemplate={() => {
+                        setIsLoadingTemplateInDialog(true);
+                        setShowTemplateInDialog(true);
+                      }}
+                      hasOrshotTask={nodes.some(node => node.type === 'orshot_render')}
                     />
                     <DialogFooter>
                       <DialogClose asChild>
