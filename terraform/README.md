@@ -272,6 +272,7 @@ The following secrets must be added for the pipeline to succeed:
 | `DB_NAME`               | Supabase DB Name                           | `crud`                         |
 | `DB_USER`               | Supabase User                              | `postgres.xxxxx`               |
 | `DB_PASSWORD`           | Supabase DB password                       | `xxxxx`                        |
+| `FRONTEND_ORIGIN`       | Your site url                              | `https://wwww.xxxxx.com`       |
 
 The following secrets can be found from terraform outputs:
 1.  AWS_REGION            = aws_region
