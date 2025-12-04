@@ -13,19 +13,20 @@ resource "aws_amplify_app" "frontend" {
   build_spec = var.amplify_build_spec
 
   environment_variables = {
+    NEXT_PUBLIC_APP_ENV              = var.environment
     NEXT_PUBLIC_CRUD_API_BASE_URL    = "https://crud-api.${var.app_domain}"
+    NEXT_PUBLIC_CREW_API_BASE_URL    = "https://crew-api.${var.app_domain}"
+    NEXT_PUBLIC_APP_DOMAIN           = "https://www.${var.app_domain}"
     NEXT_PUBLIC_COGNITO_USER_POOL_ID = aws_cognito_user_pool.main.id
     NEXT_PUBLIC_COGNITO_CLIENT_ID    = aws_cognito_user_pool_client.main.id
     NEXT_PUBLIC_COGNITO_DOMAIN       = "${aws_cognito_user_pool_domain.main.domain}.auth.${var.aws_region}.amazoncognito.com"
   }
-
 
   custom_rule {
     source = "https://${var.app_domain}"
     status = "302"
     target = "https://www.${var.app_domain}"
   }
-
 
   custom_rule {
     source = "</^[^.]+$|\\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|ttf|map|json)$)([^.]+$)/>"

@@ -306,6 +306,9 @@ Once the pipelines succeed, you should be able to access your app through your d
 
 The Amplify app automatically receives Cognito configuration as environment variables:
 
+- `NEXT_PUBLIC_APP_ENV`
+- `NEXT_PUBLIC_APP_DOMAIN`
+- `NEXT_PUBLIC_CREW_API_BASE_URL`
 - `NEXT_PUBLIC_CRUD_API_BASE_URL`
 - `NEXT_PUBLIC_COGNITO_USER_POOL_ID`
 - `NEXT_PUBLIC_COGNITO_CLIENT_ID`

@@ -43,7 +43,8 @@ export default function StudioPage() {
 
   const handleEditCard = (crew: CrewRead, mode: "edit" | "view" = "edit") => {
     // Navigate to crew page with existing card data and mode
-    router.push(`/studio/crew?id=${crew.id}&title=${encodeURIComponent(crew.name)}&mode=${mode}`);
+    const crewName = crew.name ?? "Untitled";
+    router.push(`/studio/crew?id=${crew.id}&title=${encodeURIComponent(crewName)}&mode=${mode}`);
   };
 
   const deleteMutation = useMutation({
