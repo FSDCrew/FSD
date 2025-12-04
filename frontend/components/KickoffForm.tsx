@@ -1021,10 +1021,13 @@ function renderBasicField(
   field: RequiredInputField,
   typeInfo: TypeInfo,
   value: any,
-  onFormChange: (fieldName: string, value: any) => void
+  onFormChange: (fieldName: string, value: any) => void,
+  hasOrshotTask?: boolean,
+  onViewTemplate?: () => void
 ): React.ReactNode {
   const fieldType = typeInfo.type;
   const placeholder = field.placeholder || `Enter ${field.field_name}`;
+  const isTemplateId = field.field_name === "template_id";
 
   switch (fieldType) {
     case "date":
@@ -1077,12 +1080,40 @@ function renderBasicField(
             {formatFieldName(field.field_name)}
             {field.required && <span className="text-red-500 ml-1">*</span>}
           </Label>
-          <Input
-            type="number"
-            placeholder={placeholder}
-            value={value || ""}
-            onChange={(e) => onFormChange(field.field_name, e.target.value ? Number(e.target.value) : "")}
-          />
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              placeholder={placeholder}
+              value={value || ""}
+              onChange={(e) => onFormChange(field.field_name, e.target.value ? Number(e.target.value) : "")}
+              className="flex-1"
+            />
+            {isTemplateId && hasOrshotTask && onViewTemplate && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onViewTemplate}
+                className="flex-shrink-0"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-2"
+                >
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                View Template
+              </Button>
+            )}
+          </div>
         </div>
       );
     case "bool":
@@ -1125,21 +1156,52 @@ function renderEnumField(
   field: RequiredInputField,
   typeInfo: TypeInfo,
   value: any,
-  onFormChange: (fieldName: string, value: any) => void
+  onFormChange: (fieldName: string, value: any) => void,
+  hasOrshotTask?: boolean,
+  onViewTemplate?: () => void
 ): React.ReactNode {
   const enumValues = typeInfo.enum_values || [];
   const isList = typeInfo.is_list;
+  const isTemplateId = field.field_name === "template_id" || field.field_name === "templateId";
 
   if (isList) {
     const selectedValues = Array.isArray(value) ? value : [];
     return (
       <div key={field.field_name} className="space-y-2">
-        <Label>
-          {field.field_name === "templateId"
-            ? "Template Id"
-            : formatFieldName(field.field_name)}
-          {field.required && <span className="text-red-500 ml-1">*</span>}
-        </Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label>
+            {isTemplateId
+              ? "Template Id"
+              : formatFieldName(field.field_name)}
+            {field.required && <span className="text-red-500 ml-1">*</span>}
+          </Label>
+          {isTemplateId && hasOrshotTask && onViewTemplate && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onViewTemplate}
+              className="flex-shrink-0"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mr-2"
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              View Template
+            </Button>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           {enumValues.map((enumValue: any) => {
             const isSelected = selectedValues.includes(enumValue);
@@ -1201,6 +1263,8 @@ export function KickoffForm({
   dynamicFormData,
   onFormChange,
   onSubmit,
+  onViewTemplate,
+  hasOrshotTask,
 }: KickoffFormProps) {
   const renderField = (field: RequiredInputField): React.ReactNode => {
     const typeInfo = field.type_info as TypeInfo;
@@ -1215,7 +1279,7 @@ export function KickoffForm({
       }
       // List of enums (already handled above, but enum check comes first)
       if (typeInfo.is_enum && typeInfo.enum_values) {
-        return renderEnumField(field, typeInfo, value, onFormChange);
+        return renderEnumField(field, typeInfo, value, onFormChange, hasOrshotTask, onViewTemplate);
       }
       // List of primitives - render as repeatable inputs
       return (
@@ -1267,7 +1331,7 @@ export function KickoffForm({
 
     // 2. Check if it's an enum
     if (typeInfo.is_enum && typeInfo.enum_values) {
-      return renderEnumField(field, typeInfo, value, onFormChange);
+      return renderEnumField(field, typeInfo, value, onFormChange, hasOrshotTask, onViewTemplate);
     }
 
     // 3. Check if it's a custom model
@@ -1276,7 +1340,7 @@ export function KickoffForm({
     }
 
     // 4. Handle basic types
-    return renderBasicField(field, typeInfo, value, onFormChange);
+    return renderBasicField(field, typeInfo, value, onFormChange, hasOrshotTask, onViewTemplate);
   };
 
   return (

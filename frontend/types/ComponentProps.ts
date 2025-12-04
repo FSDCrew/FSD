@@ -8,6 +8,8 @@ export interface KickoffFormProps {
   dynamicFormData: Record<string, any>;
   onFormChange: (fieldName: string, value: any) => void;
   onSubmit: (e: React.FormEvent) => void;
+  onViewTemplate?: () => void;
+  hasOrshotTask?: boolean;
 }
 
 /**
