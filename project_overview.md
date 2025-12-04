@@ -88,6 +88,7 @@ The system follows a **three-tier microservices architecture**:
 **Purpose**: User interface for managing crews, designing flows, and viewing execution results.
 
 **Key Features**:
+
 - **Studio Dashboard**: Overview of all crews with create/edit/delete operations
 - **Visual Flow Builder**: Drag-and-drop interface using React Flow for designing task workflows
 - **Dynamic Form Generation**: Automatically generates input forms based on required inputs from flow dependencies
@@ -95,6 +96,7 @@ The system follows a **three-tier microservices architecture**:
 - **Real-Time Status Updates**: Monitor running crew executions with task-level progress
 
 **Technologies**:
+
 - Next.js 14+ (App Router)
 - React 18+
 - TypeScript
@@ -103,6 +105,7 @@ The system follows a **three-tier microservices architecture**:
 - AWS Amplify for Cognito integration
 
 **Key Components**:
+
 - `StudioPage`: Main dashboard listing all crews
 - `CrewPage`: Visual flow builder and crew editor
 - `KickoffForm`: Dynamic form generator for required inputs
@@ -116,27 +119,32 @@ The system follows a **three-tier microservices architecture**:
 **Key Responsibilities**:
 
 1. **Crew & Task Management**
+
    - CRUD operations for crews and nested tasks
    - Ownership validation (users can only access their own crews)
    - Task ordering and persistence
 
 2. **User Authentication**
+
    - Cognito JWT token validation via JWKS
    - User synchronization (creates local user records from Cognito tokens)
    - Token extraction from Authorization header or cookies
 
 3. **Queue Management**
+
    - Job queue for crew run execution
    - Lease-based job claiming (prevents duplicate processing)
    - Heartbeat mechanism for extending leases
    - Status tracking (QUEUED → CLAIMED → COMPLETED/FAILED/CANCELLED)
 
 4. **Crew Run Persistence**
+
    - Stores crew run metadata (inputs, task snapshots)
    - Tracks execution outputs and task states
    - Manages retry relationships between runs
 
 5. **Artifact Storage**
+
    - Base64 file upload handling
    - S3 integration for persistent storage
    - Presigned URL generation for secure artifact retrieval
@@ -147,6 +155,7 @@ The system follows a **three-tier microservices architecture**:
    - Endpoints for queue operations, crew run creation, status updates
 
 **Technologies**:
+
 - FastAPI
 - SQLAlchemy (async) with PostgreSQL
 - Alembic for database migrations
@@ -154,6 +163,7 @@ The system follows a **three-tier microservices architecture**:
 - PyJWT for Cognito token validation
 
 **Key Endpoints**:
+
 - `/crew/*`: Crew CRUD operations (user-facing)
 - `/task/*`: Task management (user-facing)
 - `/crew-run/*`: Crew run history (user-facing)
@@ -167,6 +177,7 @@ The system follows a **three-tier microservices architecture**:
 **Key Responsibilities**:
 
 1. **Dynamic Flow Building**
+
    - Parses YAML configuration files (`tasks.yaml`, `agents.yaml`)
    - Constructs dependency graphs from task read/write specifications
    - Infers required inputs based on flow dependencies
@@ -174,12 +185,14 @@ The system follows a **three-tier microservices architecture**:
    - Creates CrewAI Flow subclasses dynamically
 
 2. **Input Validation**
+
    - Validates user inputs against flow state schema
    - Supports custom types (Pydantic models, IntEnums)
    - Type checking for primitives, lists, nested objects
    - Provides detailed error messages for invalid inputs
 
 3. **Crew Run Kickoff**
+
    - Validates crew ownership
    - Validates input types before queueing
    - Creates crew run metadata with task snapshots
@@ -192,6 +205,7 @@ The system follows a **three-tier microservices architecture**:
    - Cancellation request handling
 
 **Technologies**:
+
 - FastAPI
 - CrewAI for multi-agent orchestration
 - OpenAI GPT models (for agents and guardrail validation)
@@ -199,12 +213,14 @@ The system follows a **three-tier microservices architecture**:
 - YAML parsing for configuration
 
 **Key Endpoints**:
+
 - `GET /crew/{crew_id}/required-inputs`: Returns required input fields and types
 - `POST /crew/kickoff`: Initiates a crew run
 - `POST /crew/crew-run/{crew_run_id}/cancel`: Cancels a running crew run
 - `POST /crew/crew-run/{crew_run_id}/retry`: Creates a retry run
 
 **Key Modules**:
+
 - `flow_service.py`: Main orchestration façade
 - `flow_builder.py`: Dynamic flow class generation
 - `dependency_graph.py`: Dependency analysis and input inference
@@ -218,16 +234,19 @@ The system follows a **three-tier microservices architecture**:
 **Key Responsibilities**:
 
 1. **Queue Polling**
+
    - Continuously polls CRUD service queue for available jobs
    - Respects concurrency limits (default: 3 concurrent jobs)
    - Handles network failures with retry logic
 
 2. **Process Management**
+
    - Spawns isolated OS process per job (`process-per-job` model)
    - Tracks running processes in registry
    - Cleans up completed processes automatically
 
 3. **Job Execution**
+
    - Fetches crew run data from CRUD service
    - Detects retry scenarios and prepares retry execution
    - Builds dynamic flow from task definitions
@@ -235,6 +254,7 @@ The system follows a **three-tier microservices architecture**:
    - Updates queue status on completion/failure/cancellation
 
 4. **Heartbeat Management**
+
    - Background thread sends periodic heartbeats to extend lease
    - Detects cancellation requests from heartbeat responses
    - Implements exponential backoff for network failures
@@ -245,12 +265,14 @@ The system follows a **three-tier microservices architecture**:
    - Updates queue status to CANCELLED
 
 **Architecture**: Process-per-job model
+
 - Each job runs in its own OS process (complete isolation)
 - Heartbeat runs in background thread within each process
 - Main execution thread monitors cancellation events
 - Process exits cleanly on completion, failure, or cancellation
 
 **Technologies**:
+
 - Python multiprocessing (spawn context)
 - Threading for heartbeat loops
 - Synchronous HTTP client for CRUD communication
@@ -271,6 +293,7 @@ Users can create, edit, and delete crews through the Studio interface:
 - **Save & Load**: Crew definitions persist in database with task relationships
 
 **Flow Builder Features**:
+
 - React Flow-based visual editor
 - Custom node types for different task categories
 - Edge connections define execution order
@@ -287,6 +310,7 @@ The system builds executable flows dynamically from YAML configuration:
 - **Type Safety**: Pydantic models ensure type correctness throughout execution
 
 **Flow Building Process**:
+
 1. Parse YAML configuration files
 2. Build dependency graph from task read/write specifications
 3. Infer required inputs (context fields + unwritten data fields)
@@ -309,6 +333,7 @@ Complete lifecycle of a crew run execution:
 9. **Completion**: Queue status updated to COMPLETED
 
 **Status States**:
+
 - `QUEUED`: Job waiting in queue
 - `CLAIMED`: Worker has claimed job and is executing
 - `RUNNING`: Flow execution in progress (task-level status)
@@ -327,6 +352,7 @@ Users can retry from any completed task in a crew run:
 - **Clean Execution**: Only retry and downstream tasks execute, reducing cost and time
 
 **Retry Flow**:
+
 1. User selects completed task and provides feedback
 2. System creates new crew run with retry metadata
 3. Upstream tasks marked as COMPLETED in new run
@@ -345,6 +371,7 @@ Users can cancel queued or running crew runs:
 - **Status Cleanup**: Queue entry marked as CANCELLED
 
 **Cancellation Flow**:
+
 1. User initiates cancellation via API
 2. CRUD service sets `cancel_requested` flag (for CLAIMED jobs) or updates status (for QUEUED jobs)
 3. Worker heartbeat detects cancellation request
@@ -362,6 +389,7 @@ System stores and retrieves files generated during execution:
 - **Artifact Linking**: Artifacts linked to crew runs for easy access
 
 **Supported Artifact Types**:
+
 - `TEXT`: Markdown reports, text documents
 - `DOCUMENT`: Word documents (.docx)
 - `SPREADSHEET`: Excel files (.xlsx)
@@ -379,22 +407,26 @@ System stores and retrieves files generated during execution:
 **Steps**:
 
 1. **User Authentication**
+
    - User logs in via AWS Cognito
    - Frontend receives JWT token
    - Token stored in context and sent with API requests
 
 2. **Crew Creation**
+
    - User navigates to Studio dashboard
    - Clicks "Add Crew" to create new crew
    - Enters crew name and description
 
 3. **Flow Design**
+
    - User opens crew in visual flow builder
    - Drags task nodes: `marketing_research` → `content_strategy` → `social_media_schedule`
    - Connects tasks to define execution order
    - Saves crew (tasks persisted to CRUD service)
 
 4. **Input Collection**
+
    - User clicks "Kickoff" button
    - Frontend calls `GET /crew/{crew_id}/required-inputs`
    - System analyzes task dependencies and returns required fields:
@@ -406,6 +438,7 @@ System stores and retrieves files generated during execution:
    - Frontend generates dynamic form based on field types
 
 5. **Input Submission**
+
    - User fills out form with campaign details
    - Frontend calls `POST /crew/kickoff` with inputs
    - Crew Service validates input types
@@ -414,6 +447,7 @@ System stores and retrieves files generated during execution:
    - Response returns crew run with QUEUED status
 
 6. **Job Execution**
+
    - Worker polls queue and claims job
    - Worker fetches crew run data from CRUD service
    - Worker builds dynamic flow:
@@ -424,21 +458,24 @@ System stores and retrieves files generated during execution:
    - Worker executes flow
 
 7. **Task Execution**
+
    - **Task 1: Marketing Research**
+
      - Status: QUEUED → RUNNING
      - Agent: `market_researcher`
      - Tools used: `search_internet`, `search_instagram`, `open_pages`
      - Output: `MarketingResearch` object stored in flow state
      - Status: RUNNING → COMPLETED
-   
+
    - **Task 2: Content Strategy**
+
      - Status: QUEUED → RUNNING
      - Agent: `content_strategist`
      - Reads: `marketing_research` (from Task 1)
      - Tools used: `calculate_num_weeks`, `verify_sum_equals_expected`
      - Output: `ContentStrategy` object
      - Status: RUNNING → COMPLETED
-   
+
    - **Task 3: Social Media Schedule**
      - Status: QUEUED → RUNNING
      - Agent: `scheduler`
@@ -448,6 +485,7 @@ System stores and retrieves files generated during execution:
      - Status: RUNNING → COMPLETED
 
 8. **Completion**
+
    - All tasks completed
    - Worker updates queue status to COMPLETED
    - Crew run output contains all task states and outputs
@@ -468,16 +506,19 @@ System stores and retrieves files generated during execution:
 **Steps**:
 
 1. **Problem Identification**
+
    - User views completed crew run
    - Identifies that `content_strategy` task needs improvement
    - Upstream task (`marketing_research`) was successful
 
 2. **Retry Initiation**
+
    - User selects `content_strategy` task in run details
    - Clicks "Retry from this task"
    - Provides feedback: "Focus more on video content and user-generated content"
 
 3. **Retry Run Creation**
+
    - Frontend calls `POST /crew/crew-run/{crew_run_id}/retry`
    - Crew Service's `RetryService`:
      - Validates retry task is COMPLETED
@@ -487,6 +528,7 @@ System stores and retrieves files generated during execution:
      - Resets retry and downstream tasks to QUEUED
 
 4. **Retry Execution Preparation**
+
    - Worker detects retry run (has `retry_feedback` in metadata)
    - `RetryExecutor` prepares execution:
      - Filters tasks: only `content_strategy` + `social_media_schedule`
@@ -495,17 +537,20 @@ System stores and retrieves files generated during execution:
      - Modifies `content_strategy` task description to include feedback
 
 5. **Flow Building**
+
    - Worker builds flow with filtered tasks only
    - Flow state includes upstream `marketing_research` output
    - Retry task description includes user feedback
 
 6. **Execution**
+
    - **Task 1: Content Strategy (Retry)**
+
      - Agent receives feedback in task description
      - Reads: `marketing_research` (from upstream, preserved)
      - Generates improved content strategy with video/UGC focus
      - Status: COMPLETED
-   
+
    - **Task 2: Social Media Schedule**
      - Reads: `content_strategy` (from retry task)
      - Generates schedule based on improved strategy
@@ -525,22 +570,26 @@ System stores and retrieves files generated during execution:
 **Steps**:
 
 1. **Cancellation Request**
+
    - User clicks "Cancel" button on running crew run
    - Frontend calls `POST /crew/crew-run/{crew_run_id}/cancel`
    - Crew Service forwards to CRUD service internal API
 
 2. **Queue Status Update**
+
    - CRUD service checks queue status:
      - If QUEUED: Immediately updates status to CANCELLED
      - If CLAIMED: Sets `cancel_requested` flag (status remains CLAIMED)
 
 3. **Cancellation Detection**
+
    - Worker process has claimed job and is executing
    - Heartbeat thread sends periodic heartbeat to CRUD service
    - CRUD service returns `cancel_requested: true` in heartbeat response
    - Heartbeat thread detects cancellation
 
 4. **Process Termination**
+
    - Heartbeat thread sets `cancellation_event`
    - Main execution thread checks event:
      - If before flow execution: Exits early, updates status to CANCELLED
@@ -562,12 +611,14 @@ System stores and retrieves files generated during execution:
 ### 6.1 Authentication Flow
 
 **Frontend Authentication**:
+
 1. User authenticates via AWS Cognito (OAuth/OIDC)
 2. Cognito returns JWT tokens (ID token, access token, refresh token)
 3. Frontend stores tokens in Amplify Auth context
 4. Frontend extracts ID token for API requests
 
 **Backend Token Validation**:
+
 1. Request arrives with `Authorization: Bearer <token>` header or cookie
 2. CRUD service extracts token via `get_token_from_request` dependency
 3. `AuthService` validates token:
@@ -580,6 +631,7 @@ System stores and retrieves files generated during execution:
 5. User object attached to request context
 
 **Internal API Authentication**:
+
 - Worker uses `INTERNAL_CREW_API_KEY` (shared secret)
 - Sent via `X-Internal-Api-Key` header or Bearer token
 - CRUD service validates against configured secret
@@ -587,11 +639,13 @@ System stores and retrieves files generated during execution:
 ### 6.2 Dynamic Flow Building
 
 **Configuration Parsing**:
+
 - `tasks.yaml`: Defines tasks, state fields, read/write specifications
 - `agents.yaml`: Defines agent roles, goals, backstories, tool assignments
 - `tools_spec.yaml`: Documents available tools and their parameters
 
 **Dependency Graph Construction**:
+
 1. `build_flow_dependency_graph()` analyzes:
    - State field specifications (types, field_kind: context/data)
    - Task read specifications (which fields each task reads, cardinality)
@@ -604,12 +658,14 @@ System stores and retrieves files generated during execution:
    - `field_writers`: Reverse lookup (which tasks write each field)
 
 **Required Input Inference**:
+
 1. `infer_initial_inputs()` determines required inputs:
    - **Context fields**: All context fields read by any selected task
    - **Data fields**: Data fields that are required but not written by any selected task
 2. Returns `{field_name: type_str}` dictionary
 
 **FlowState Model Generation**:
+
 1. `build_flow_state_model()` creates Pydantic model:
    - Includes metadata fields (`flow_id`, `run_id`, `crew_run_id`)
    - Includes only fields touched by selected tasks
@@ -621,6 +677,7 @@ System stores and retrieves files generated during execution:
 2. Uses `pydantic.create_model()` to synthesize class dynamically
 
 **Flow Class Generation**:
+
 1. `build_dynamic_flow_class()` creates CrewAI Flow subclass:
    - `@start` method: `initialize_flow()` - Sets state from inputs
    - `@listen` methods: One per task - `step_task_{key}()`
@@ -633,6 +690,7 @@ System stores and retrieves files generated during execution:
    - Updates task status to COMPLETED/FAILED
 
 **Agent & Tool Wiring**:
+
 1. `build_crewai_agents()` instantiates agents from `agents.yaml`
 2. Each agent assigned tools from `TOOL_MAP` registry
 3. Agents share LLM from `llm_registry.general_llm`
@@ -640,6 +698,7 @@ System stores and retrieves files generated during execution:
 ### 6.3 Queue & Worker System
 
 **Queue Entry Creation**:
+
 1. CRUD service creates `CrewRunQueue` entry:
    - `crew_run_id`: Links to crew run record
    - `status`: QUEUED
@@ -647,6 +706,7 @@ System stores and retrieves files generated during execution:
    - `lease_expires_at`: Current time + visibility timeout
 
 **Job Claiming**:
+
 1. Worker polls `POST /internal/queue/claim`
 2. CRUD service atomically:
    - Finds oldest QUEUED job
@@ -656,6 +716,7 @@ System stores and retrieves files generated during execution:
 3. Worker spawns new OS process with job metadata
 
 **Lease Management**:
+
 1. Heartbeat thread runs in background (within worker process)
 2. Every `HEARTBEAT_INTERVAL_SECONDS`:
    - Calls `POST /internal/queue/{queue_id}/heartbeat`
@@ -667,12 +728,14 @@ System stores and retrieves files generated during execution:
    - If all retries fail, process continues (lease may expire)
 
 **Process Isolation**:
+
 - Each job runs in separate OS process (multiprocessing spawn context)
 - Processes share no memory or state
 - Each process creates own HTTP client
 - Process crashes don't affect worker or other jobs
 
 **Status Updates**:
+
 - Worker process updates queue status via `PUT /internal/queue/{queue_id}/status`
 - Requires `lease_token` (ensures only claiming process can update)
 - Final status: COMPLETED, FAILED, or CANCELLED
@@ -680,6 +743,7 @@ System stores and retrieves files generated during execution:
 ### 6.4 Task Execution Flow
 
 **Task Status Lifecycle**:
+
 1. **QUEUED**: Task waiting to execute (initial state)
 2. **RUNNING**: Task execution started
    - Status updated before CrewAI task execution
@@ -694,6 +758,7 @@ System stores and retrieves files generated during execution:
    - Execution stops (downstream tasks remain QUEUED)
 
 **Status Tracking Implementation**:
+
 - `TaskStatusService` handles status updates
 - Uses synchronous CRUD client (compatible with multiprocessing)
 - Updates via `PUT /internal/crew-run/{crew_run_id}/task/{task_key}/status`
@@ -703,6 +768,7 @@ System stores and retrieves files generated during execution:
 Each task has guardrail chain:
 
 1. **Structured Output Guardrail** (if task writes custom Pydantic type):
+
    - Validates output matches expected model schema
    - Re-validates using Pydantic `model_validate()`
    - Replaces `result.pydantic` with validated model
@@ -715,6 +781,7 @@ Each task has guardrail chain:
    - If invalid, CrewAI retries task (up to max retries)
 
 **State Updates**:
+
 - Task outputs written to `self.state` based on write specifications
 - Write modes:
   - `replace`: Overwrites field value
@@ -722,6 +789,7 @@ Each task has guardrail chain:
 - State persisted to crew run output after flow completion
 
 **Error Handling**:
+
 - Exceptions caught in task step function
 - Task status set to FAILED
 - Error details stored in task state
@@ -731,23 +799,27 @@ Each task has guardrail chain:
 ### 6.5 Data Flow
 
 **Frontend → CRUD Service**:
+
 - User operations: `GET /crew`, `POST /crew`, `PUT /crew`, `DELETE /crew/{id}`
 - Task management: `PUT /task/{crew_id}/save`
 - Run history: `GET /crew-run/{crew_run_id}`
 - Artifacts: `POST /artifact/{crew_run_id}`, `GET /artifact/{artifact_id}`
 
 **Frontend → Crew Service**:
+
 - Required inputs: `GET /crew/{crew_id}/required-inputs`
 - Kickoff: `POST /crew/kickoff`
 - Cancellation: `POST /crew/crew-run/{crew_run_id}/cancel`
 - Retry: `POST /crew/crew-run/{crew_run_id}/retry`
 
 **Crew Service → CRUD Service (Internal)**:
+
 - Create crew run: `POST /internal/crew-run/create`
 - Get crew: `GET /internal/crew/{crew_id}`
 - Get crew run: `GET /internal/crew-run/{crew_run_id}`
 
 **Worker → CRUD Service (Internal)**:
+
 - Claim job: `POST /internal/queue/claim`
 - Heartbeat: `POST /internal/queue/{queue_id}/heartbeat`
 - Update status: `PUT /internal/queue/{queue_id}/status`
@@ -756,6 +828,7 @@ Each task has guardrail chain:
 - Create artifact: `POST /internal/artifact/{crew_run_id}`
 
 **All Services → S3**:
+
 - Artifact upload: `boto3.client('s3').put_object()`
 - Presigned URL: `boto3.client('s3').generate_presigned_url()`
 - Path structure: `artifacts/{user_id}/{crew_run_id}/{file_name}`
@@ -765,6 +838,7 @@ Each task has guardrail chain:
 ## 7. Technology Stack Summary
 
 ### Frontend
+
 - **Framework**: Next.js 14+ (App Router)
 - **UI Library**: React 18+
 - **Language**: TypeScript
@@ -775,12 +849,14 @@ Each task has guardrail chain:
 - **API Client**: Generated from OpenAPI specs (`openapi-ts`)
 
 ### Backend Services
+
 - **Framework**: FastAPI
 - **Language**: Python 3.11+
 - **Async Runtime**: Uvicorn
 - **Package Management**: uv
 
 ### CRUD Service
+
 - **ORM**: SQLAlchemy (async)
 - **Database**: PostgreSQL (Supabase)
 - **Migrations**: Alembic
@@ -788,6 +864,7 @@ Each task has guardrail chain:
 - **Authentication**: PyJWT, JWKS validation
 
 ### Crew Service
+
 - **AI Framework**: CrewAI
 - **LLM Provider**: OpenAI (GPT-4, GPT-4-turbo)
 - **Browser Automation**: Playwright
@@ -797,6 +874,7 @@ Each task has guardrail chain:
 - **Image Generation**: OpenAI DALL-E, Google Imagen
 
 ### Infrastructure
+
 - **Cloud Provider**: AWS
 - **Compute**: EC2 (Auto Scaling Groups)
 - **Container Registry**: Amazon ECR
@@ -809,6 +887,7 @@ Each task has guardrail chain:
 - **CI/CD**: GitHub Actions
 
 ### Development Tools
+
 - **API Client Generation**: `openapi-python-client`, `openapi-ts`
 - **Testing**: pytest (backend), Jest (frontend, planned)
 - **Linting**: ruff (Python), ESLint (TypeScript)
@@ -823,6 +902,7 @@ Each task has guardrail chain:
 The system is highly configurable through YAML files without code changes:
 
 **`tasks.yaml`**:
+
 - **State Fields**: Define flow state schema
   - Field types (string, date, list[Type], custom models)
   - Field kind (context: user-provided, data: task-generated)
@@ -835,12 +915,14 @@ The system is highly configurable through YAML files without code changes:
   - Output file paths
 
 **`agents.yaml`**:
+
 - Agent definitions:
   - Role, goal, backstory (prompts for LLM)
   - Tool assignments (list of tool names)
 - Agents are instantiated as CrewAI Agent objects
 
 **`tools_spec.yaml`**:
+
 - Documents available tools
 - Parameter specifications
 - Usage examples
@@ -849,6 +931,7 @@ The system is highly configurable through YAML files without code changes:
 ### Custom Type System
 
 **Registered Custom Types**:
+
 - `MarketingResearch`: Research report structure
 - `ContentStrategy`: Content strategy with phases
 - `SocialMediaSchedule`: Posting schedule
@@ -856,6 +939,7 @@ The system is highly configurable through YAML files without code changes:
 - `OrshotSchemaField`: Template field configuration
 
 **Adding New Custom Types**:
+
 1. Define Pydantic model in `app/models/models.py`
 2. Register in `CUSTOM_TYPE_REGISTRY`
 3. Use in `tasks.yaml` state fields
@@ -864,6 +948,7 @@ The system is highly configurable through YAML files without code changes:
 ### Tool Registration
 
 **Available Tools**:
+
 - `search_internet`: Google search via Bright Data
 - `search_instagram`: Instagram post search
 - `open_pages`: Web page scraping
@@ -879,6 +964,7 @@ The system is highly configurable through YAML files without code changes:
 - `verify_sum_equals_expected`: Validation utility
 
 **Adding New Tools**:
+
 1. Implement tool function in `app/lib/tools/`
 2. Register in `TOOL_MAP` in `flow_utils.py`
 3. Document in `tools_spec.yaml`
