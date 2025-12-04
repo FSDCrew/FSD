@@ -65,9 +65,9 @@ def sync_detailed(
     client: AuthenticatedClient,
     x_internal_api_key: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | str]:
-    """Get Artifact
+    """Get Artifact Internal
 
-     Retrieve an artifact by its ID.
+     Retrieve an artifact by its ID (internal use only).
 
     Args:
         artifact_id (UUID): Artifact ID to retrieve
@@ -99,9 +99,9 @@ def sync(
     client: AuthenticatedClient,
     x_internal_api_key: None | str | Unset = UNSET,
 ) -> HTTPValidationError | str | None:
-    """Get Artifact
+    """Get Artifact Internal
 
-     Retrieve an artifact by its ID.
+     Retrieve an artifact by its ID (internal use only).
 
     Args:
         artifact_id (UUID): Artifact ID to retrieve
@@ -128,9 +128,9 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     x_internal_api_key: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | str]:
-    """Get Artifact
+    """Get Artifact Internal
 
-     Retrieve an artifact by its ID.
+     Retrieve an artifact by its ID (internal use only).
 
     Args:
         artifact_id (UUID): Artifact ID to retrieve
@@ -160,9 +160,9 @@ async def asyncio(
     client: AuthenticatedClient,
     x_internal_api_key: None | str | Unset = UNSET,
 ) -> HTTPValidationError | str | None:
-    """Get Artifact
+    """Get Artifact Internal
 
-     Retrieve an artifact by its ID.
+     Retrieve an artifact by its ID (internal use only).
 
     Args:
         artifact_id (UUID): Artifact ID to retrieve
