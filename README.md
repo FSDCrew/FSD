@@ -235,7 +235,8 @@ Comprehensive documentation is available in:
   - [Required Inputs](backend/crew_service/docs/required_inputs.md) - Backend and frontend integration guides
   - [Configuration](backend/crew_service/docs/configuration.md) - YAML configuration structure
   - [Custom Types](backend/crew_service/docs/custom_types.md) - Type system documentation
-  - And more...
+  - [CrewRun Cancellation](backend/crew_service/docs/crewrun_cancellation.md) - Logic for Crew Run Cancellation
+  - [CrewRun Retry](backend/crew_service/docs/crewrun_cancellation.md) - Logic for Retrying a Crew from Any Completed Task
 
 - **[Notion Documentation](https://www.notion.so/Share-With-Prof-2be3bdec703d80d68f7ffe5698c75b0d)** - Project documentation and shared resources
 
@@ -291,7 +292,3 @@ FSD/
 ├── terraform/            # Infrastructure as code
 └── docker-compose.yml    # Docker Compose configuration
 ```
-
-## License
-
-[Add license information if applicable]
