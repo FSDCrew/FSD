@@ -25,8 +25,6 @@ logger = logging.getLogger(__name__)
 class Worker:
     """Worker that polls the db queue from CrudService and executes jobs."""
     
-    MAX_CONCURRENT_JOBS = 3
-    
     def __init__(self):
         timeout = httpx.Timeout(30.0)
         self.crud_client = AuthenticatedClient(
@@ -80,9 +78,6 @@ class Worker:
     async def _poll_and_process(self):
         """Poll the queue and process a job if available."""
         self._cleanup_completed_processes()
-        
-        if len(self.running_processes) >= self.MAX_CONCURRENT_JOBS:
-            return
         
         try:          
             timeout: int | Unset = settings.JOB_VISIBILITY_TIMEOUT_SECONDS
