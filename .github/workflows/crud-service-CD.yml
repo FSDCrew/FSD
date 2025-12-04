@@ -50,6 +50,7 @@ jobs:
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
           S3_REGION: ${{ secrets.S3_REGION }}
           CREW_SERVICE_URL: ${{ secrets.CREW_SERVICE_URL }}
+          FRONTEND_ORIGIN: ${{ secrets.FRONTEND_ORIGIN }}
           ENVIRONMENT: production
         run: |
           echo "Starting database migration..."

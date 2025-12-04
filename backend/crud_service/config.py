@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     S3_REGION: str
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    
+    # CORS Origins
+    FRONTEND_ORIGIN: str
 
     class Config:
         env_file = str(env_path) if env_path else None

@@ -61,6 +61,7 @@ resource "aws_launch_template" "crew_service" {
       -e ORSHOT_API_URL=${var.orshot_api_url} \
       -e ORSHOT_MOCK_MODE=${var.orshot_mock_mode} \
       -e GEMINI_API_KEY=${var.gemini_api_key} \
+      -e FRONTEND_ORIGIN=https://www.${var.app_domain} \
       $ECR_REGISTRY_URL:latest
 
     echo "User Data Script Finished!"
