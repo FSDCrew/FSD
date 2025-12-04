@@ -114,6 +114,7 @@ export default function CrewPage() {
   const [title, setTitle] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [mode, setMode] = useState<"edit" | "view">("edit");
+  const [orshotModalOpen, setOrshotModalOpen] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [pendingMode, setPendingMode] = useState<"edit" | "view" | null>(null);
   const [showRunsHistory, setShowRunsHistory] = useState(false);
@@ -454,6 +455,11 @@ export default function CrewPage() {
     }
   };
 
+  const handleOrshotModalChange = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setOrshotModalOpen((prev) => !prev);
+  }
+
   const confirmModeChange = () => {
     const revertedNodes = crewFlow.lastSavedNodes.map((node: Node) => ({
       ...node,
@@ -697,14 +703,32 @@ export default function CrewPage() {
             </div>
           </div>
 
-          {/* Mode Toggle */}
-          <div className="flex gap-2 bg-card border border-border rounded-lg p-1">
-            <Button onClick={() => handleModeChange("edit")} variant={mode === "edit" ? "default" : "ghost"} size="sm">
-              Edit Mode
-            </Button>
-            <Button onClick={() => handleModeChange("view")} variant={mode === "view" ? "default" : "ghost"} size="sm">
-              View Mode
-            </Button>
+          <div className="flex gap-4 items-center">
+            {/*Orshot Templates Toggle */}
+            <div className="flex">
+              {mode === "edit" ? (
+                <>
+                  <Button
+                    onClick={handleOrshotModalChange}
+                    variant="outline"
+                  >
+                    {orshotModalOpen ? "Close Orshot Templates" : "View Orshot Templates"}
+                  </Button>
+                </>
+              ): (
+                <></>
+              )}
+            </div>
+
+            {/* Mode Toggle */}
+            <div className="flex gap-2 bg-card border border-border rounded-lg p-1">
+              <Button onClick={() => handleModeChange("edit")} variant={mode === "edit" ? "default" : "ghost"} size="sm">
+                Edit Mode
+              </Button>
+              <Button onClick={() => handleModeChange("view")} variant={mode === "view" ? "default" : "ghost"} size="sm">
+                View Mode
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -778,7 +802,7 @@ export default function CrewPage() {
             </div>
           )}
 
-          {/* React Flow Canvas */}
+          {/* React Flow Canvas & Orshot Templates */}
           <div className="flex-1 flex flex-col gap-4">
             {/* Canvas */}
             <div className={`h-[600px] border-2 border-border rounded-lg bg-card relative`}>
@@ -807,6 +831,22 @@ export default function CrewPage() {
                 <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
               </ReactFlow>
             </div>
+          </div>
+
+          {/* Orshot Templates */}
+          <div className="flex">
+            {mode === "edit" && orshotModalOpen ? (
+              <>
+                <div className="flex w-80">
+                  <embed 
+                    src="https://orshot.com/templates/shared/l5k1r4ju/embed?view=presentation"
+                    style={{ width: "100%", height: "100%", minHeight: "500px", borderRadius: "8px" }} 
+                  />
+                </div>
+              </>
+            ) : (
+              <></>
+            )}
           </div>
         </div>
 
