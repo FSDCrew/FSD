@@ -1,5 +1,25 @@
 import { Amplify } from "aws-amplify";
 
+const local_domain = "http://localhost:3000";
+
+const environment = process.env.NEXT_PUBLIC_APP_ENV;
+const prod_domain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+
+let baseDomain: string;
+if (environment === "prod" && prod_domain) {
+  baseDomain = prod_domain;
+} else {
+  baseDomain = local_domain;
+}
+
+const redirectSignInUrls = [
+  `${baseDomain}/studio`,
+];
+
+const redirectSignOutUrls = [
+  `${baseDomain}/`,
+];
+
 Amplify.configure({
   Auth: {
     Cognito: {
@@ -9,8 +29,8 @@ Amplify.configure({
         oauth: {
           domain: process.env.NEXT_PUBLIC_COGNITO_DOMAIN!,
           scopes: ["email", "openid", "profile"],
-          redirectSignIn: ["http://localhost:3000/studio", "https://www.campaign.ongspace.com/studio"],
-          redirectSignOut: ["http://localhost:3000/", "https://www.campaign.ongspace.com/"],
+          redirectSignIn: redirectSignInUrls,
+          redirectSignOut: redirectSignOutUrls,
           responseType: "code",
         },
       },
