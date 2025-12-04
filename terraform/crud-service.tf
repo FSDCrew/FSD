@@ -82,11 +82,12 @@ resource "aws_launch_template" "crud_service" {
 
 # Auto Scaling Group for CRUD Service
 resource "aws_autoscaling_group" "crud_service" {
-  name                = "${var.project_name}-crud-asg"
-  vpc_zone_identifier = aws_subnet.public[*].id
-  target_group_arns   = [aws_lb_target_group.crud_service.arn]
-  health_check_type   = "ELB"
+  name                      = "${var.project_name}-crud-asg"
+  vpc_zone_identifier       = aws_subnet.public[*].id
+  target_group_arns         = [aws_lb_target_group.crud_service.arn]
+  health_check_type         = "ELB"
   health_check_grace_period = 300
+  default_cooldown          = 150
 
   min_size         = var.crud_service_min_size
   max_size         = var.crud_service_max_size
@@ -113,6 +114,20 @@ resource "aws_autoscaling_group" "crud_service" {
     key                 = "Service"
     value               = "crud-service"
     propagate_at_launch = true
+  }
+}
+
+# Target Tracking Scaling Policy - CPU Utilization
+resource "aws_autoscaling_policy" "crud_service_cpu" {
+  name                   = "${var.project_name}-crud-cpu-scaling-policy"
+  autoscaling_group_name = aws_autoscaling_group.crud_service.name
+  policy_type            = "TargetTrackingScaling"
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 50.0
   }
 }
 
