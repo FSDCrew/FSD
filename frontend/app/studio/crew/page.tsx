@@ -125,7 +125,8 @@ export default function CrewPage() {
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [kickoffDialogOpen, setKickoffDialogOpen] = useState(false);
   const [showTemplateInDialog, setShowTemplateInDialog] = useState(false);
-  const [isLoadingTemplateInDialog, setIsLoadingTemplateInDialog] = useState(false);
+  const [isLoadingTemplate1, setIsLoadingTemplate1] = useState(true);
+  const [isLoadingTemplate2, setIsLoadingTemplate2] = useState(true);
   const [isLoadingTemplateOnPage, setIsLoadingTemplateOnPage] = useState(false);
   const [lastSavedTitle, setLastSavedTitle] = useState("");
 
@@ -462,7 +463,8 @@ export default function CrewPage() {
     e.preventDefault();
     setOrshotModalOpen((prev) => {
       if (!prev) {
-        setIsLoadingTemplateOnPage(true);
+        setIsLoadingTemplate1(true);
+        setIsLoadingTemplate2(true);
       }
       return !prev;
     });
@@ -845,18 +847,133 @@ export default function CrewPage() {
           <div className="flex">
             {mode === "edit" && orshotModalOpen ? (
               <>
-                <div className="flex w-80 relative">
-                  {isLoadingTemplateOnPage && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
-                      <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-                      <p className="text-muted-foreground mt-4">Loading template...</p>
+                <div className="flex w-80 flex-col gap-4 overflow-y-auto" style={{ maxHeight: "600px" }}>
+                  {/* Template 1973 */}
+                  <div className="space-y-4">
+                    <div className="bg-muted px-4 py-3 rounded-md">
+                      <span className="text-lg font-semibold">Template ID:</span> <span className="text-lg font-mono font-bold">1973</span>
                     </div>
-                  )}
-                  <iframe 
-                    src="https://orshot.com/templates/shared/l5k1r4ju/embed?view=presentation"
-                    style={{ width: "100%", height: "100%", minHeight: "500px", borderRadius: "8px", border: "none" }}
-                    onLoad={() => setIsLoadingTemplateOnPage(false)}
-                  />
+                    
+                    <div className="relative" style={{ minHeight: "400px" }}>
+                      {isLoadingTemplate1 && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
+                          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+                          <p className="text-muted-foreground mt-4">Loading template...</p>
+                        </div>
+                      )}
+                      <iframe 
+                        src="https://orshot.com/templates/shared/927yqkyw/embed?view=presentation"
+                        style={{ width: "100%", height: "400px", borderRadius: "8px", border: "none" }}
+                        onLoad={() => setIsLoadingTemplate1(false)}
+                      />
+                    </div>
+                    
+                    <div className="border rounded-lg p-4">
+                      <h3 className="font-semibold mb-3">Required Parameters</h3>
+                      <div className="text-sm text-muted-foreground mb-3">
+                        These are the fields that must be included in your Orshot Schema:
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 px-3 font-medium">Field Name</th>
+                              <th className="text-left py-2 px-3 font-medium">Data Type</th>
+                              <th className="text-left py-2 px-3 font-medium">Description</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 font-mono text-xs">catchphrase</td>
+                              <td className="py-2 px-3">TEXT</td>
+                              <td className="py-2 px-3 text-muted-foreground">Catchphrase text</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 font-mono text-xs">title</td>
+                              <td className="py-2 px-3">TEXT</td>
+                              <td className="py-2 px-3 text-muted-foreground">Title text</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 px-3 font-mono text-xs">image</td>
+                              <td className="py-2 px-3">IMAGE</td>
+                              <td className="py-2 px-3 text-muted-foreground">Rough description of image</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Template 1972 */}
+                  <div className="border-t-2 pt-6 mt-6 space-y-4">
+                    <div className="bg-muted px-4 py-3 rounded-md">
+                      <span className="text-lg font-semibold">Template ID:</span> <span className="text-lg font-mono font-bold">1972</span>
+                    </div>
+                    
+                    <div className="relative" style={{ minHeight: "400px" }}>
+                      {isLoadingTemplate2 && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
+                          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+                          <p className="text-muted-foreground mt-4">Loading template...</p>
+                        </div>
+                      )}
+                      <iframe 
+                        src="https://orshot.com/templates/shared/ihpmuotd/embed?view=presentation"
+                        style={{ width: "100%", height: "400px", borderRadius: "8px", border: "none" }}
+                        onLoad={() => setIsLoadingTemplate2(false)}
+                      />
+                    </div>
+                    
+                    <div className="border rounded-lg p-4">
+                      <h3 className="font-semibold mb-3">Required Parameters</h3>
+                      <div className="text-sm text-muted-foreground mb-3">
+                        These are the fields that must be included in your Orshot Schema:
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 px-3 font-medium">Field Name</th>
+                              <th className="text-left py-2 px-3 font-medium">Data Type</th>
+                              <th className="text-left py-2 px-3 font-medium">Description</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 font-mono text-xs">backgroundColor</td>
+                              <td className="py-2 px-3">BACKGROUND</td>
+                              <td className="py-2 px-3 text-muted-foreground">Background color</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 font-mono text-xs">mainImage</td>
+                              <td className="py-2 px-3">IMAGE</td>
+                              <td className="py-2 px-3 text-muted-foreground">Rough description of image</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 font-mono text-xs">mainTitle</td>
+                              <td className="py-2 px-3">TEXT</td>
+                              <td className="py-2 px-3 text-muted-foreground">Main title text</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 font-mono text-xs">mainText</td>
+                              <td className="py-2 px-3">TEXT</td>
+                              <td className="py-2 px-3 text-muted-foreground">Main body text</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 font-mono text-xs">subText1</td>
+                              <td className="py-2 px-3">TEXT</td>
+                              <td className="py-2 px-3 text-muted-foreground">First subtitle text</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 px-3 font-mono text-xs">subText2</td>
+                              <td className="py-2 px-3">TEXT</td>
+                              <td className="py-2 px-3 text-muted-foreground">Second subtitle text</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </>
             ) : (
@@ -933,17 +1050,21 @@ export default function CrewPage() {
                 </DialogHeader>
                 {showTemplateInDialog ? (
                   <div className="space-y-4">
-                    <div className="relative">
-                      {isLoadingTemplateInDialog && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10" style={{ height: "600px" }}>
+                    <div className="bg-muted px-4 py-3 rounded-md">
+                      <span className="text-lg font-semibold">Template ID:</span> <span className="text-lg font-mono font-bold">1973</span>
+                    </div>
+                    
+                    <div className="relative" style={{ minHeight: "400px" }}>
+                      {isLoadingTemplate1 && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
                           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
                           <p className="text-muted-foreground mt-4">Loading template...</p>
                         </div>
                       )}
                       <iframe 
-                        src="https://orshot.com/templates/shared/l5k1r4ju/embed?view=presentation"
+                        src="https://orshot.com/templates/shared/927yqkyw/embed?view=presentation"
                         style={{ width: "100%", height: "400px", borderRadius: "8px", border: "none" }}
-                        onLoad={() => setIsLoadingTemplateInDialog(false)}
+                        onLoad={() => setIsLoadingTemplate1(false)}
                       />
                     </div>
                     
@@ -963,37 +1084,93 @@ export default function CrewPage() {
                           </thead>
                           <tbody>
                             <tr className="border-b">
-                              <td className="py-2 px-3 font-mono text-xs">backgroundColor</td>
+                              <td className="py-2 px-3 font-mono text-xs">catchphrase</td>
                               <td className="py-2 px-3">TEXT</td>
-                              <td className="py-2 px-3 text-muted-foreground">Background color (e.g., '#ffffff')</td>
+                              <td className="py-2 px-3 text-muted-foreground">Catchphrase text</td>
                             </tr>
                             <tr className="border-b">
-                              <td className="py-2 px-3 font-mono text-xs">mainImage</td>
-                              <td className="py-2 px-3">IMAGE</td>
-                              <td className="py-2 px-3 text-muted-foreground">Main image URL (1080x1350)</td>
-                            </tr>
-                            <tr className="border-b">
-                              <td className="py-2 px-3 font-mono text-xs">mainTitle</td>
+                              <td className="py-2 px-3 font-mono text-xs">title</td>
                               <td className="py-2 px-3">TEXT</td>
-                              <td className="py-2 px-3 text-muted-foreground">Main title text</td>
-                            </tr>
-                            <tr className="border-b">
-                              <td className="py-2 px-3 font-mono text-xs">mainText</td>
-                              <td className="py-2 px-3">TEXT</td>
-                              <td className="py-2 px-3 text-muted-foreground">Main body text</td>
-                            </tr>
-                            <tr className="border-b">
-                              <td className="py-2 px-3 font-mono text-xs">subText1</td>
-                              <td className="py-2 px-3">TEXT</td>
-                              <td className="py-2 px-3 text-muted-foreground">First subtitle text</td>
+                              <td className="py-2 px-3 text-muted-foreground">Title text</td>
                             </tr>
                             <tr>
-                              <td className="py-2 px-3 font-mono text-xs">subText2</td>
-                              <td className="py-2 px-3">TEXT</td>
-                              <td className="py-2 px-3 text-muted-foreground">Second subtitle text</td>
+                              <td className="py-2 px-3 font-mono text-xs">image</td>
+                              <td className="py-2 px-3">IMAGE</td>
+                              <td className="py-2 px-3 text-muted-foreground">Rough description of image</td>
                             </tr>
                           </tbody>
                         </table>
+                      </div>
+                    </div>
+
+                    {/* Template 1972 */}
+                    <div className="border-t-2 pt-6 mt-6 space-y-4">
+                      <div className="bg-muted px-4 py-3 rounded-md">
+                        <span className="text-lg font-semibold">Template ID:</span> <span className="text-lg font-mono font-bold">1972</span>
+                      </div>
+                      
+                      <div className="relative" style={{ minHeight: "400px" }}>
+                        {isLoadingTemplate2 && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
+                            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+                            <p className="text-muted-foreground mt-4">Loading template...</p>
+                          </div>
+                        )}
+                        <iframe 
+                          src="https://orshot.com/templates/shared/ihpmuotd/embed?view=presentation"
+                          style={{ width: "100%", height: "400px", borderRadius: "8px", border: "none" }}
+                          onLoad={() => setIsLoadingTemplate2(false)}
+                        />
+                      </div>
+                      
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-semibold mb-3">Required Parameters</h3>
+                        <div className="text-sm text-muted-foreground mb-3">
+                          These are the fields that must be included in your Orshot Schema:
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left py-2 px-3 font-medium">Field Name</th>
+                                <th className="text-left py-2 px-3 font-medium">Data Type</th>
+                                <th className="text-left py-2 px-3 font-medium">Description</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="border-b">
+                                <td className="py-2 px-3 font-mono text-xs">backgroundColor</td>
+                                <td className="py-2 px-3">BACKGROUND</td>
+                                <td className="py-2 px-3 text-muted-foreground">Background color</td>
+                              </tr>
+                              <tr className="border-b">
+                                <td className="py-2 px-3 font-mono text-xs">mainImage</td>
+                                <td className="py-2 px-3">IMAGE</td>
+                                <td className="py-2 px-3 text-muted-foreground">Rough description of image</td>
+                              </tr>
+                              <tr className="border-b">
+                                <td className="py-2 px-3 font-mono text-xs">mainTitle</td>
+                                <td className="py-2 px-3">TEXT</td>
+                                <td className="py-2 px-3 text-muted-foreground">Main title text</td>
+                              </tr>
+                              <tr className="border-b">
+                                <td className="py-2 px-3 font-mono text-xs">mainText</td>
+                                <td className="py-2 px-3">TEXT</td>
+                                <td className="py-2 px-3 text-muted-foreground">Main body text</td>
+                              </tr>
+                              <tr className="border-b">
+                                <td className="py-2 px-3 font-mono text-xs">subText1</td>
+                                <td className="py-2 px-3">TEXT</td>
+                                <td className="py-2 px-3 text-muted-foreground">First subtitle text</td>
+                              </tr>
+                              <tr>
+                                <td className="py-2 px-3 font-mono text-xs">subText2</td>
+                                <td className="py-2 px-3">TEXT</td>
+                                <td className="py-2 px-3 text-muted-foreground">Second subtitle text</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1009,7 +1186,8 @@ export default function CrewPage() {
                       onFormChange={crewForm.handleDynamicFormChange}
                       onSubmit={handleKickoffSubmit}
                       onViewTemplate={() => {
-                        setIsLoadingTemplateInDialog(true);
+                        setIsLoadingTemplate1(true);
+                        setIsLoadingTemplate2(true);
                         setShowTemplateInDialog(true);
                       }}
                       hasOrshotTask={nodes.some(node => node.type === 'orshot_render')}
