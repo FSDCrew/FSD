@@ -431,6 +431,8 @@ class AllowedTemplateId(IntEnum):
 
     IG_POST = 1201
     BG_POST = 1909
+    TEMPLATE_1 = 1972
+    TEMPLATE_2 = 1973
 
 
 class OrshotDataType(str, Enum):
