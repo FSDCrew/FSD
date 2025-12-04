@@ -1,6 +1,7 @@
 from enum import Enum, IntEnum
 from typing import Any, Dict, List, Tuple, Type
 
+from app.services.flow.flow_utils import TaskStatusService
 from config import agents_config, tasks_config
 from crewai.flow.flow import Flow
 from pydantic import BaseModel
@@ -11,7 +12,6 @@ from app.services.flow.dependency_graph import (
     build_flow_dependency_graph,
     infer_initial_inputs,
 )
-from app.services.flow.flow_builder import create_flow_from_tasks
 from app.services.flow.flow_utils import validate_value_type
 
 
@@ -183,18 +183,20 @@ class FlowService:
     
     def build_flow(
         self, 
-        task_reads: List["TaskInfo"]
+        task_reads: List["TaskInfo"],
+        task_status_service: TaskStatusService,
     ) -> Tuple[Type[BaseModel], Type[Flow], Dict[str, List[str]]]:
         """
         Build Flow from TaskRead objects.
         
         Args:
             task_reads: List of TaskRead objects from CrudClient
+            task_status_service: Optional TaskStatusService for updating task status
             
         Returns:
             Tuple of (FlowStateModel, FlowClass, required_inputs)
         """
-        return create_flow_from_tasks(incoming_tasks=task_reads)
+        return create_flow_from_tasks(incoming_tasks=task_reads, task_status_service=task_status_service)
     
     def execute_flow(
         self, 

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
-    from ..models.content_strategy_global_settings import ContentStrategyGlobalSettings
+    from ..models.content_strategy_global_settings_type_0 import (
+        ContentStrategyGlobalSettingsType0,
+    )
     from ..models.strategy_phase import StrategyPhase
 
 
@@ -29,25 +31,33 @@ class ContentStrategy:
                 'voice': 'Conversational but informative'}, 'phases': [{'duration_in_weeks': 2, 'messaging_guidelines':
                 ['Highlight core value', 'Use simple, clear language'], 'name': 'Awareness', 'objectives': ['Build recognition',
                 'Warm up audience'], 'posting_cadence': {'posts_per_week': 3, 'stories_per_week': 2},
-                'recommended_content_types': ['posts', 'reels', 'stories'], 'themes': ['Brand Intro', 'Problem Awareness']}]}
+                'recommended_content_types': ['POST', 'STORY'], 'themes': ['Brand Intro', 'Problem Awareness']}]}
 
         Attributes:
             content (str): Full content strategy rendered as markdown
-            global_settings (ContentStrategyGlobalSettings): High-level settings: tone, voice, brand alignment, messaging
-                principles, content pillars
+            global_settings (ContentStrategyGlobalSettingsType0 | None): High-level settings: tone, voice, brand alignment,
+                messaging principles, content pillars
             phases (list[StrategyPhase]): List of strategic phases that define themes, cadence, and objectives without
                 assigning dates
     """
 
     content: str
-    global_settings: ContentStrategyGlobalSettings
+    global_settings: ContentStrategyGlobalSettingsType0 | None
     phases: list[StrategyPhase]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.content_strategy_global_settings_type_0 import (
+            ContentStrategyGlobalSettingsType0,
+        )
+
         content = self.content
 
-        global_settings = self.global_settings.to_dict()
+        global_settings: dict[str, Any] | None
+        if isinstance(self.global_settings, ContentStrategyGlobalSettingsType0):
+            global_settings = self.global_settings.to_dict()
+        else:
+            global_settings = self.global_settings
 
         phases = []
         for phases_item_data in self.phases:
@@ -68,17 +78,32 @@ class ContentStrategy:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.content_strategy_global_settings import (
-            ContentStrategyGlobalSettings,
+        from ..models.content_strategy_global_settings_type_0 import (
+            ContentStrategyGlobalSettingsType0,
         )
         from ..models.strategy_phase import StrategyPhase
 
         d = dict(src_dict)
         content = d.pop("content")
 
-        global_settings = ContentStrategyGlobalSettings.from_dict(
-            d.pop("global_settings")
-        )
+        def _parse_global_settings(
+            data: object,
+        ) -> ContentStrategyGlobalSettingsType0 | None:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                global_settings_type_0 = ContentStrategyGlobalSettingsType0.from_dict(
+                    data
+                )
+
+                return global_settings_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(ContentStrategyGlobalSettingsType0 | None, data)
+
+        global_settings = _parse_global_settings(d.pop("global_settings"))
 
         phases = []
         _phases = d.pop("phases")

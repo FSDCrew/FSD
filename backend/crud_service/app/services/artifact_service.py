@@ -7,6 +7,7 @@ import uuid
 from typing import Any
 from config import settings
 import os
+import io
 from botocore.client import BaseClient
 
 PRESIGNED_URL_EXPIRATION = 3600  
@@ -122,3 +123,91 @@ class ArtifactService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to generate presigned URL: {e}"
             )
+
+    async def copy_artifacts_to_crew_run(
+        self,
+        original_crew_run_id: UUID,
+        new_crew_run_id: UUID,
+        user_id: UUID
+    ) -> list[ArtifactRead]:
+        """
+        Copy all artifacts from the original crew run to the new crew run.
+        
+        This downloads each artifact from S3 and uploads it to a new location
+        with the new crew_run_id in the path, then creates new artifact records.
+        
+        Args:
+            original_crew_run_id: UUID of the original crew run
+            new_crew_run_id: UUID of the new crew run
+            user_id: UUID of the user (needed for S3 path construction)
+            
+        Returns:
+            List of newly created ArtifactRead objects
+            
+        Raises:
+            HTTPException: If artifacts cannot be retrieved or copied
+        """
+        # Get all artifacts from the original crew run
+        original_artifacts = await self.repository.get_artifacts_by_crew_run_id(original_crew_run_id)
+        
+        if not original_artifacts:
+            return []
+        
+        copied_artifacts = []
+        
+        for original_artifact in original_artifacts:
+            try:
+                # Download the original artifact from S3
+                file_obj = io.BytesIO()
+                self.s3_client.download_fileobj(
+                    Bucket=settings.S3_BUCKET_NAME,
+                    Key=original_artifact.object_key,
+                    Fileobj=file_obj
+                )
+                file_obj.seek(0)
+                
+                # Determine file extension from original filename or object_key
+                if original_artifact.file_name:
+                    _, ext = os.path.splitext(original_artifact.file_name)
+                else:
+                    # Fallback: extract extension from object_key
+                    _, ext = os.path.splitext(original_artifact.object_key)
+                
+                # Create new S3 key with new crew_run_id
+                file_uuid = uuid.uuid4()
+                new_object_key = f"artifacts/{user_id}/{new_crew_run_id}/{file_uuid}{ext}"
+                
+                # Determine content type based on artifact type
+                content_type = "application/octet-stream"
+                if original_artifact.type == ArtifactType.IMAGE:
+                    content_type = "image/png"  # Default, could be improved
+                elif original_artifact.type == ArtifactType.DOCUMENT:
+                    content_type = "application/pdf"  # Default, could be improved
+                
+                # Upload to new S3 location
+                self.s3_client.upload_fileobj(
+                    Fileobj=file_obj,
+                    Bucket=settings.S3_BUCKET_NAME,
+                    Key=new_object_key,
+                    ExtraArgs={"ContentType": content_type}
+                )
+                
+                # Create new artifact record
+                artifact_create = ArtifactCreate(
+                    type=original_artifact.type,
+                    object_key=new_object_key,
+                    file_name=original_artifact.file_name
+                )
+                
+                db_artifact = await self.repository.create_artifact(artifact_create, new_crew_run_id)
+                copied_artifacts.append(ArtifactRead.model_validate(db_artifact))
+                
+            except Exception as e:
+                # Log error but continue with other artifacts
+                # We'll let the caller handle partial failures
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to copy artifact {original_artifact.id}: {e}"
+                )
+        
+        return copied_artifacts

@@ -1,27 +1,38 @@
-from typing import Dict, List
+from typing import List
 from uuid import UUID
+from config import logging
 
 import httpx
 from fastapi import HTTPException
 
 from app.api.crud_client import AuthenticatedClient, errors
 from app.api.crud_client.api.internal import (
+    cancel_crew_run_internal_internal_crew_run_crew_run_id_cancel_post as cancel_crew_run_func,
     create_crew_run_internal_internal_crew_run_create_post as create_crew_run_func,
     get_crew_by_id_internal_crew_crew_id_get as get_crew_by_id_func,
+    get_crew_run_by_id_internal_crew_run_crew_run_id_get as get_crew_run_func,
 )
 from app.api.crud_client.models import (
     BodyCreateCrewRunInternalInternalCrewRunCreatePost as CrewRunCreateBody,
     CrewRunCreate,
     CrewRunMetadataCreate,
     CrewRunMetadataCreateInputs,
+    CrewRunOutputCreate,
+    CrewRunOutputCreateTaskStates,
     HTTPValidationError,
     TaskInfo as CrudTaskInfo,
     TaskRead as CrudTaskRead,
+    TaskStateSnapshot,
+    TaskStateSnapshotState,
+    TaskStatus,
 )
 
-from app.models.models import CrewRun, CrewRunCreateRequest, TaskInfo
+from app.models.models import CrewRun, CrewRunCreateRequest, CrewRunRetryRequest, TaskInfo
 from app.services.flow.flow_service import FlowService
+from app.services.retry.retry_service import RetryService
 from config import settings, tasks_config
+
+logger = logging.getLogger(__name__)
 
 
 class CrewService:
@@ -118,10 +129,22 @@ class CrewService:
         )
         if crew_run_data.inputs:
             metadata.inputs.additional_properties = crew_run_data.inputs
+
+        task_states_dict: dict[str, TaskStateSnapshot] = {}
+        for index, task in enumerate(tasks_full):
+            task_states_dict[task.key] = TaskStateSnapshot(
+                order=index,
+                state=TaskStateSnapshotState(),
+                status=TaskStatus.QUEUED,
+            )
+        task_states = CrewRunOutputCreateTaskStates()
+        task_states.additional_properties = task_states_dict
+        output = CrewRunOutputCreate(task_states=task_states)
         
         crew_run_create = CrewRunCreate(
             crew_id=crew_run_data.crew_id,
             run_metadata=metadata,
+            output=output,
         )
         
         response = await create_crew_run_func.asyncio_detailed(
@@ -145,3 +168,46 @@ class CrewService:
             raise ValueError("Failed to create crew run: received None response")
 
         return CrewRun.model_validate(response.parsed.to_dict())
+
+    async def get_crew_run(self, crew_run_id: UUID):
+        """
+        Fetch a crew run by ID from the CRUD service.
+        
+        Args:
+            crew_run_id: UUID of the crew run to fetch
+            
+        Returns:
+            Crew run response object
+            
+        Raises:
+            ValueError: If crew run is not found or has validation errors
+        """
+        try:
+            response = await get_crew_run_func.asyncio(
+                crew_run_id=crew_run_id,
+                client=self.crud_client,
+            )
+            if not response:
+                raise ValueError(f"Crew run {crew_run_id} not found")
+            
+            if isinstance(response, HTTPValidationError):
+                raise ValueError(f"Validation error retrieving crew run {crew_run_id}: {response}")
+            
+            return response
+        except errors.UnexpectedStatus as e:
+            if e.status_code == 404:
+                raise ValueError(f"Crew run {crew_run_id} not found") from e
+            raise
+
+    async def cancel_crew_run(self, crew_run_id: UUID, user_token: str):
+        """Cancel a crew run."""
+        await cancel_crew_run_func.asyncio(
+            crew_run_id=crew_run_id,
+            body=user_token,
+            client=self.crud_client,
+        )
+
+    async def retry_crew_run(self, retry_request: CrewRunRetryRequest, crew_run_id: UUID, user_token: str):
+        """Retry a crew run from a specific task."""
+        retry_service = RetryService(crud_client=self.crud_client)
+        return await retry_service.retry_crew_run(retry_request, crew_run_id, user_token)

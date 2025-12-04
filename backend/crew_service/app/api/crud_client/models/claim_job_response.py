@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.queue_status import QueueStatus
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="ClaimJobResponse")
 
@@ -22,6 +23,7 @@ class ClaimJobResponse:
         status (QueueStatus):
         lease_token (str):
         visible_at (str):
+        cancel_requested (bool | None | Unset):  Default: False.
     """
 
     id: UUID
@@ -30,6 +32,7 @@ class ClaimJobResponse:
     status: QueueStatus
     lease_token: str
     visible_at: str
+    cancel_requested: bool | None | Unset = False
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -45,6 +48,12 @@ class ClaimJobResponse:
 
         visible_at = self.visible_at
 
+        cancel_requested: bool | None | Unset
+        if isinstance(self.cancel_requested, Unset):
+            cancel_requested = UNSET
+        else:
+            cancel_requested = self.cancel_requested
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -57,6 +66,8 @@ class ClaimJobResponse:
                 "visible_at": visible_at,
             }
         )
+        if cancel_requested is not UNSET:
+            field_dict["cancel_requested"] = cancel_requested
 
         return field_dict
 
@@ -75,6 +86,15 @@ class ClaimJobResponse:
 
         visible_at = d.pop("visible_at")
 
+        def _parse_cancel_requested(data: object) -> bool | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(bool | None | Unset, data)
+
+        cancel_requested = _parse_cancel_requested(d.pop("cancel_requested", UNSET))
+
         claim_job_response = cls(
             id=id,
             crew_run_id=crew_run_id,
@@ -82,6 +102,7 @@ class ClaimJobResponse:
             status=status,
             lease_token=lease_token,
             visible_at=visible_at,
+            cancel_requested=cancel_requested,
         )
 
         claim_job_response.additional_properties = d

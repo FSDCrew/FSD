@@ -13,7 +13,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.artifact_read import ArtifactRead
     from ..models.crew_run_metadata_read import CrewRunMetadataRead
-    from ..models.crew_run_read_output_type_0 import CrewRunReadOutputType0
+    from ..models.crew_run_output_read import CrewRunOutputRead
 
 
 T = TypeVar("T", bound="CrewRunRead")
@@ -25,8 +25,8 @@ class CrewRunRead:
     Attributes:
         id (UUID):
         crew_id (UUID):
+        output (CrewRunOutputRead):
         run_metadata (CrewRunMetadataRead):
-        output (CrewRunReadOutputType0 | None | Unset):
         artifacts (list[ArtifactRead] | None | Unset):
         queue_status (None | QueueStatus | Unset):
         retry_count (int | None | Unset):
@@ -34,29 +34,21 @@ class CrewRunRead:
 
     id: UUID
     crew_id: UUID
+    output: CrewRunOutputRead
     run_metadata: CrewRunMetadataRead
-    output: CrewRunReadOutputType0 | None | Unset = UNSET
     artifacts: list[ArtifactRead] | None | Unset = UNSET
     queue_status: None | QueueStatus | Unset = UNSET
     retry_count: int | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.crew_run_read_output_type_0 import CrewRunReadOutputType0
-
         id = str(self.id)
 
         crew_id = str(self.crew_id)
 
-        run_metadata = self.run_metadata.to_dict()
+        output = self.output.to_dict()
 
-        output: dict[str, Any] | None | Unset
-        if isinstance(self.output, Unset):
-            output = UNSET
-        elif isinstance(self.output, CrewRunReadOutputType0):
-            output = self.output.to_dict()
-        else:
-            output = self.output
+        run_metadata = self.run_metadata.to_dict()
 
         artifacts: list[dict[str, Any]] | None | Unset
         if isinstance(self.artifacts, Unset):
@@ -90,11 +82,10 @@ class CrewRunRead:
             {
                 "id": id,
                 "crew_id": crew_id,
+                "output": output,
                 "run_metadata": run_metadata,
             }
         )
-        if output is not UNSET:
-            field_dict["output"] = output
         if artifacts is not UNSET:
             field_dict["artifacts"] = artifacts
         if queue_status is not UNSET:
@@ -108,31 +99,16 @@ class CrewRunRead:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.artifact_read import ArtifactRead
         from ..models.crew_run_metadata_read import CrewRunMetadataRead
-        from ..models.crew_run_read_output_type_0 import CrewRunReadOutputType0
+        from ..models.crew_run_output_read import CrewRunOutputRead
 
         d = dict(src_dict)
         id = UUID(d.pop("id"))
 
         crew_id = UUID(d.pop("crew_id"))
 
+        output = CrewRunOutputRead.from_dict(d.pop("output"))
+
         run_metadata = CrewRunMetadataRead.from_dict(d.pop("run_metadata"))
-
-        def _parse_output(data: object) -> CrewRunReadOutputType0 | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                output_type_0 = CrewRunReadOutputType0.from_dict(data)
-
-                return output_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(CrewRunReadOutputType0 | None | Unset, data)
-
-        output = _parse_output(d.pop("output", UNSET))
 
         def _parse_artifacts(data: object) -> list[ArtifactRead] | None | Unset:
             if data is None:
@@ -187,8 +163,8 @@ class CrewRunRead:
         crew_run_read = cls(
             id=id,
             crew_id=crew_id,
-            run_metadata=run_metadata,
             output=output,
+            run_metadata=run_metadata,
             artifacts=artifacts,
             queue_status=queue_status,
             retry_count=retry_count,

@@ -111,6 +111,7 @@ class QueueRepository:
                     CrewRunQueueDB.lease_token == lease_token
                 )
             )
+            .with_for_update()
         )
         result = await self.session.execute(query)
         job = result.scalar_one_or_none()
@@ -127,6 +128,54 @@ class QueueRepository:
         
         return None
 
+    async def cancel_queued_job(
+        self,
+        crew_run_id: UUID,
+        status: QueueStatus
+    ) -> CrewRunQueueDB | None:
+        """Cancel a crew run by updating the status to CANCELLED."""
+        query = (
+            select(CrewRunQueueDB)
+            .where(
+                and_(
+                    CrewRunQueueDB.crew_run_id == crew_run_id,
+                )
+            )
+            .with_for_update()
+        )
+        result = await self.session.execute(query)
+        job = result.scalar_one_or_none()
+        if job:
+            setattr(job, "status", status)
+            await self.session.commit()
+            await self.session.refresh(job, ["crew_run"])
+            return job
+        return None
+    
+    async def cancel_claimed_job(
+        self,
+        crew_run_id: UUID
+    ) -> CrewRunQueueDB | None:
+        """Cancel a crew run by updating the status to CANCELLED."""
+        query = (
+            select(CrewRunQueueDB)
+            .where(
+                and_(
+                    CrewRunQueueDB.crew_run_id == crew_run_id,
+                    CrewRunQueueDB.status == QueueStatus.CLAIMED
+                )
+            )
+            .with_for_update()
+        )
+        result = await self.session.execute(query)
+        job = result.scalar_one_or_none()
+        if job:
+            setattr(job, "cancel_requested", True)
+            await self.session.commit()
+            await self.session.refresh(job, ["crew_run"])
+            return job
+        return None
+    
     async def heartbeat(
         self,
         queue_id: UUID,

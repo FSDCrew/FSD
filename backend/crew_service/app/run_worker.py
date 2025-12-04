@@ -28,7 +28,7 @@ async def run_worker():
 def install_signal_handlers(loop, worker_task):
     """Install POSIX signal handlers, skip for Windows."""
     if sys.platform.startswith("win"):
-        logger.info("Windows detected — skipping SIGINT/SIGTERM handlers")
+        logger.info("Windows detected — skipping SIGINT/SIGTERM handlers") # Windows doesn't support SIGTERM
         return
 
     def shutdown(sig):

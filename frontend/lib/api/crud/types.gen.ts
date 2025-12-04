@@ -84,6 +84,10 @@ export type ClaimJobResponse = {
      * Visible At
      */
     visible_at: string;
+    /**
+     * Cancel Requested
+     */
+    cancel_requested?: boolean | null;
 };
 
 /**
@@ -93,7 +97,7 @@ export type CrewCreate = {
     /**
      * Name
      */
-    name: string;
+    name?: string | null;
 };
 
 /**
@@ -103,7 +107,7 @@ export type CrewRead = {
     /**
      * Name
      */
-    name: string;
+    name?: string | null;
     /**
      * Id
      */
@@ -127,22 +131,17 @@ export type CrewRead = {
  */
 export type CrewRunCreate = {
     /**
-     * Output
-     */
-    output?: {
-        [key: string]: unknown;
-    } | null;
-    run_metadata?: CrewRunMetadata | null;
-    /**
      * Crew Id
      */
     crew_id: string;
+    run_metadata: CrewRunMetadataCreate;
+    output: CrewRunOutputCreate;
 };
 
 /**
- * CrewRunMetadata
+ * CrewRunMetadataCreate
  */
-export type CrewRunMetadata = {
+export type CrewRunMetadataCreate = {
     /**
      * Inputs
      */
@@ -150,24 +149,87 @@ export type CrewRunMetadata = {
         [key: string]: unknown;
     };
     /**
-     * Task Nodes
+     * Tasks Snapshot
      */
-    task_nodes?: Array<{
+    tasks_snapshot: Array<TaskInfo>;
+    /**
+     * Retry Feedback
+     */
+    retry_feedback?: Array<RetryFeedback> | null;
+};
+
+/**
+ * CrewRunMetadataRead
+ */
+export type CrewRunMetadataRead = {
+    /**
+     * Inputs
+     */
+    inputs: {
         [key: string]: unknown;
-    }> | null;
+    };
+    /**
+     * Tasks Snapshot
+     */
+    tasks_snapshot: Array<TaskInfo>;
+    /**
+     * Retry Feedback
+     */
+    retry_feedback?: Array<RetryFeedback> | null;
+};
+
+/**
+ * CrewRunOutputCreate
+ */
+export type CrewRunOutputCreate = {
+    /**
+     * Result
+     */
+    result?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Flow State
+     */
+    flow_state?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Task States
+     */
+    task_states?: {
+        [key: string]: TaskStateSnapshot;
+    };
+};
+
+/**
+ * CrewRunOutputRead
+ */
+export type CrewRunOutputRead = {
+    /**
+     * Result
+     */
+    result?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Flow State
+     */
+    flow_state?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Task States
+     */
+    task_states?: {
+        [key: string]: TaskStateSnapshot;
+    };
 };
 
 /**
  * CrewRunRead
  */
 export type CrewRunRead = {
-    /**
-     * Output
-     */
-    output?: {
-        [key: string]: unknown;
-    } | null;
-    run_metadata?: CrewRunMetadata | null;
     /**
      * Id
      */
@@ -176,6 +238,7 @@ export type CrewRunRead = {
      * Crew Id
      */
     crew_id: string;
+    output: CrewRunOutputRead;
     /**
      * Artifacts
      */
@@ -185,6 +248,7 @@ export type CrewRunRead = {
      * Retry Count
      */
     retry_count?: number | null;
+    run_metadata: CrewRunMetadataRead;
 };
 
 /**
@@ -222,9 +286,45 @@ export type HeartbeatRequest = {
 };
 
 /**
+ * HeartbeatResponse
+ */
+export type HeartbeatResponse = {
+    /**
+     * Cancel Requested
+     */
+    cancel_requested: boolean;
+    /**
+     * Queue Id
+     */
+    queue_id: string;
+    /**
+     * Visible At
+     */
+    visible_at: string;
+    /**
+     * Status
+     */
+    status: string;
+};
+
+/**
  * QueueStatus
  */
-export type QueueStatus = 'QUEUED' | 'CLAIMED' | 'COMPLETED' | 'FAILED';
+export type QueueStatus = 'QUEUED' | 'CLAIMED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+
+/**
+ * RetryFeedback
+ */
+export type RetryFeedback = {
+    /**
+     * Feedback
+     */
+    feedback: string;
+    /**
+     * Retry From Task Key
+     */
+    retry_from_task_key: string;
+};
 
 /**
  * TaskCreate
@@ -238,6 +338,77 @@ export type TaskCreate = {
      * Order
      */
     order: number;
+};
+
+/**
+ * TaskFieldRead
+ *
+ * Describes a state field that a task consumes.
+ */
+export type TaskFieldRead = {
+    /**
+     * Field
+     */
+    field: string;
+    /**
+     * Cardinality
+     */
+    cardinality: string;
+};
+
+/**
+ * TaskFieldWrite
+ *
+ * Describes a state field that a task produces.
+ */
+export type TaskFieldWrite = {
+    /**
+     * Field
+     */
+    field: string;
+    /**
+     * Mode
+     */
+    mode: string;
+};
+
+/**
+ * TaskInfo
+ */
+export type TaskInfo = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Task Description
+     */
+    task_description: string;
+    /**
+     * Description
+     */
+    description: string;
+    /**
+     * Expected Output
+     */
+    expected_output: string;
+    /**
+     * Agent
+     */
+    agent: string;
+    /**
+     * Reads
+     */
+    reads: Array<TaskFieldRead>;
+    /**
+     * Writes
+     */
+    writes: Array<TaskFieldWrite>;
+    [key: string]: unknown | string | Array<TaskFieldRead> | Array<TaskFieldWrite>;
 };
 
 /**
@@ -259,30 +430,30 @@ export type TaskRead = {
 };
 
 /**
- * TaskUpdate
+ * TaskStateSnapshot
  */
-export type TaskUpdate = {
+export type TaskStateSnapshot = {
     /**
-     * Key
+     * State
      */
-    key: string;
+    state: {
+        [key: string]: unknown;
+    };
+    /**
+     * Completed At
+     */
+    completed_at?: string | null;
+    status: TaskStatus;
     /**
      * Order
      */
     order: number;
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Description
-     */
-    description?: string | null;
-    /**
-     * Expected Output
-     */
-    expected_output?: string | null;
 };
+
+/**
+ * TaskStatus
+ */
+export type TaskStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 
 /**
  * UpdateStatusRequest
@@ -293,6 +464,31 @@ export type UpdateStatusRequest = {
      */
     lease_token: string;
     status: QueueStatus;
+};
+
+/**
+ * UpdateTaskStatusRequest
+ *
+ * Request model for updating task status.
+ */
+export type UpdateTaskStatusRequest = {
+    status: TaskStatus;
+    /**
+     * Task Inputs
+     */
+    task_inputs: {
+        [key: string]: unknown;
+    };
+    /**
+     * Task Outputs
+     */
+    task_outputs: {
+        [key: string]: unknown;
+    };
+    /**
+     * Completed At
+     */
+    completed_at?: string | null;
 };
 
 /**
@@ -310,7 +506,7 @@ export type User = {
     /**
      * Name
      */
-    name: string;
+    name?: string | null;
     /**
      * Given Name
      */
@@ -487,72 +683,6 @@ export type UpdateCrewCrewPutResponses = {
 
 export type UpdateCrewCrewPutResponse = UpdateCrewCrewPutResponses[keyof UpdateCrewCrewPutResponses];
 
-export type UpdateOneTaskTaskCrewIdPatchData = {
-    body: TaskUpdate;
-    path: {
-        /**
-         * Crew Id
-         *
-         * Crew ID to associate the task with
-         */
-        crew_id: string;
-    };
-    query?: never;
-    url: '/task/{crew_id}';
-};
-
-export type UpdateOneTaskTaskCrewIdPatchErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type UpdateOneTaskTaskCrewIdPatchError = UpdateOneTaskTaskCrewIdPatchErrors[keyof UpdateOneTaskTaskCrewIdPatchErrors];
-
-export type UpdateOneTaskTaskCrewIdPatchResponses = {
-    /**
-     * Response Update One Task Task  Crew Id  Patch
-     *
-     * Successful Response
-     */
-    200: Array<TaskRead>;
-};
-
-export type UpdateOneTaskTaskCrewIdPatchResponse = UpdateOneTaskTaskCrewIdPatchResponses[keyof UpdateOneTaskTaskCrewIdPatchResponses];
-
-export type CreateTaskTaskCrewIdPostData = {
-    body: TaskCreate;
-    path: {
-        /**
-         * Crew Id
-         *
-         * Crew ID to associate the task with
-         */
-        crew_id: string;
-    };
-    query?: never;
-    url: '/task/{crew_id}';
-};
-
-export type CreateTaskTaskCrewIdPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CreateTaskTaskCrewIdPostError = CreateTaskTaskCrewIdPostErrors[keyof CreateTaskTaskCrewIdPostErrors];
-
-export type CreateTaskTaskCrewIdPostResponses = {
-    /**
-     * Successful Response
-     */
-    201: TaskRead;
-};
-
-export type CreateTaskTaskCrewIdPostResponse = CreateTaskTaskCrewIdPostResponses[keyof CreateTaskTaskCrewIdPostResponses];
-
 export type ReplaceAllTasksForCrewTaskCrewIdSavePutData = {
     /**
      * Tasks
@@ -622,40 +752,14 @@ export type GetUserByIdUserGetResponses = {
 
 export type GetUserByIdUserGetResponse = GetUserByIdUserGetResponses[keyof GetUserByIdUserGetResponses];
 
-export type CreateArtifactArtifactCrewRunIdPostData = {
-    body: ArtifactServerCreate;
-    path: {
-        /**
-         * Crew Run Id
-         *
-         * Crew Run ID to associate the artifact with
-         */
-        crew_run_id: string;
-    };
-    query?: never;
-    url: '/artifact/{crew_run_id}';
-};
-
-export type CreateArtifactArtifactCrewRunIdPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CreateArtifactArtifactCrewRunIdPostError = CreateArtifactArtifactCrewRunIdPostErrors[keyof CreateArtifactArtifactCrewRunIdPostErrors];
-
-export type CreateArtifactArtifactCrewRunIdPostResponses = {
-    /**
-     * Successful Response
-     */
-    201: ArtifactRead;
-};
-
-export type CreateArtifactArtifactCrewRunIdPostResponse = CreateArtifactArtifactCrewRunIdPostResponses[keyof CreateArtifactArtifactCrewRunIdPostResponses];
-
 export type GetArtifactArtifactArtifactIdGetData = {
     body?: never;
+    headers?: {
+        /**
+         * X-Internal-Api-Key
+         */
+        'X-Internal-Api-Key'?: string | null;
+    };
     path: {
         /**
          * Artifact Id
@@ -687,6 +791,40 @@ export type GetArtifactArtifactArtifactIdGetResponses = {
 };
 
 export type GetArtifactArtifactArtifactIdGetResponse = GetArtifactArtifactArtifactIdGetResponses[keyof GetArtifactArtifactArtifactIdGetResponses];
+
+export type GetArtifactForUserArtifactViewArtifactIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Artifact Id
+         *
+         * Artifact ID to retrieve
+         */
+        artifact_id: string;
+    };
+    query?: never;
+    url: '/artifact/view/{artifact_id}';
+};
+
+export type GetArtifactForUserArtifactViewArtifactIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetArtifactForUserArtifactViewArtifactIdGetError = GetArtifactForUserArtifactViewArtifactIdGetErrors[keyof GetArtifactForUserArtifactViewArtifactIdGetErrors];
+
+export type GetArtifactForUserArtifactViewArtifactIdGetResponses = {
+    /**
+     * Response Get Artifact For User Artifact View  Artifact Id  Get
+     *
+     * Successful Response
+     */
+    200: string;
+};
+
+export type GetArtifactForUserArtifactViewArtifactIdGetResponse = GetArtifactForUserArtifactViewArtifactIdGetResponses[keyof GetArtifactForUserArtifactViewArtifactIdGetResponses];
 
 export type GetCrewRunCrewRunCrewRunIdGetData = {
     body?: never;
@@ -827,6 +965,47 @@ export type CreateCrewRunInternalInternalCrewRunCreatePostResponses = {
 
 export type CreateCrewRunInternalInternalCrewRunCreatePostResponse = CreateCrewRunInternalInternalCrewRunCreatePostResponses[keyof CreateCrewRunInternalInternalCrewRunCreatePostResponses];
 
+export type CancelCrewRunInternalInternalCrewRunCrewRunIdCancelPostData = {
+    /**
+     * User Token
+     *
+     * User's JWT token for authentication
+     */
+    body: string;
+    headers?: {
+        /**
+         * X-Internal-Api-Key
+         */
+        'X-Internal-Api-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Crew Run Id
+         *
+         * Crew Run ID to cancel
+         */
+        crew_run_id: string;
+    };
+    query?: never;
+    url: '/internal/crew-run/{crew_run_id}/cancel';
+};
+
+export type CancelCrewRunInternalInternalCrewRunCrewRunIdCancelPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CancelCrewRunInternalInternalCrewRunCrewRunIdCancelPostError = CancelCrewRunInternalInternalCrewRunCrewRunIdCancelPostErrors[keyof CancelCrewRunInternalInternalCrewRunCrewRunIdCancelPostErrors];
+
+export type CancelCrewRunInternalInternalCrewRunCrewRunIdCancelPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
 export type UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutData = {
     /**
      * Output
@@ -871,6 +1050,53 @@ export type UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutResponse
 };
 
 export type UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutResponse = UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutResponses[keyof UpdateCrewRunOutputInternalInternalCrewRunCrewRunIdOutputPutResponses];
+
+export type UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutData = {
+    /**
+     * Task status update data
+     */
+    body: UpdateTaskStatusRequest;
+    headers?: {
+        /**
+         * X-Internal-Api-Key
+         */
+        'X-Internal-Api-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Crew Run Id
+         *
+         * Crew Run ID
+         */
+        crew_run_id: string;
+        /**
+         * Task Key
+         *
+         * Task key to update
+         */
+        task_key: string;
+    };
+    query?: never;
+    url: '/internal/crew-run/{crew_run_id}/task/{task_key}/status';
+};
+
+export type UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutError = UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutErrors[keyof UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutErrors];
+
+export type UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: CrewRunRead;
+};
+
+export type UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutResponse = UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutResponses[keyof UpdateTaskStatusInternalInternalCrewRunCrewRunIdTaskTaskKeyStatusPutResponses];
 
 export type ClaimNextJobInternalInternalQueueClaimPostData = {
     body?: never;
@@ -984,5 +1210,43 @@ export type HeartbeatInternalInternalQueueQueueIdHeartbeatPostResponses = {
     /**
      * Successful Response
      */
-    200: unknown;
+    200: HeartbeatResponse;
 };
+
+export type HeartbeatInternalInternalQueueQueueIdHeartbeatPostResponse = HeartbeatInternalInternalQueueQueueIdHeartbeatPostResponses[keyof HeartbeatInternalInternalQueueQueueIdHeartbeatPostResponses];
+
+export type CreateArtifactInternalInternalArtifactCrewRunIdPostData = {
+    body: ArtifactServerCreate;
+    headers?: {
+        /**
+         * X-Internal-Api-Key
+         */
+        'X-Internal-Api-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Crew Run Id
+         */
+        crew_run_id: string;
+    };
+    query?: never;
+    url: '/internal/artifact/{crew_run_id}';
+};
+
+export type CreateArtifactInternalInternalArtifactCrewRunIdPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateArtifactInternalInternalArtifactCrewRunIdPostError = CreateArtifactInternalInternalArtifactCrewRunIdPostErrors[keyof CreateArtifactInternalInternalArtifactCrewRunIdPostErrors];
+
+export type CreateArtifactInternalInternalArtifactCrewRunIdPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: ArtifactRead;
+};
+
+export type CreateArtifactInternalInternalArtifactCrewRunIdPostResponse = CreateArtifactInternalInternalArtifactCrewRunIdPostResponses[keyof CreateArtifactInternalInternalArtifactCrewRunIdPostResponses];

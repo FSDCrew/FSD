@@ -31,3 +31,10 @@ class ArtifactRepository:
         result = await self.session.execute(query)
         db_artifact = result.scalar_one_or_none()
         return db_artifact
+
+    async def get_artifacts_by_crew_run_id(self, crew_run_id: UUID) -> list[ArtifactDB]:
+        """Retrieve all artifacts for a crew run."""
+        query = select(ArtifactDB).where(ArtifactDB.crew_run_id == crew_run_id)
+        result = await self.session.execute(query)
+        artifacts = result.scalars().all()
+        return list(artifacts)

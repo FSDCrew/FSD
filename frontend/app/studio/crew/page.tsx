@@ -114,6 +114,7 @@ export default function CrewPage() {
   const [title, setTitle] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [mode, setMode] = useState<"edit" | "view">("edit");
+  const [orshotModalOpen, setOrshotModalOpen] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [pendingMode, setPendingMode] = useState<"edit" | "view" | null>(null);
   const [showRunsHistory, setShowRunsHistory] = useState(false);
@@ -154,7 +155,8 @@ export default function CrewPage() {
   const crewRuns = React.useMemo(() => {
     if (crewData) {
       const crewDataWithRuns = crewData as CrewRead & { crew_runs?: any[] };
-      return crewDataWithRuns.crew_runs || [];
+      const runs = crewDataWithRuns.crew_runs || [];
+      return runs
     }
     return [];
   }, [crewData]);
@@ -329,7 +331,7 @@ export default function CrewPage() {
       crewFlow.setHasUnsavedChanges(false);
 
       queryClient.invalidateQueries({ queryKey: ["crews"] });
-      router.push(`/studio/crew?id=${crewData.id}&title=${encodeURIComponent(crewData.name)}`);
+      router.push(`/studio/crew?id=${crewData.id}&title=${encodeURIComponent(crewData.name || "")}`);
       toast.success("Crew created successfully!");
     },
     onError: (error) => {
@@ -384,10 +386,11 @@ export default function CrewPage() {
       return;
     }
 
+
     try {
       const response = await getAllCrewsCrewGet();
       const allCrews = Array.isArray(response.data) ? response.data : response.data ? [response.data] : [];
-      const duplicateCrew = allCrews.find((crew: CrewRead) => crew.name.trim().toLowerCase() === title.trim().toLowerCase() && crew.id !== crewId);
+      const duplicateCrew = allCrews.find((crew: CrewRead) => crew.name?.trim().toLowerCase() === title.trim().toLowerCase() && crew.id !== crewId);
 
       if (duplicateCrew) {
         toast.error(`A crew with the name "${title}" already exists. Please choose a different name.`);
@@ -413,11 +416,17 @@ export default function CrewPage() {
 
   const handleKickoffSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await crewForm.onKickoffSubmit(e, async () => {
+    await crewForm.onKickoffSubmit(e, async (newRunId?: string) => {
       setKickoffDialogOpen(false);
       // Crew runs will be refreshed automatically via query invalidation in useCrewKickoff hook
       // Force refresh of runs history component
       setRunsRefreshKey((prev) => prev + 1);
+
+      if (newRunId && crewId) {
+        router.push(
+          `/studio/crew/run?crewId=${crewId}&runId=${newRunId}&crewName=${encodeURIComponent(title)}`
+        );
+      }
     });
   };
 
@@ -445,6 +454,11 @@ export default function CrewPage() {
       }
     }
   };
+
+  const handleOrshotModalChange = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setOrshotModalOpen((prev) => !prev);
+  }
 
   const confirmModeChange = () => {
     const revertedNodes = crewFlow.lastSavedNodes.map((node: Node) => ({
@@ -689,14 +703,32 @@ export default function CrewPage() {
             </div>
           </div>
 
-          {/* Mode Toggle */}
-          <div className="flex gap-2 bg-card border border-border rounded-lg p-1">
-            <Button onClick={() => handleModeChange("edit")} variant={mode === "edit" ? "default" : "ghost"} size="sm">
-              Edit Mode
-            </Button>
-            <Button onClick={() => handleModeChange("view")} variant={mode === "view" ? "default" : "ghost"} size="sm">
-              View Mode
-            </Button>
+          <div className="flex gap-4 items-center">
+            {/*Orshot Templates Toggle */}
+            <div className="flex">
+              {mode === "edit" ? (
+                <>
+                  <Button
+                    onClick={handleOrshotModalChange}
+                    variant="outline"
+                  >
+                    {orshotModalOpen ? "Close Orshot Templates" : "View Orshot Templates"}
+                  </Button>
+                </>
+              ): (
+                <></>
+              )}
+            </div>
+
+            {/* Mode Toggle */}
+            <div className="flex gap-2 bg-card border border-border rounded-lg p-1">
+              <Button onClick={() => handleModeChange("edit")} variant={mode === "edit" ? "default" : "ghost"} size="sm">
+                Edit Mode
+              </Button>
+              <Button onClick={() => handleModeChange("view")} variant={mode === "view" ? "default" : "ghost"} size="sm">
+                View Mode
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -770,7 +802,7 @@ export default function CrewPage() {
             </div>
           )}
 
-          {/* React Flow Canvas */}
+          {/* React Flow Canvas & Orshot Templates */}
           <div className="flex-1 flex flex-col gap-4">
             {/* Canvas */}
             <div className={`h-[600px] border-2 border-border rounded-lg bg-card relative`}>
@@ -799,6 +831,22 @@ export default function CrewPage() {
                 <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
               </ReactFlow>
             </div>
+          </div>
+
+          {/* Orshot Templates */}
+          <div className="flex">
+            {mode === "edit" && orshotModalOpen ? (
+              <>
+                <div className="flex w-80">
+                  <embed 
+                    src="https://orshot.com/templates/shared/l5k1r4ju/embed?view=presentation"
+                    style={{ width: "100%", height: "100%", minHeight: "500px", borderRadius: "8px" }} 
+                  />
+                </div>
+              </>
+            ) : (
+              <></>
+            )}
           </div>
         </div>
 

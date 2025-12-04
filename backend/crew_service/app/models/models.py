@@ -20,6 +20,14 @@ class CrewRunCreateRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class CrewRunRetryRequest(BaseModel):
+    feedback: str
+    retry_from_task_key: str
+    
+class CrewRunRetryResponse(BaseModel):
+    crew_run_id: UUID
+
+
 class TaskFieldRead(BaseModel):
     """Describes a state field that a task consumes."""
 

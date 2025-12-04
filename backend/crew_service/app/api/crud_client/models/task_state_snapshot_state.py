@@ -6,11 +6,11 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="CrewRunCreateOutputType0")
+T = TypeVar("T", bound="TaskStateSnapshotState")
 
 
 @_attrs_define
-class CrewRunCreateOutputType0:
+class TaskStateSnapshotState:
     """ """
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -24,10 +24,10 @@ class CrewRunCreateOutputType0:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        crew_run_create_output_type_0 = cls()
+        task_state_snapshot_state = cls()
 
-        crew_run_create_output_type_0.additional_properties = d
-        return crew_run_create_output_type_0
+        task_state_snapshot_state.additional_properties = d
+        return task_state_snapshot_state
 
     @property
     def additional_keys(self) -> list[str]:

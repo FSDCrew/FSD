@@ -4,13 +4,13 @@ from typing import Optional, Union
 from uuid import UUID
 
 from app.api.crud_client import AuthenticatedClient
-from app.api.crud_client.api.artifact import (
-    get_artifact_artifact_artifact_id_get,
+from app.api.crud_client.api.internal import (
+    create_artifact_internal_internal_artifact_crew_run_id_post as create_artifact_func,
+    get_artifact_internal_internal_artifact_artifact_id_get as get_artifact_by_id_func,
 )
-from app.api.crud_client.api.internal import create_artifact_internal_internal_artifact_crew_run_id_post as create_artifact_func
+from app.api.crud_client.models.artifact_read import ArtifactRead
 from app.api.crud_client.models.artifact_server_create import ArtifactServerCreate
 from app.api.crud_client.models.artifact_type import ArtifactType
-from app.api.crud_client.models.artifact_read import ArtifactRead
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -141,7 +141,7 @@ class ArtifactService:
         :func:`get_artifact_s3_url`.
         """
         try:
-            s3_url = get_artifact_artifact_artifact_id_get.sync(
+            s3_url = get_artifact_by_id_func.sync(
                 artifact_id=artifact_id,
                 client=self._client,
             )

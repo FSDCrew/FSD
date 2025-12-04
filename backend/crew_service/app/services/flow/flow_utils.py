@@ -3,9 +3,23 @@ from __future__ import annotations
 from datetime import datetime
 from enum import IntEnum
 from typing import Any, Dict, List, Type
+from uuid import UUID
 
+import httpx
 from pydantic import BaseModel
 
+from config import logger, settings
+
+from app.api.crud_client import AuthenticatedClient, errors
+from app.api.crud_client.api.internal import (
+    update_task_status_internal_internal_crew_run_crew_run_id_task_task_key_status_put as update_task_status_func,
+)
+from app.api.crud_client.models import (
+    TaskStatus,
+    UpdateTaskStatusRequest,
+    UpdateTaskStatusRequestTaskInputs,
+    UpdateTaskStatusRequestTaskOutputs,
+)
 from app.lib.tools.dates import calculate_num_weeks
 from app.lib.tools.html_table_to_excel import html_table_to_excel_tool
 from app.lib.tools.image_generator import generate_image_tool
@@ -251,3 +265,85 @@ def interpolate_task_description(
     state_values: Dict[str, Any],
 ) -> str:
     return interpolator.interpolate(description_template, state_values)
+
+class TaskStatusService:
+    """Service for updating task status in CrewRun output."""
+
+    def __init__(self):
+        """Initialize TaskStatusService with CRUD client."""
+        timeout = httpx.Timeout(30.0)
+        self.crud_client = AuthenticatedClient(
+            base_url=settings.CRUD_SERVICE_URL,
+            token=settings.INTERNAL_CREW_API_KEY,
+            timeout=timeout,
+        )
+
+    def update_task_status_in_worker(
+        self,
+        crew_run_id: UUID,
+        task_key: str,
+        status: TaskStatus,
+        task_inputs: Dict[str, Any],
+        task_outputs: Dict[str, Any],
+        completed_at: datetime | None = None,
+    ) -> None:
+        """
+        Update task status in CrewRun output from worker process.
+        
+        This is a synchronous method that can be called from the multiprocessing worker
+        or CrewAI flow execution context. It uses the synchronous CRUD client API.
+        
+        Args:
+            crew_run_id: UUID of the crew run
+            task_key: Key of the task to update
+            status: New status for the task
+            task_inputs: Dictionary of task inputs
+            task_outputs: Dictionary of task outputs
+            completed_at: Optional datetime when task completed (for COMPLETED/FAILED status)
+            
+        Raises:
+            Exception: If the update fails, logs error and re-raises (fail_task behavior)
+        """
+        try:
+            task_inputs_obj = UpdateTaskStatusRequestTaskInputs()
+            task_inputs_obj.additional_properties = task_inputs
+            
+            task_outputs_obj = UpdateTaskStatusRequestTaskOutputs()
+            task_outputs_obj.additional_properties = task_outputs
+            
+            body = UpdateTaskStatusRequest(
+                status=status,
+                task_inputs=task_inputs_obj,
+                task_outputs=task_outputs_obj,
+                completed_at=completed_at,
+            )
+            
+            update_task_status_func.sync(
+                crew_run_id=crew_run_id,
+                task_key=task_key,
+                client=self.crud_client,
+                body=body,
+            )
+            
+            logger.info(
+                f"Updated task {task_key} status to {status.value} for crew_run {crew_run_id}"
+            )
+            
+        except ImportError:
+            # Fallback: endpoint not yet generated, log warning but don't fail
+            logger.warning(
+                f"Task status endpoint not yet available. Please regenerate CRUD client. "
+                f"Task {task_key} status update skipped for crew_run {crew_run_id}"
+            )
+        except errors.UnexpectedStatus as e:
+            logger.error(
+                f"Unexpected status {e.status_code} updating task status: {e}",
+                exc_info=True,
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to update task status for task {task_key} in crew_run {crew_run_id}: {e}",
+                exc_info=True,
+            )
+            raise

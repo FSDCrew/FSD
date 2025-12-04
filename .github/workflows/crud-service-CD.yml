@@ -19,7 +19,6 @@ jobs:
     name: Run Database Migrations
     runs-on: ubuntu-latest
     environment: production
-    needs: migrate
 
     steps:
       - name: Checkout Repository
@@ -62,6 +61,7 @@ jobs:
     name: Build, Push to ECR, and Deploy
     runs-on: ubuntu-latest
     environment: production
+    needs: migrate
 
     steps:
       - name: Checkout Repository
