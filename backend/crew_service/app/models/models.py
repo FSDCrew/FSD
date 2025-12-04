@@ -429,8 +429,13 @@ class AllowedTemplateId(IntEnum):
     The frontend uses this to render a dropdown.
     """
 
-    IG_POST = 1201
-    BG_POST = 1909
+    TEST_TEMPLATE_1 = 1974
+    TEST_TEMPLATE_2 = 1975
+    # BG_POST = 1909
+    # IG_POST = 1201
+    TEMPLATE_1 = 1972
+    TEMPLATE_2 = 1973
+    
 
 
 class OrshotDataType(str, Enum):
