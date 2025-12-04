@@ -3,6 +3,8 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from config import settings
+
 from app.api.crew_endpoints import crew_router
 from app.api.schemas_endpoints import schemas_router
 from app.api.status_endpoints import status_router
@@ -29,7 +31,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=[settings.FRONTEND_ORIGIN],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

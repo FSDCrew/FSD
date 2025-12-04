@@ -36,6 +36,8 @@ class Settings(BaseSettings):
 
     GEMINI_API_KEY: str
     
+    FRONTEND_ORIGIN: str
+    
     class Config:
         env_file = ".env"
         env_file_encoding = 'utf-8'
