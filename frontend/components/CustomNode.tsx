@@ -6,6 +6,7 @@ import type { BaseNodeData } from "@/types/NodeData";
 
 interface CustomNodeData extends BaseNodeData {
   icon: string;
+  status?: string;
 }
 
 const CustomNode = memo(({ data, isConnectable }: NodeProps) => {
@@ -27,6 +28,9 @@ const CustomNode = memo(({ data, isConnectable }: NodeProps) => {
       <div style={{ padding: "10px", textAlign: "center" }}>
         <div style={{ fontSize: "24px", marginBottom: "4px" }}>{nodeData.icon}</div>
         <div style={{ fontSize: "12px", fontWeight: "600" }}>{nodeData.label}</div>
+        {nodeData.status && (
+          <div style={{ fontSize: "10px", fontWeight: "500", marginTop: "4px",opacity: 0.9}}>{nodeData.status}</div>
+        )}
       </div>
       
       <Handle

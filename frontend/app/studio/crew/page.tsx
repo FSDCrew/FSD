@@ -154,7 +154,8 @@ export default function CrewPage() {
   const crewRuns = React.useMemo(() => {
     if (crewData) {
       const crewDataWithRuns = crewData as CrewRead & { crew_runs?: any[] };
-      return crewDataWithRuns.crew_runs || [];
+      const runs = crewDataWithRuns.crew_runs || [];
+      return runs
     }
     return [];
   }, [crewData]);
@@ -413,11 +414,17 @@ export default function CrewPage() {
 
   const handleKickoffSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await crewForm.onKickoffSubmit(e, async () => {
+    await crewForm.onKickoffSubmit(e, async (newRunId?: string) => {
       setKickoffDialogOpen(false);
       // Crew runs will be refreshed automatically via query invalidation in useCrewKickoff hook
       // Force refresh of runs history component
       setRunsRefreshKey((prev) => prev + 1);
+
+      if (newRunId && crewId) {
+        router.push(
+          `/studio/crew/run?crewId=${crewId}&runId=${newRunId}&crewName=${encodeURIComponent(title)}`
+        );
+      }
     });
   };
 

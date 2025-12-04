@@ -107,7 +107,7 @@ export function useCrewForm(
 
   const onKickoffSubmit = useCallback(async (
     e: React.FormEvent,
-    onSuccess: () => void
+    onSuccess: (runId?: string) => void
   ) => {
     e.preventDefault();
 
@@ -421,14 +421,23 @@ export function useCrewForm(
     kickoffMutation.mutate(
       { crewId, inputs: submitData },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
+          // console.log("=== KICKOFF SUCCESS ===");
+          // console.log("Kickoff result:", data);
+          // console.log("Crew run ID:", data?.id);
+          // console.log("Full response:", JSON.stringify(data, null, 2));
+          // console.log("======================");
+          
           notificationService.success("Crew run started successfully!");
+      
           // Clear localStorage cache on successful submission
           const cacheKey = getCacheKey();
           if (cacheKey) {
             localStorage.removeItem(cacheKey);
           }
-          onSuccess();
+          // Pass the run ID back to the parent
+          const newRunId = data?.id
+          onSuccess(newRunId);
         },
         onError: (error) => {
           console.error("Error starting crew run:", error);

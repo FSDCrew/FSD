@@ -6,6 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { useCrewById } from "@/hooks/useCrewById";
+import { useCrewRun } from "@/hooks/useCrewRun";
+import { getArtifactForUserArtifactViewArtifactIdGet } from "@/lib/api/crud";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, XCircle, RotateCcw } from "lucide-react";
 import {
@@ -36,6 +38,16 @@ interface PreDefinedTask {
   task_description: string;
 }
 
+interface TaskState {
+  state: {
+    reads?: Record<string, any>;
+    writes?: Record<string, any>;
+  };
+  completed_at: string | null;
+  status: string;
+  order: number;
+}
+
 interface TaskSnapshot {
   key: string;
   name?: string;
@@ -46,17 +58,37 @@ interface TaskSnapshot {
   [key: string]: any;
 }
 
-const taskColorMap: Record<string, string> = {
-  marketing_research: "#c878e0ff",
-  content_strategy: "#389e7eff",
-  social_media_schedule: "#cc6262ff",
-  copywriter: "#f59e0bff",
-  image_generator: "#e1f24cff",
-  orshot_render: "#5881c3ff",
+const statusColorMap: Record<string, string> = {
+  QUEUED: "#6B7280", // Gray
+  RUNNING: "#3B82F6", // Blue
+  COMPLETED: "#10B981", // Green
+  FAILED: "#EF4444", // Red
 };
 
-const getTaskColor = (taskKey: string): string => {
-  return taskColorMap[taskKey] || "#6B7280";
+const getQueueStatusColor = (status: string): string => {
+  const colorMap: Record<string, string> = {
+    QUEUED: "#6B7280", // Gray
+    CLAIMED: "#3B82F6", // Blue
+    COMPLETED: "#10B981", // Green
+    FAILED: "#EF4444", // Red
+    CANCELLED: "#6B7280", // Gray
+  };
+  return colorMap[status] || "#6B7280";
+};
+
+const getQueueStatusLabel = (status: string): string => {
+  const labelMap: Record<string, string> = {
+    QUEUED: "Queued",
+    CLAIMED: "Running",
+    COMPLETED: "Completed",
+    FAILED: "Failed",
+    CANCELLED: "Cancelled",
+  };
+  return labelMap[status] || status;
+};
+
+const getStatusColor = (status: string): string => {
+  return statusColorMap[status] || "#6B7280";
 };
 
 const START_NODE: Node = {
@@ -98,8 +130,13 @@ export default function RunDetailsPage() {
   const runId = searchParams.get("runId");
   const crewName = searchParams.get("crewName");
 
+  // Fetch crew run details with polling (every 2 seconds)
+  const { data: crewRunData, isLoading: isLoadingCrewRun } = useCrewRun(runId, {
+    refetchInterval: 2000,
+  });
+  
   const queryClient = useQueryClient();
-  const { data: crewData, isLoading: isLoadingCrew } = useCrewById(crewId);
+  const [loadingArtifactId, setLoadingArtifactId] = React.useState<string | null>(null);
   const [preDefinedTasks, setPreDefinedTasks] = React.useState<PreDefinedTask[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = React.useState(true);
   const [isRetrying, setIsRetrying] = React.useState(false);
@@ -126,67 +163,45 @@ export default function RunDetailsPage() {
     fetchPreDefinedTasks();
   }, []);
 
-  // Find the selected run from crew data
-  const selectedRun = React.useMemo(() => {
-    if (crewData) {
-      const crewDataWithRuns = crewData as any;
-      const runs = crewDataWithRuns.crew_runs || [];
-      return runs.find((run: any) => run.id === runId);
-    }
-    return null;
-  }, [crewData, runId]);
-
-  const crewRuns = React.useMemo(() => {
-    if (crewData) {
-      const crewDataWithRuns = crewData as any;
-      return crewDataWithRuns.crew_runs || [];
-    }
-    return [];
-  }, [crewData]);
-
-  const runNumber = React.useMemo(() => {
-    if (selectedRun && crewRuns.length > 0) {
-      const index = crewRuns.findIndex((r: any) => r.id === selectedRun.id);
-      return index !== -1 ? crewRuns.length - index : null;
-    }
-    return null;
-  }, [selectedRun, crewRuns]);
-
-  // Build nodes and edges from tasks_snapshot
+  // Build nodes and edges from task_states
   const { nodes, edges, nodeTypes } = React.useMemo(() => {
-    if (!selectedRun || !selectedRun.run_metadata?.tasks_snapshot) {
+    if (!crewRunData?.output?.task_states) {
       return { nodes: [START_NODE], edges: [], nodeTypes: { start: StartNode } };
     }
 
-    const tasksSnapshot = selectedRun.run_metadata.tasks_snapshot as TaskSnapshot[];
+    const taskStates = crewRunData.output.task_states as Record<string, TaskState>;
+    
+    // Convert task_states object to array and sort by order
+    const tasksArray = Object.entries(taskStates)
+      .map(([taskKey, taskData]) => ({
+        key: taskKey,
+        order: taskData.order,
+        status: taskData.status,
+        completed_at: taskData.completed_at,
+        state: taskData.state,
+      }))
+      .sort((a, b) => a.order - b.order);
 
-    const nodeTypeConfigs = tasksSnapshot.map((task) => {
-      // Try to get name and description from snapshot first
-      let name = task.name;
-      let description = task.task_description || task.description;
+    console.log("Tasks array sorted by order:", tasksArray);
 
-      // If missing, fallback to pre-defined tasks
-      if (!name || !description) {
-        const preDefined = preDefinedTasks.find((pt) => pt.key === task.key);
-        if (preDefined) {
-          name = name || preDefined.name;
-          description = description || preDefined.task_description;
-        }
-      }
-
-      // Final fallback to key or agent_key
-      name = name || task.agent || task.key;
-      description = description || "No description available";
+    // Create node type configs
+    const nodeTypeConfigs = tasksArray.map((task) => {
+      // Try to find matching predefined task for name and description
+      const preDefined = preDefinedTasks.find((pt) => pt.key === task.key);
+      
+      const name = preDefined?.name || task.key;
+      const description = preDefined?.task_description || "No description available";
 
       return {
         type: task.key,
         name,
-        color: getTaskColor(task.key),
+        color: getStatusColor(task.status),
         description,
       };
     });
 
-    const loadedNodes = tasksSnapshot.map((task, index) => {
+    // Create nodes based on order
+    const loadedNodes = tasksArray.map((task, index) => {
       const config = nodeTypeConfigs.find((n) => n.type === task.key);
       const position = {
         x: 300 + index * 300,
@@ -200,9 +215,10 @@ export default function RunDetailsPage() {
         data: {
           label: config?.name || task.key,
           taskType: task.key,
+          status: task.status,
         },
         style: {
-          background: getTaskColor(task.key),
+          background: getStatusColor(task.status),
           color: "white",
           border: "1px solid rgba(0, 0, 0, 0.2)",
           borderRadius: "8px",
@@ -215,20 +231,20 @@ export default function RunDetailsPage() {
       } as Node;
     });
 
-    // Build edges connecting tasks in sequence
+    // Build edges connecting tasks in sequence (based on sorted order)
     const constructedEdges: Edge[] = [];
-    if (tasksSnapshot.length > 0) {
+    if (tasksArray.length > 0) {
       constructedEdges.push({
-        id: `start-node-${tasksSnapshot[0].key}`,
+        id: `start-node-${tasksArray[0].key}`,
         source: "start-node",
-        target: tasksSnapshot[0].key,
+        target: tasksArray[0].key,
       });
     }
-    for (let i = 0; i < tasksSnapshot.length - 1; i++) {
+    for (let i = 0; i < tasksArray.length - 1; i++) {
       constructedEdges.push({
-        id: `${tasksSnapshot[i].key}-${tasksSnapshot[i + 1].key}`,
-        source: tasksSnapshot[i].key,
-        target: tasksSnapshot[i + 1].key,
+        id: `${tasksArray[i].key}-${tasksArray[i + 1].key}`,
+        source: tasksArray[i].key,
+        target: tasksArray[i + 1].key,
       });
     }
 
@@ -246,7 +262,7 @@ export default function RunDetailsPage() {
       edges: constructedEdges,
       nodeTypes: types,
     };
-  }, [selectedRun, preDefinedTasks]);
+  }, [crewRunData, preDefinedTasks]);
 
   React.useEffect(() => {
     if (!token) {
@@ -256,14 +272,15 @@ export default function RunDetailsPage() {
 
   // Get completed tasks from task_states
   const completedTasks = React.useMemo(() => {
-    if (!selectedRun?.output?.task_states) {
-      console.log("No task_states found:", selectedRun?.output);
+    if (!crewRunData?.output?.task_states) {
+      console.log("No task_states found:", crewRunData?.output);
       return [];
     }
-
-    const tasks = Object.entries(selectedRun.output.task_states)
-      .filter(([_, taskState]: [string, any]) => taskState.status === "COMPLETED")
-      .map(([taskKey, taskState]: [string, any]) => ({
+    
+    const taskStates = crewRunData.output.task_states as Record<string, TaskState>;
+    const tasks = Object.entries(taskStates)
+      .filter(([_, taskState]) => taskState.status === "COMPLETED")
+      .map(([taskKey, taskState]) => ({
         key: taskKey,
         order: taskState.order,
       }))
@@ -271,20 +288,20 @@ export default function RunDetailsPage() {
 
     console.log("Completed tasks:", tasks);
     return tasks;
-  }, [selectedRun]);
+  }, [crewRunData]);
 
   const handleBack = () => {
     router.push(`/studio/crew?id=${crewId}&title=${encodeURIComponent(crewName || "")}&mode=view`);
   };
 
   const handleCancel = async () => {
-    if (!selectedRun || !token) return;
+    if (!crewRunData || !token) return;
 
     setIsCancelling(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_CREW_API_BASE_URL || "http://localhost:8001";
       const response = await fetch(
-        `${apiUrl}/crew/crew-run/${selectedRun.id}/cancel`,
+        `${apiUrl}/crew/crew-run/${crewRunData.id}/cancel`,
         {
           method: "POST",
           headers: {
@@ -296,7 +313,6 @@ export default function RunDetailsPage() {
 
       if (response.ok) {
         toast.success("Crew run cancelled successfully");
-        // Refetch crew data to update the UI
         setTimeout(() => {
           router.refresh();
         }, 1000);
@@ -334,20 +350,17 @@ export default function RunDetailsPage() {
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_CREW_API_BASE_URL || "http://localhost:8001";
-      const response = await fetch(
-        `${apiUrl}/crew/crew-run/${runId}/retry`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            retry_from_task_key: retryFromTaskKey,
-            feedback: feedback,
-          }),
-        }
-      );
+      const response = await fetch(`${apiUrl}/crew/crew-run/${runId}/retry`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json", // Added this
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          retry_from_task_key: retryFromTaskKey,
+          feedback: feedback,
+        }),
+      });
 
       if (!response.ok) {
         let errorMessage = "Unknown error";
@@ -357,7 +370,7 @@ export default function RunDetailsPage() {
         } catch {
           errorMessage = await response.text();
         }
-        throw new Error(errorMessage);
+        throw new Error(errorMessage); // Added this - was missing
       }
 
       return await response.json();
@@ -387,19 +400,54 @@ export default function RunDetailsPage() {
   });
 
   const handleRetry = () => {
-    if (!selectedRun || !token || !selectedRetryTask || !retryFeedback.trim()) {
+    if (!crewRunData || !token || !selectedRetryTask || !retryFeedback.trim()) {
       toast.error("Please select a task and provide feedback");
       return;
     }
 
     retryCrewRunMutation.mutate({
-      runId: selectedRun.id,
+      runId: crewRunData.id,
       retryFromTaskKey: selectedRetryTask,
       feedback: retryFeedback,
     });
   };
 
-  if (isLoadingCrew) {
+  const handleViewArtifact = async (artifactId: string) => {
+    if (!token) {
+      toast.error("Authentication required to view artifact");
+      return;
+    }
+
+    setLoadingArtifactId(artifactId);
+    
+    try {
+      console.log("Fetching presigned URL for artifact:", artifactId);
+      
+      const response = await getArtifactForUserArtifactViewArtifactIdGet({
+        path: { artifact_id: artifactId },
+      });
+
+      console.log("Presigned URL response:", response.data);
+
+      const presignedUrl = response.data;
+
+      if (presignedUrl && typeof presignedUrl === 'string') {
+        // Open the presigned URL in a new tab
+        window.open(presignedUrl, "_blank", "noopener,noreferrer");
+        toast.success("Opening artifact...");
+      } else {
+        console.error("Invalid presigned URL in response:", response.data);
+        toast.error("Failed to get artifact URL");
+      } 
+    } catch (error) {
+      console.error("Error fetching artifact:", error);
+      toast.error("Failed to load artifact");
+    } finally {
+      setLoadingArtifactId(null);
+    }
+  };
+
+  if (isLoadingCrewRun || isLoadingTasks) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -412,7 +460,7 @@ export default function RunDetailsPage() {
     );
   }
 
-  if (!selectedRun) {
+  if (!crewRunData) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -448,10 +496,10 @@ export default function RunDetailsPage() {
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-4xl font-bold mb-2">
-                Run #{runNumber || "N/A"}
+                Run Details
               </h1>
               <p className="text-sm text-muted-foreground">
-                Run ID: {selectedRun.id}
+                Run ID: {crewRunData.id}
               </p>
               {crewName && (
                 <p className="text-sm text-muted-foreground mt-1">
@@ -558,7 +606,20 @@ export default function RunDetailsPage() {
         <div className="space-y-6">
           {/* Task Flow Canvas Section */}
           <div className="bg-card border-2 border-border rounded-lg p-6">
-            <h2 className="text-2xl font-semibold mb-4">Task Flow</h2>
+            <div className="flex justify-between mb-4">
+              <h2 className="text-2xl font-semibold">Task Flow</h2>
+              {crewRunData?.queue_status && (
+                <div
+                  className="flex items-center px-3 py-1 rounded-md text-sm font-semibold"
+                  style={{
+                    backgroundColor: getQueueStatusColor(crewRunData.queue_status),
+                    color: "white",
+                  }}
+                >
+                  {getQueueStatusLabel(crewRunData.queue_status)}
+                </div>
+              )}
+            </div>
             <div className="h-[300px] border border-border rounded-lg bg-muted">
               {isLoadingTasks ? (
                 <div className="flex items-center justify-center h-full">
@@ -590,17 +651,83 @@ export default function RunDetailsPage() {
             </div>
           </div>
 
-          {/* Output Section */}
-          <div className="bg-card border-2 border-border rounded-lg p-6">
-            <h2 className="text-2xl font-semibold mb-4">Output</h2>
-            <div className="bg-muted border border-border rounded-lg p-4 max-h-96 overflow-y-auto">
-              {selectedRun.output ? (
-                <pre className="text-sm whitespace-pre-wrap font-mono">
-                  {JSON.stringify(selectedRun.output, null, 2)}
-                </pre>
-              ) : (
-                <p className="text-muted-foreground">No output available</p>
-              )}
+          <div className="flex gap-6">
+            {/* Inputs Section */}
+            <div className="w-1/2 bg-card border-2 border-border rounded-lg p-6">
+              <h2 className="text-2xl font-semibold mb-4">Inputs</h2>
+              <div className="max-h-96 overflow-y-auto">
+                {crewRunData.run_metadata?.inputs ? (
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="font-semibold">Theme:</span>{' '}
+                      <span className="text-muted-foreground">
+                        {String(crewRunData.run_metadata.inputs.theme)}
+                      </span>
+                    </div>
+                    
+                    <div>
+                      <span className="font-semibold">Brand Description:</span>{' '}
+                      <span className="text-muted-foreground">
+                        {String(crewRunData.run_metadata.inputs.brand_description)}
+                      </span>
+                    </div>
+                    
+                    <div>
+                      <span className="font-semibold">Target Audience:</span>{' '}
+                      <span className="text-muted-foreground">
+                        {String(crewRunData.run_metadata.inputs.target_audience_description)}
+                      </span>
+                    </div>
+                    
+                    <div>
+                      <span className="font-semibold">Start Date:</span>{' '}
+                      <span className="text-muted-foreground">
+                        {String(crewRunData.run_metadata.inputs.start_date || '').split('T')[0]}
+                      </span>
+                    </div>
+                    
+                    <div>
+                      <span className="font-semibold">End Date:</span>{' '}
+                      <span className="text-muted-foreground">
+                        {String(crewRunData.run_metadata.inputs.end_date || '').split('T')[0]}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No inputs found.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Retry Details Section */}
+            <div className="w-1/2 bg-card border-2 border-border rounded-lg p-6">
+              <h2 className="text-2xl font-semibold mb-4">Retry Details</h2>
+              <div className="max-h-96 overflow-y-auto">
+                {crewRunData.run_metadata?.retry_feedback ? (
+                  <div className="space-y-2 text-sm">
+                    {Object.entries(crewRunData.run_metadata.retry_feedback as any).map(([key, value]) => {
+                      const isRetryTask = key === 'retry_from_task_key';
+                      const label = isRetryTask ? 'Retry From' : key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                      const displayValue = isRetryTask && typeof value === 'string' 
+                        ? preDefinedTasks.find(t => t.key === value)?.name || value
+                        : value;
+                      
+                      return (
+                        <div key={key}>
+                          <span className="font-semibold">{label}:</span>{' '}
+                          <span className="text-muted-foreground">
+                            {typeof displayValue === 'object' && displayValue !== null
+                              ? JSON.stringify(displayValue, null, 2)
+                              : String(displayValue)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No retry details found.</p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -608,14 +735,16 @@ export default function RunDetailsPage() {
           <div className="bg-card border-2 border-border rounded-lg p-6">
             <h2 className="text-2xl font-semibold mb-4">Artifacts</h2>
             <div className="bg-muted border border-border rounded-lg p-4">
-              {selectedRun.artifacts && selectedRun.artifacts.length > 0 ? (
+              {crewRunData.artifacts && crewRunData.artifacts.length > 0 ? (
                 <div className="space-y-3">
-                  {selectedRun.artifacts.map((artifact: any, idx: number) => (
-                    <div
+                  {crewRunData.artifacts.map((artifact: any, idx: number) => (
+                    <button
                       key={idx}
-                      className="flex items-center justify-between p-4 bg-card border border-border rounded-lg hover:bg-accent transition-colors"
+                      onClick={() => handleViewArtifact(artifact.id)}
+                      disabled={loadingArtifactId === artifact.id}
+                      className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-lg hover:bg-accent transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <div className="flex-1">
+                      <div className="flex-1 text-left">
                         <p className="font-medium">
                           {artifact.file_name || "Unnamed artifact"}
                         </p>
@@ -623,10 +752,30 @@ export default function RunDetailsPage() {
                           Type: {artifact.type}
                         </p>
                       </div>
-                      <span className="text-sm text-muted-foreground ml-4">
-                        {artifact.id}
-                      </span>
-                    </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <span className="text-sm text-muted-foreground">
+                          {artifact.id}
+                        </span>
+                        {loadingArtifactId === artifact.id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 text-muted-foreground"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -634,31 +783,6 @@ export default function RunDetailsPage() {
               )}
             </div>
           </div>
-
-          {/* Additional Information Section */}
-          {selectedRun.created_at && (
-            <div className="bg-card border-2 border-border rounded-lg p-6">
-              <h2 className="text-2xl font-semibold mb-4">
-                Additional Information
-              </h2>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">Created at:</span>
-                  <span className="text-muted-foreground">
-                    {new Date(selectedRun.created_at).toLocaleString()}
-                  </span>
-                </div>
-                {selectedRun.status && (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">Status:</span>
-                    <span className="text-muted-foreground">
-                      {selectedRun.status}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </main>
     </div>
