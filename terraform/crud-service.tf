@@ -58,6 +58,7 @@ resource "aws_launch_template" "crud_service" {
       -e COGNITO_APP_CLIENT_ID=${aws_cognito_user_pool_client.main.id} \
       -e S3_REGION=${var.aws_region} \
       -e S3_BUCKET_NAME=${aws_s3_bucket.main.bucket} \
+      -e FRONTEND_ORIGIN=https://www.${var.app_domain} \
       $ECR_REGISTRY_URL:latest
 
     echo "User Data Script Finished!"
