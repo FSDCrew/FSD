@@ -214,7 +214,7 @@ When running locally, the services are available at:
 
 The deployed application is available at:
 
-**https://campaign.ongspac.com**
+**https://campaign.ongspace.com**
 
 ## Documentation
 
