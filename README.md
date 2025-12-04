@@ -209,7 +209,7 @@ When running services locally, they are available at:
 
 The deployed application is available at:
 
-**www.campaign/.ongspace.com**
+**https://campaign.ongspace.com**
 
 ## Documentation
 
