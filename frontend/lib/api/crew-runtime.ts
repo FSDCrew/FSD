@@ -1,10 +1,9 @@
 import type { CreateClientConfig } from './crew/client.gen';
 
 export const createClientConfig: CreateClientConfig = (config = {}) => {
-    // const token =
-    //     typeof window !== 'undefined'
-    //         ? localStorage.getItem('access_token')
-    //         : undefined;
+    const token = typeof window !== 'undefined' 
+        ? getCognitoIdToken() 
+        : undefined;
 
     return {
         ...config,
@@ -18,8 +17,19 @@ export const createClientConfig: CreateClientConfig = (config = {}) => {
         // Attach headers for token-based auth
         headers: {
             ...config.headers,
-            // ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
     };
 };
+
+function getCognitoIdToken(): string | null {
+    const cookies = document.cookie.split('; ');
+    for (const cookie of cookies) {
+        const [name, value] = cookie.split('=');
+        if (name.includes('CognitoIdentityServiceProvider') && name.endsWith('.idToken')) {
+            return value;
+        }
+    }
+    return null;
+}
 
